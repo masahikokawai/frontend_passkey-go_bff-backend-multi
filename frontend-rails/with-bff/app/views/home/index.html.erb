@@ -1,0 +1,120 @@
+<%# frontend-rails/with-bff: 薄いクライアント。実データ・OIDCハンドシェイクは全てbff-rails経由。
+    既存のReact(frontend/)がbff(Go)に対してfetchするのと全く同じ役割分担 %>
+<h1>frontend-rails (with-bff)</h1>
+<p>
+  ログイン・セッション・backendへのアクセスは全て<code>bff-rails</code>(<%= @bff_rails_origin %>)が担当します。
+  このアプリはCookie・アクセストークンに一切触れません(BFFパターンの核心)。
+</p>
+
+<p id="login-area">
+  <a href="<%= @bff_rails_origin %>/api/auth/login" id="login-link">ログイン</a>
+  <button type="button" id="passkey-login-button">パスキーでログイン</button>
+</p>
+
+<p id="passkey-register-area" style="display:none">
+  <button type="button" id="passkey-register-button">パスキーを登録</button>
+  <span id="passkey-status"></span>
+</p>
+
+<h2>Task一覧(表示専用)</h2>
+<div id="tasks">読み込み中...</div>
+
+<script type="module">
+  import { loginWithPasskey, registerPasskeyCeremony } from "passkey_client";
+
+  const BFF_RAILS_ORIGIN = <%= raw @bff_rails_origin.to_json %>;
+
+  // CONTRACT.mdセクション22: ブラウザ標準のWebAuthn APIを直接呼ぶ(追加ライブラリ不要)
+  // 儀式の中身(fetch呼び出し・credentialのJSON変換)は app/javascript/passkey_client.js へ切り出し済み
+  // (node --testで単体テスト可能)
+  //
+  // ここではその結果を見て alert/status 表示/画面遷移だけを行う薄いアダプタに徹する
+  //
+  // 【2回目のテスト監査で追記】
+  // ボタンに disabled ガードが無く、WebAuthnダイアログ表示中に
+  // 連続クリックすると2つ目の儀式がブラウザ側で
+  // "InvalidStateError: A request is alreadypending."
+  // を投げて分かりにくいエラー表示になっていた
+  // (実際には壊れないが、Reactのフォーム側(disabled={submitting})と同じ二重送信防止を揃える意味で追加)
+  async function passkeyLogin() {
+    const button = document.getElementById("passkey-login-button");
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      const result = await loginWithPasskey({
+        origin: BFF_RAILS_ORIGIN,
+        fetchImpl: fetch,
+        credentialsApi: navigator.credentials,
+      });
+      if (!result.ok) {
+        alert("パスキーでのログインに失敗しました: " + (result.error || result.status || result.reason));
+        return;
+      }
+      location.reload();
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function passkeyRegister() {
+    const button = document.getElementById("passkey-register-button");
+    const statusEl = document.getElementById("passkey-status");
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      const result = await registerPasskeyCeremony({
+        origin: BFF_RAILS_ORIGIN,
+        fetchImpl: fetch,
+        credentialsApi: navigator.credentials,
+      });
+      if (!result.ok) {
+        statusEl.textContent =
+          result.reason === "unauthenticated"
+            ? "先にログインしてください。"
+            : "登録に失敗しました: " + (result.error || result.status || result.reason);
+        return;
+      }
+      statusEl.textContent = "パスキーを登録しました。";
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.getElementById("passkey-login-button").addEventListener("click", passkeyLogin);
+  document.getElementById("passkey-register-button").addEventListener("click", passkeyRegister);
+
+  async function loadTasks() {
+    const tasksEl = document.getElementById("tasks");
+    const loginArea = document.getElementById("login-area");
+    const registerArea = document.getElementById("passkey-register-area");
+    try {
+      const resp = await fetch(BFF_RAILS_ORIGIN + "/api/tasks", { credentials: "include" });
+      if (resp.status === 401) {
+        tasksEl.textContent = "ログインしてください。";
+        return;
+      }
+      if (!resp.ok) {
+        tasksEl.textContent = "エラーが発生しました(status=" + resp.status + ")";
+        return;
+      }
+      const body = await resp.json();
+      loginArea.style.display = "none";
+      registerArea.style.display = "";
+      if (!body.tasks || body.tasks.length === 0) {
+        tasksEl.textContent = "タスクはありません。";
+        return;
+      }
+      const ul = document.createElement("ul");
+      body.tasks.forEach((task) => {
+        const li = document.createElement("li");
+        li.textContent = task.name + " [" + task.status + "] 期限: " + task.finished_on;
+        ul.appendChild(li);
+      });
+      tasksEl.replaceChildren(ul);
+    } catch (e) {
+      tasksEl.textContent = "bff-railsへの接続に失敗しました: " + e;
+    }
+  }
+
+  loadTasks();
+</script>

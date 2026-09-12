@@ -1,0 +1,44 @@
+<h1>frontend-rails ログイン</h1>
+<p>このアプリはbffを経由せず、Rails自身がKeycloakとOIDC(Authorization Code)を直接行います。</p>
+
+<%= button_to "Keycloakでログイン", "/auth/openid_connect", method: :post, data: { turbo: false } %>
+
+<p>
+  <button type="button" id="passkey-login-button">パスキーでログイン</button>
+  <span id="passkey-login-status"></span>
+</p>
+
+<script type="module">
+  import { loginWithPasskey } from "passkey_client";
+
+  // CONTRACT.mdセクション22.9: ブラウザ標準のWebAuthn APIを直接呼ぶ(追加ライブラリ不要)。
+  // 儀式の中身はapp/javascript/passkey_client.jsへ切り出し済み(node --testで単体テスト可能)。
+  // ここではその結果を見てstatus表示/画面遷移だけを行う薄いアダプタに徹する。
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+  async function passkeyLogin() {
+    const button = document.getElementById("passkey-login-button");
+    const statusEl = document.getElementById("passkey-login-status");
+    // 【frontend-rails/with-bff実装時に見つかった既知の落とし穴を踏襲】
+    // disabledガードが無いと、WebAuthnダイアログ表示中の連続クリックで
+    // 2つ目の儀式が"InvalidStateError: A request is alreadypending."を投げる
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      const result = await loginWithPasskey({
+        fetchImpl: fetch,
+        credentialsApi: navigator.credentials,
+        csrfToken,
+      });
+      if (!result.ok) {
+        statusEl.textContent = "パスキーでのログインに失敗しました: " + (result.error || result.status || result.reason);
+        return;
+      }
+      location.href = "/welcome";
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.getElementById("passkey-login-button").addEventListener("click", passkeyLogin);
+</script>

@@ -1,0 +1,8 @@
+<h1>ようこそ、<%= session[:user]["name"] %>さん</h1>
+<p>メールアドレス: <%= session[:user]["email"] %></p>
+<p>Keycloak sub: <%= session[:user]["sub"] %></p>
+<p>ログイン方式: <%= session[:auth_mode] %></p>
+
+<p><%= link_to "パスキーを登録する", account_path %></p>
+
+<%= button_to "ログアウト", logout_path, method: :delete %>

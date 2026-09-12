@@ -1,0 +1,42 @@
+<h1>パスキー登録</h1>
+<p>このアカウント(<%= session[:user]["email"] %>)にパスキーを登録します。</p>
+
+<p>
+  <button type="button" id="passkey-register-button">パスキーを登録</button>
+  <span id="passkey-status"></span>
+</p>
+
+<p><%= link_to "戻る", welcome_path %></p>
+
+<script type="module">
+  import { registerPasskeyCeremony } from "passkey_client";
+
+  // CONTRACT.mdセクション22.9。ロジックはlogin.html.erbと同じくpasskey_client.jsへ切り出し済み
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+  async function passkeyRegister() {
+    const button = document.getElementById("passkey-register-button");
+    const statusEl = document.getElementById("passkey-status");
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      const result = await registerPasskeyCeremony({
+        fetchImpl: fetch,
+        credentialsApi: navigator.credentials,
+        csrfToken,
+      });
+      if (!result.ok) {
+        statusEl.textContent =
+          result.reason === "unauthenticated"
+            ? "先にログインしてください。"
+            : "登録に失敗しました: " + (result.error || result.status || result.reason);
+        return;
+      }
+      statusEl.textContent = "パスキーを登録しました。";
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.getElementById("passkey-register-button").addEventListener("click", passkeyRegister);
+</script>
