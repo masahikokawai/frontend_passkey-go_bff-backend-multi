@@ -1,0 +1,12 @@
+{
+  "name": "bff-gin-e2e-selenium",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "test": "mocha test/**/*.test.js --timeout 30000"
+  },
+  "devDependencies": {
+    "selenium-webdriver": "^4.25.0",
+    "mocha": "^10.7.3"
+  }
+}
