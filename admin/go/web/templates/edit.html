@@ -1,0 +1,34 @@
+{{define "pages/edit"}}
+<h1>Feature Flag編集: <code>{{.Flag.FlagKey}}</code></h1>
+{{if .Flag.Description}}<p class="text-muted">{{.Flag.Description}}</p>{{end}}
+
+<form method="post" action="/flags/{{.Flag.ID}}" class="mt-3">
+  <div class="form-group">
+    {{/* 【e2e監査で判明・修正、users_index.htmlと同じ理由】label に for が無く対応する
+         select にも id が無かったため、支援技術・getByLabel系のe2e操作から要素を
+         参照できないアクセシビリティ不備があった */}}
+    {{if .Flag.IsBooleanToggle}}
+    <label for="default_variation">デフォルト値(default_variation)</label>
+    <select id="default_variation" name="default_variation" class="form-control">
+      <option value="off" {{if eq .Flag.DefaultVariation "off"}}selected{{end}}>off</option>
+      <option value="on" {{if eq .Flag.DefaultVariation "on"}}selected{{end}}>on</option>
+    </select>
+    {{else}}
+    <!-- CONTRACT.mdセクション19.6: on/off二値以外(多値フラグ)は、Variationsのキー一覧から
+         選ぶ汎用selectで描画する。このフラグ専用のハードコードされた画面は用意しない -->
+    <label for="default_variation">デフォルト値(default_variation)</label>
+    <select id="default_variation" name="default_variation" class="form-control">
+      {{range .Flag.VariationOptions}}
+      <option value="{{.}}" {{if eq . $.Flag.DefaultVariation}}selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+    {{end}}
+  </div>
+  <div class="form-group form-check">
+    <input type="checkbox" name="enabled" class="form-check-input" id="enabled" value="on" {{if .Flag.Enabled}}checked{{end}}>
+    <label class="form-check-label" for="enabled">enabled(オフにするとGO Feature Flagのdisable:true相当、常にデフォルト値を返す)</label>
+  </div>
+  <button type="submit" class="btn btn-primary">保存</button>
+  <a href="/" class="btn btn-outline-secondary">キャンセル</a>
+</form>
+{{end}}

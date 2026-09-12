@@ -1,0 +1,36 @@
+{{define "pages/index"}}
+<h1>Feature Flag一覧</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>flag_key</th>
+      <th>説明</th>
+      <th>有効</th>
+      <th>デフォルト</th>
+      <th>更新日時</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Flags}}
+    <tr>
+      <td><code>{{.FlagKey}}</code></td>
+      <td>{{if .Description}}{{.Description}}{{end}}</td>
+      <td>
+        {{if .Enabled}}
+        <span class="badge badge-success">enabled</span>
+        {{else}}
+        <span class="badge badge-secondary">disabled</span>
+        {{end}}
+      </td>
+      <td>{{.DefaultVariation}}</td>
+      <td>{{.UpdatedAt.Format "2006-01-02 15:04:05"}}</td>
+      <td>
+        <a class="btn btn-sm btn-outline-primary" href="/flags/{{.ID}}/edit">編集</a>
+        <a class="btn btn-sm btn-outline-secondary" href="/flags/{{.ID}}/audit_log">変更履歴</a>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}

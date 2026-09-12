@@ -1,0 +1,29 @@
+source "https://rubygems.org"
+
+# CONTRACT.mdセクション20: backendのTask CRUDをRailsで実装したもの(admin/railsとは別物)
+gem "rails", "~> 7.2"
+gem "mysql2", "~> 0.5"
+gem "puma", ">= 5.0"
+
+# ローカル(HMAC/RSA)・Keycloak(JWKS)のJWT検証
+# v2.3+でJWK::Setをサポートしており、RS256(JWKS)・HS256(共有シークレット)どちらの検証にも使える(CONTRACT.mdセクション20.4)
+gem "jwt", "~> 2.10"
+
+# gRPC v2実装用
+# Task CRUDのREST(ActionController)/gRPC(grpc gem)両対応のため
+gem "grpc", "~> 1.68"
+gem "google-protobuf", "~> 4.28"
+
+group :development do
+  # .proto から _pb.rb / _services_pb.rb を生成する grpc_tools_ruby_protoc コマンド用
+  gem "grpc-tools", "~> 1.68"
+end
+
+group :development, :test do
+  gem "debug", platforms: %i[mri windows], require: "debug/prelude"
+  gem "rspec-rails", "~> 7.1"
+end
+
+group :test do
+  gem "rack-test"
+end

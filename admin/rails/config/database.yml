@@ -1,0 +1,28 @@
+# MySQL. training-go/bff-gin/docker-compose.yaml の mysql サービス(127.0.0.1:13306、root/パスワード無し)へ接続する
+# development/productionは実際のfeature_flags/
+# feature_flag_audit_logsテーブル(backendのgolang-migrateが正本として管理)を持つ
+# 既存の`bff_gin_development`データベースを直接見に行く
+# (このRailsアプリ自身はこのテーブルを作成するマイグレーションを持たない。CONTRACT.mdセクション13参照)
+#
+# testだけは専用の`admin_rails_test`データベースを使い、spec/support/schema.rb が
+# テスト開始時に生SQLでテーブルを作る(共有DBを汚さないための分離)
+default: &default
+  adapter: mysql2
+  encoding: utf8mb4
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  username: <%= ENV.fetch("DB_USERNAME") { "root" } %>
+  password: <%= ENV.fetch("DB_PASSWORD") { "" } %>
+  host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>
+  port: <%= ENV.fetch("DB_PORT") { 13306 } %>
+
+development:
+  <<: *default
+  database: <%= ENV.fetch("DB_NAME") { "bff_gin_development" } %>
+
+test:
+  <<: *default
+  database: admin_rails_test
+
+production:
+  <<: *default
+  database: <%= ENV.fetch("DB_NAME") { "bff_gin_development" } %>

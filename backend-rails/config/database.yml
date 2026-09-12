@@ -1,0 +1,30 @@
+# MySQL
+# training-go/bff-gin/docker-compose.yaml の mysql サービス(127.0.0.1:13306、
+# root/パスワード無し)へ接続する。development/productionは既存の`bff_gin_development`
+# データベース(tasks/labels/task_labels/users、backendのgolang-migrateが正本)を直接見に行く
+#
+# このRailsアプリ自身はこれらのテーブルを作成するマイグレーションを持たない
+# (admin/railsのconfig/database.ymlと同じ設計方針、CONTRACT.mdセクション20.3参照)
+#
+# testだけは専用の`backend_rails_test`データベースを使い、spec/support/schema.rb が
+# テスト開始時に生SQLで同じスキーマを再現する(共有DBを汚さないための分離)
+default: &default
+  adapter: mysql2
+  encoding: utf8mb4
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  username: <%= ENV.fetch("DB_USERNAME") { "root" } %>
+  password: <%= ENV.fetch("DB_PASSWORD") { "" } %>
+  host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>
+  port: <%= ENV.fetch("DB_PORT") { 13306 } %>
+
+development:
+  <<: *default
+  database: <%= ENV.fetch("DB_NAME") { "bff_gin_development" } %>
+
+test:
+  <<: *default
+  database: backend_rails_test
+
+production:
+  <<: *default
+  database: <%= ENV.fetch("DB_NAME") { "bff_gin_development" } %>

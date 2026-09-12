@@ -1,0 +1,35 @@
+<h1>Feature Flag 一覧</h1>
+
+<div class="table-responsive">
+  <table class="table table-striped table-bordered table-hover">
+    <thead>
+      <tr>
+        <th>flag_key</th>
+        <th>説明</th>
+        <th>有効</th>
+        <th>既定値</th>
+        <th>更新日時</th>
+        <th colspan="2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @feature_flags.each do |flag| %>
+        <tr>
+          <td><code><%= flag.flag_key %></code></td>
+          <td><%= flag.description %></td>
+          <td>
+            <% if flag.enabled? %>
+              <span class="badge badge-success">enabled</span>
+            <% else %>
+              <span class="badge badge-secondary">disabled</span>
+            <% end %>
+          </td>
+          <td><%= flag.default_variation %></td>
+          <td><%= l(flag.updated_at, format: :long) rescue flag.updated_at %></td>
+          <td><%= link_to "編集", edit_feature_flag_path(flag), class: "btn btn-primary" %></td>
+          <td><%= link_to "変更履歴", audit_logs_feature_flag_path(flag), class: "btn btn-secondary" %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

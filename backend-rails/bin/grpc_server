@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# CONTRACT.mdセクション20.4: RubyのGRPC::RpcServer(ブロッキングのイベントループ)と
+# Puma(REST用)を同一プロセス内で共存させるのは一般的ではないため、この専用スクリプトを
+# 別プロセスとして起動する(Go実装が1プロセス2ポートなのとの構造上の違い、README参照)
+require_relative "../config/environment"
+require "grpc_server/task_service"
+
+addr = ENV.fetch("GRPC_ADDR", ":9096").to_s.delete_prefix(":")
+addr = "0.0.0.0:#{addr}" unless addr.include?(":")
+
+server = GRPC::RpcServer.new
+server.add_http2_port(addr, :this_port_is_insecure)
+server.handle(GrpcServer::TaskServiceHandler)
+
+puts "gRPC v2起動 addr=#{addr}"
+server.run_till_terminated_or_interrupted([1, "int", "TERM"])

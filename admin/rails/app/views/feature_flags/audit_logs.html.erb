@@ -1,0 +1,26 @@
+<h1>変更履歴: <code><%= @feature_flag.flag_key %></code></h1>
+
+<div class="table-responsive">
+  <table class="table table-striped table-bordered table-hover">
+    <thead>
+      <tr>
+        <th>変更日時</th>
+        <th>変更者</th>
+        <th>enabled(変更前→後)</th>
+        <th>default_variation(変更前→後)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @feature_flag_audit_logs.each do |log| %>
+        <tr>
+          <td><%= l(log.changed_at, format: :long) rescue log.changed_at %></td>
+          <td><%= log.changed_by %></td>
+          <td><%= log.before_enabled %> &rarr; <%= log.after_enabled %></td>
+          <td><%= log.before_default_variation %> &rarr; <%= log.after_default_variation %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<%= link_to "一覧に戻る", root_path, class: "btn btn-secondary" %>

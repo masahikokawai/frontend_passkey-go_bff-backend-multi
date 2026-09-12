@@ -1,0 +1,28 @@
+{{define "pages/audit_log"}}
+<h1>変更履歴: <code>{{.Flag.FlagKey}}</code></h1>
+<a href="/" class="btn btn-outline-secondary btn-sm mb-3">一覧へ戻る</a>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>変更日時</th>
+      <th>変更者</th>
+      <th>default_variation</th>
+      <th>enabled</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Logs}}
+    <tr>
+      <td>{{.ChangedAt.Format "2006-01-02 15:04:05"}}</td>
+      <td>{{.ChangedBy}}</td>
+      <td>{{if .BeforeDefaultVariation}}{{.BeforeDefaultVariation}}{{else}}-{{end}} → {{.AfterDefaultVariation}}</td>
+      <td>{{boolLabel .BeforeEnabled}} → {{if .AfterEnabled}}true{{else}}false{{end}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{if not .Logs}}
+<p class="text-muted">変更履歴はまだありません。</p>
+{{end}}
+{{end}}

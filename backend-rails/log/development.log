@@ -1,0 +1,249 @@
+  [1m[36mUser Count (1.0ms)[0m  [1m[34mSELECT COUNT(*) FROM `users`[0m
+  [1m[36mTaskRecord Count (0.4ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks`[0m
+Started GET "/internal/v1/tasks" for ::1 at 2026-09-09 06:24:55 +0900
+Processing by Internal::V1::TasksController#index as */*
+Filter chain halted as :authenticate! rendered or redirected
+Completed 401 Unauthorized in 0ms (Views: 0.1ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+
+
+  [1m[36mUser Load (0.9ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`email` = 'local-user@example.com' LIMIT 1[0m
+Started GET "/internal/v1/tasks" for ::1 at 2026-09-09 06:25:16 +0900
+Processing by Internal::V1::TasksController#index as */*
+  [1m[36mUser Load (0.6ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Count (0.7ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 6[0m
+  [1m[36mTaskRecord Load (0.4ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`id` ASC LIMIT 20 OFFSET 0[0m
+Completed 200 OK in 130ms (Views: 0.1ms | ActiveRecord: 46.9ms (3 queries, 0 cached) | GC: 8.9ms)
+
+
+Started POST "/internal/v1/tasks" for ::1 at 2026-09-09 06:25:16 +0900
+Processing by Internal::V1::TasksController#create as */*
+  Parameters: {"name"=>"rails-smoke", "status"=>"waiting", "finished_on"=>"2030-01-01", "task"=>{"name"=>"rails-smoke", "status"=>"waiting", "finished_on"=>"2030-01-01"}}
+  [1m[36mUser Load (0.7ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mCACHE User Load (0.0ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTRANSACTION (0.9ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskRecord Create (2.5ms)[0m  [1m[32mINSERT INTO `tasks` (`name`, `description`, `status`, `finished_on`, `user_id`, `created_at`, `updated_at`) VALUES ('rails-smoke', NULL, 1, '2030-01-01', 6, '2026-09-08 21:25:16', '2026-09-08 21:25:16')[0m
+  [1m[36mTRANSACTION (2.0ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mLabel Load (1.2ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 254[0m
+Completed 201 Created in 49ms (Views: 0.1ms | ActiveRecord: 10.5ms (4 queries, 1 cached) | GC: 0.4ms)
+
+
+Started GET "/internal/v1/tasks" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#index as */*
+  [1m[36mUser Load (3.1ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Count (1.2ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 6[0m
+  [1m[36mTaskRecord Load (0.9ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`id` ASC LIMIT 20 OFFSET 0[0m
+  [1m[36mTaskLabel Load (0.7ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` = 254[0m
+Completed 200 OK in 32ms (Views: 0.4ms | ActiveRecord: 8.5ms (4 queries, 0 cached) | GC: 0.0ms)
+
+
+Started GET "/internal/v1/tasks/254" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#show as */*
+  Parameters: {"id"=>"254"}
+  [1m[36mUser Load (1.1ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.7ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 254 LIMIT 1[0m
+  [1m[36mLabel Load (0.9ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 254[0m
+Completed 200 OK in 11ms (Views: 1.0ms | ActiveRecord: 2.7ms (3 queries, 0 cached) | GC: 0.0ms)
+
+
+Started PATCH "/internal/v1/tasks/254" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#update as */*
+  Parameters: {"name"=>"rails-smoke-upd", "status"=>"completed", "finished_on"=>"2030-02-02", "id"=>"254", "task"=>{"name"=>"rails-smoke-upd", "status"=>"completed", "finished_on"=>"2030-02-02"}}
+  [1m[36mUser Load (0.9ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.5ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 254 LIMIT 1[0m
+  [1m[36mTRANSACTION (0.7ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskRecord Update (3.9ms)[0m  [1m[33mUPDATE `tasks` SET `tasks`.`name` = 'rails-smoke-upd', `tasks`.`status` = 3, `tasks`.`finished_on` = '2030-02-02', `tasks`.`updated_at` = '2026-09-08 21:25:26' WHERE `tasks`.`id` = 254[0m
+  [1m[36mTRANSACTION (2.4ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mLabel Load (0.6ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 254[0m
+Completed 200 OK in 27ms (Views: 0.0ms | ActiveRecord: 8.4ms (4 queries, 0 cached) | GC: 0.0ms)
+
+
+Started POST "/internal/v1/tasks" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#create as */*
+  Parameters: {"name"=>"x", "status"=>"bogus", "finished_on"=>"2030-01-01", "task"=>{"name"=>"x", "status"=>"bogus", "finished_on"=>"2030-01-01"}}
+  [1m[36mUser Load (1.1ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+Completed 422 Unprocessable Content in 3ms (Views: 0.1ms | ActiveRecord: 1.1ms (1 query, 0 cached) | GC: 0.0ms)
+
+
+Started POST "/internal/v1/tasks" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#create as */*
+  Parameters: {"status"=>"waiting", "finished_on"=>"2030-01-01", "task"=>{"status"=>"waiting", "finished_on"=>"2030-01-01"}}
+  [1m[36mUser Load (0.9ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+Completed 400 Bad Request in 3ms (Views: 0.1ms | ActiveRecord: 0.9ms (1 query, 0 cached) | GC: 0.0ms)
+
+
+Started POST "/internal/v1/tasks" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#create as */*
+  Parameters: {"name"=>"012345678901234567890123", "status"=>"waiting", "finished_on"=>"2030-01-01", "task"=>{"name"=>"012345678901234567890123", "status"=>"waiting", "finished_on"=>"2030-01-01"}}
+  [1m[36mUser Load (0.9ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mCACHE User Load (0.3ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+Completed 422 Unprocessable Content in 21ms (Views: 0.0ms | ActiveRecord: 0.9ms (2 queries, 1 cached) | GC: 6.9ms)
+
+
+Started GET "/internal/v1/tasks/999999" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#show as */*
+  Parameters: {"id"=>"999999"}
+  [1m[36mUser Load (1.2ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.5ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 999999 LIMIT 1[0m
+Completed 404 Not Found in 5ms (Views: 0.2ms | ActiveRecord: 1.7ms (2 queries, 0 cached) | GC: 0.2ms)
+
+
+Started DELETE "/internal/v1/tasks/254" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#destroy as */*
+  Parameters: {"id"=>"254"}
+  [1m[36mUser Load (0.9ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.5ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 254 LIMIT 1[0m
+  [1m[36mTRANSACTION (0.4ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskLabel Load (0.9ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` = 254[0m
+  [1m[36mTaskRecord Destroy (0.5ms)[0m  [1m[31mDELETE FROM `tasks` WHERE `tasks`.`id` = 254[0m
+  [1m[36mTRANSACTION (2.0ms)[0m  [1m[35mCOMMIT[0m
+Completed 204 No Content in 9ms (ActiveRecord: 5.2ms (4 queries, 0 cached) | GC: 0.0ms)
+
+
+Started GET "/internal/v1/tasks" for ::1 at 2026-09-09 06:25:26 +0900
+Processing by Internal::V1::TasksController#index as */*
+Filter chain halted as :authenticate! rendered or redirected
+Completed 401 Unauthorized in 1ms (Views: 0.0ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+
+
+  [1m[36mUser Load (1.1ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.5ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`id` ASC LIMIT 21[0m
+  [1m[36mUser Load (0.4ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTRANSACTION (0.3ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mUser Load (0.9ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Create (1.5ms)[0m  [1m[32mINSERT INTO `tasks` (`name`, `description`, `status`, `finished_on`, `user_id`, `created_at`, `updated_at`) VALUES ('grpc-smoke', '', 1, '2030-03-03', 6, '2026-09-08 21:26:39', '2026-09-08 21:26:39')[0m
+  [1m[36mTRANSACTION (1.9ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mLabel Load (0.5ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 257[0m
+  [1m[36mUser Load (1.5ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (1.0ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`id` ASC LIMIT 21[0m
+  [1m[36mTaskLabel Load (1.7ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` = 257[0m
+  [1m[36mUser Load (0.8ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTRANSACTION (3.0ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mUser Load (4.9ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Create (1.3ms)[0m  [1m[32mINSERT INTO `tasks` (`name`, `description`, `status`, `finished_on`, `user_id`, `created_at`, `updated_at`) VALUES ('grpc-smoke', '', 1, '2030-03-03', 6, '2026-09-08 21:26:58', '2026-09-08 21:26:58')[0m
+  [1m[36mTRANSACTION (3.9ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mLabel Load (0.7ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 259[0m
+  [1m[36mUser Load (0.4ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.5ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 259 LIMIT 1[0m
+  [1m[36mLabel Load (0.7ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 259[0m
+  [1m[36mUser Load (0.3ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.8ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 259 LIMIT 1[0m
+  [1m[36mTRANSACTION (0.6ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskRecord Update (1.3ms)[0m  [1m[33mUPDATE `tasks` SET `tasks`.`name` = 'grpc-smoke-upd', `tasks`.`status` = 3, `tasks`.`finished_on` = '2030-04-04' WHERE `tasks`.`id` = 259[0m
+  [1m[36mTRANSACTION (1.2ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mLabel Load (1.6ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 259[0m
+  [1m[36mUser Load (0.3ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (1.0ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 259 LIMIT 1[0m
+  [1m[36mTRANSACTION (0.4ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskLabel Load (1.0ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` = 259[0m
+  [1m[36mTaskRecord Destroy (0.8ms)[0m  [1m[31mDELETE FROM `tasks` WHERE `tasks`.`id` = 259[0m
+  [1m[36mTRANSACTION (1.5ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mUser Load (0.4ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.3ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND `tasks`.`id` = 259 LIMIT 1[0m
+  [1m[36mUser Load (1.3ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`email` = 'local-user@example.com' LIMIT 1[0m
+  [1m[36mTaskRecord Count (0.5ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 6 AND (name LIKE '%smoke%')[0m
+  [1m[36mTaskRecord Load (0.3ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND (name LIKE '%smoke%')[0m
+  [1m[36mLabel Load (1.2ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` WHERE `labels`.`name` = 'rails-smoke-label' LIMIT 1[0m
+  [1m[36mTRANSACTION (0.5ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mLabel Create (5.5ms)[0m  [1m[32mINSERT INTO `labels` (`name`, `created_at`, `updated_at`) VALUES ('rails-smoke-label', '2026-09-08 21:29:53', '2026-09-08 21:29:53')[0m
+  [1m[36mTRANSACTION (1.5ms)[0m  [1m[35mCOMMIT[0m
+Started POST "/internal/v1/tasks" for ::1 at 2026-09-09 06:29:53 +0900
+Processing by Internal::V1::TasksController#create as */*
+  Parameters: {"name"=>"rails-smoke2", "status"=>"waiting", "finished_on"=>"2030-01-01", "label_ids"=>[21], "task"=>{"name"=>"rails-smoke2", "status"=>"waiting", "finished_on"=>"2030-01-01", "label_ids"=>[21]}}
+  [1m[36mUser Load (0.6ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mCACHE User Load (0.0ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTRANSACTION (0.4ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskRecord Create (1.5ms)[0m  [1m[32mINSERT INTO `tasks` (`name`, `description`, `status`, `finished_on`, `user_id`, `created_at`, `updated_at`) VALUES ('rails-smoke2', NULL, 1, '2030-01-01', 6, '2026-09-08 21:29:53', '2026-09-08 21:29:53')[0m
+  [1m[36mTRANSACTION (1.6ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mLabel Load (0.3ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` WHERE `labels`.`id` = 21[0m
+  [1m[36mLabel Load (0.4ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` INNER JOIN `task_labels` ON `labels`.`id` = `task_labels`.`label_id` WHERE `task_labels`.`task_id` = 261[0m
+  [1m[36mTRANSACTION (0.3ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskRecord Load (0.3ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`id` = 261 LIMIT 1[0m
+  [1m[36mTaskLabel Create (1.3ms)[0m  [1m[32mINSERT INTO `task_labels` (`task_id`, `label_id`, `created_at`, `updated_at`) VALUES (261, 21, '2026-09-08 21:29:53', '2026-09-08 21:29:53')[0m
+  [1m[36mTRANSACTION (1.2ms)[0m  [1m[35mCOMMIT[0m
+Completed 201 Created in 90ms (Views: 0.3ms | ActiveRecord: 16.8ms (7 queries, 1 cached) | GC: 12.6ms)
+
+
+  [1m[36mUser Load (1.8ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`email` = 'local-user@example.com' LIMIT 1[0m
+  [1m[36mTaskRecord Load (1.1ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 AND (name LIKE '%smoke%')[0m
+  [1m[36mTRANSACTION (3.2ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskLabel Load (0.9ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` = 261[0m
+  [1m[36mTaskLabel Destroy (1.8ms)[0m  [1m[31mDELETE FROM `task_labels` WHERE `task_labels`.`id` = 45[0m
+  [1m[36mTaskRecord Destroy (1.0ms)[0m  [1m[31mDELETE FROM `tasks` WHERE `tasks`.`id` = 261[0m
+  [1m[36mTRANSACTION (3.7ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mLabel Load (3.0ms)[0m  [1m[34mSELECT `labels`.* FROM `labels` WHERE `labels`.`name` = 'rails-smoke-label'[0m
+  [1m[36mTRANSACTION (0.9ms)[0m  [1m[35mBEGIN[0m
+  [1m[36mTaskLabel Load (1.9ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`label_id` = 21[0m
+  [1m[36mLabel Destroy (1.2ms)[0m  [1m[31mDELETE FROM `labels` WHERE `labels`.`id` = 21[0m
+  [1m[36mTRANSACTION (2.9ms)[0m  [1m[35mCOMMIT[0m
+  [1m[36mTaskRecord Count (0.8ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 6 AND (name LIKE '%smoke%')[0m
+  [1m[36mLabel Count (0.6ms)[0m  [1m[34mSELECT COUNT(*) FROM `labels` WHERE `labels`.`name` = 'rails-smoke-label'[0m
+Started GET "/internal/v1/tasks?limit=20&offset=0&user_id=6" for ::1 at 2026-09-09 06:49:33 +0900
+Processing by Internal::V1::TasksController#index as HTML
+  Parameters: {"limit"=>"20", "offset"=>"0", "user_id"=>"6"}
+  [1m[36mUser Load (2.0ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Count (0.7ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 6[0m
+  [1m[36mTaskRecord Load (0.4ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`id` ASC LIMIT 20 OFFSET 0[0m
+Completed 200 OK in 131ms (Views: 0.4ms | ActiveRecord: 57.5ms (3 queries, 0 cached) | GC: 14.0ms)
+
+
+  [1m[36mUser Load (1.0ms)[0m  [1m[34mSELECT `users`.* FROM `users` WHERE `users`.`id` = 6 LIMIT 1[0m
+  [1m[36mTaskRecord Load (0.8ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`id` ASC LIMIT 21[0m
+Started GET "/external/v1/tasks?user_id=15" for ::1 at 2026-09-09 07:30:11 +0900
+Processing by External::V1::TasksController#index as */*
+  Parameters: {"user_id"=>"15"}
+  [1m[36mFeatureFlag Load (1.7ms)[0m  [1m[34mSELECT `feature_flags`.* FROM `feature_flags` WHERE `feature_flags`.`flag_key` = 'backend.external-tasks-pagination-v2' LIMIT 1[0m
+  [1m[36mTaskRecord Count (0.4ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 15[0m
+  [1m[36mTaskRecord Load (0.3ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 15 ORDER BY `tasks`.`created_at` DESC, `tasks`.`id` DESC LIMIT 10 OFFSET 0[0m
+  [1m[36mTaskLabel Load (0.5ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` IN (212, 211, 210)[0m
+Completed 200 OK in 144ms (Views: 0.2ms | ActiveRecord: 35.7ms (4 queries, 0 cached) | GC: 19.2ms)
+
+
+Started GET "/external/v1/tasks?user_id=15&limit=2" for ::1 at 2026-09-09 07:30:31 +0900
+Processing by External::V1::TasksController#index as */*
+  Parameters: {"user_id"=>"15", "limit"=>"2"}
+  [1m[36mFeatureFlag Load (4.2ms)[0m  [1m[34mSELECT `feature_flags`.* FROM `feature_flags` WHERE `feature_flags`.`flag_key` = 'backend.external-tasks-pagination-v2' LIMIT 1[0m
+  [1m[36mTaskRecord Load (1.8ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 15 ORDER BY `tasks`.`created_at` DESC, `tasks`.`id` DESC LIMIT 2[0m
+  [1m[36mTaskLabel Load (1.1ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` IN (212, 211)[0m
+Completed 200 OK in 64ms (Views: 0.7ms | ActiveRecord: 7.1ms (3 queries, 0 cached) | GC: 0.4ms)
+
+
+Started GET "/external/v1/tasks?user_id=15&limit=2&cursor=MjAyNi0wOS0wOFQxNDozODowOC4wMDAwMDAwMDBafDIxMQ==" for ::1 at 2026-09-09 07:30:32 +0900
+Processing by External::V1::TasksController#index as */*
+  Parameters: {"user_id"=>"15", "limit"=>"2", "cursor"=>"MjAyNi0wOS0wOFQxNDozODowOC4wMDAwMDAwMDBafDIxMQ=="}
+  [1m[36mTaskRecord Load (0.7ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 15 AND ((created_at < '2026-09-08 14:38:08') OR (created_at = '2026-09-08 14:38:08' AND id < '211')) ORDER BY `tasks`.`created_at` DESC, `tasks`.`id` DESC LIMIT 2[0m
+  [1m[36mTaskLabel Load (0.6ms)[0m  [1m[34mSELECT `task_labels`.* FROM `task_labels` WHERE `task_labels`.`task_id` = 210[0m
+Completed 200 OK in 14ms (Views: 0.1ms | ActiveRecord: 1.2ms (2 queries, 0 cached) | GC: 0.0ms)
+
+
+Started GET "/external/v1/tasks?user_id=15" for ::1 at 2026-09-09 07:30:32 +0900
+Processing by External::V1::TasksController#index as */*
+  Parameters: {"user_id"=>"15"}
+Filter chain halted as :authenticate_external_client! rendered or redirected
+Completed 401 Unauthorized in 1ms (Views: 0.1ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+
+
+Started GET "/external/v1/tasks?user_id=15" for ::1 at 2026-09-09 07:30:32 +0900
+Processing by External::V1::TasksController#index as */*
+  Parameters: {"user_id"=>"15"}
+Filter chain halted as :authenticate_external_client! rendered or redirected
+Completed 401 Unauthorized in 1ms (Views: 0.1ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+
+
+Started GET "/external/v1/tasks?user_id=6" for ::1 at 2026-09-09 07:37:47 +0900
+Processing by External::V1::TasksController#index as */*
+  Parameters: {"user_id"=>"6"}
+  [1m[36mFeatureFlag Load (1.5ms)[0m  [1m[34mSELECT `feature_flags`.* FROM `feature_flags` WHERE `feature_flags`.`flag_key` = 'backend.external-tasks-pagination-v2' LIMIT 1[0m
+  [1m[36mTaskRecord Count (0.4ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 6[0m
+  [1m[36mTaskRecord Load (0.3ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`created_at` DESC, `tasks`.`id` DESC LIMIT 10 OFFSET 0[0m
+Completed 200 OK in 150ms (Views: 0.4ms | ActiveRecord: 45.2ms (3 queries, 0 cached) | GC: 15.0ms)
+
+
+Started GET "/external/v1/tasks?user_id=6" for 127.0.0.1 at 2026-09-09 07:39:15 +0900
+Processing by External::V1::TasksController#index as */*
+  Parameters: {"user_id"=>"6"}
+  [1m[36mFeatureFlag Load (3.3ms)[0m  [1m[34mSELECT `feature_flags`.* FROM `feature_flags` WHERE `feature_flags`.`flag_key` = 'backend.external-tasks-pagination-v2' LIMIT 1[0m
+  [1m[36mTaskRecord Count (2.4ms)[0m  [1m[34mSELECT COUNT(*) FROM `tasks` WHERE `tasks`.`user_id` = 6[0m
+  [1m[36mTaskRecord Load (0.6ms)[0m  [1m[34mSELECT `tasks`.* FROM `tasks` WHERE `tasks`.`user_id` = 6 ORDER BY `tasks`.`created_at` DESC, `tasks`.`id` DESC LIMIT 10 OFFSET 0[0m
+Completed 200 OK in 56ms (Views: 7.2ms | ActiveRecord: 6.3ms (3 queries, 0 cached) | GC: 6.9ms)
+
+

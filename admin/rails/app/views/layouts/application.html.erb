@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Feature Flag Admin (Rails)</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <!-- training/(Rails参照元)・training-go/gin・frontendと同じBootstrap 4.3.1に揃える -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css">
+  </head>
+
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <%= link_to "Feature Flag Admin (Rails)", root_path, class: "navbar-brand" %>
+      <ul class="navbar-nav ml-auto">
+        <li class="nav-item">
+          <%= link_to "フラグ一覧", root_path, class: "nav-link" %>
+        </li>
+        <li class="nav-item">
+          <%= link_to "ユーザー管理", users_path, class: "nav-link" %>
+        </li>
+      </ul>
+    </nav>
+    <div class="container mt-3">
+      <% flash.each do |name, msg| %>
+        <div class="alert alert-<%= name %>" role="alert">
+          <a class="close" data-dismiss="alert">&times;</a>
+          <%= msg %>
+        </div>
+      <% end %>
+      <%= yield %>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
