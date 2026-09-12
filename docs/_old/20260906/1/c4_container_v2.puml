@@ -1,0 +1,29 @@
+@startuml c4_container_v2
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title bff-gin コンテナ図 (C4 Level 2)
+
+Person(general_user, "一般ユーザー")
+Person(admin_user, "管理者ユーザー")
+
+System_Boundary(bff_gin, "bff-gin") {
+  Container(frontend, "frontend", "React (Vite) / TypeScript(tasksのみ)+JS", "SPA。JWTは一切保持しない。HttpOnly Cookie(session_id)のみブラウザに残る")
+  Container(bff, "bff", "Go 1.27 / Gin v1.12.0", "唯一の公開窓口。OIDCクライアント、Redisセッション管理、Feature Flag評価、backendへのプロキシ(REST v1 / gRPC v2)")
+  Container(backend, "backend", "Go 1.27", "private network限定。REST v1(意図的にN+1を再現した旧実装)とgRPC v2(Preload最適化した新実装)を同一プロセスで提供")
+}
+
+System_Ext(keycloak, "Keycloak", "OIDC IdP")
+ContainerDb(mysql, "MySQL", "MySQL 8.0 (Docker)", "users/tasks/labels等。utf8mb4")
+ContainerDb(redis, "Redis", "Docker", "session:{sessionID} → Access/Refresh/ID Token、lock:session:{sessionID} → 分散ロック")
+
+Rel(general_user, frontend, "操作", "HTTPS")
+Rel(admin_user, frontend, "操作", "HTTPS")
+Rel(frontend, bff, "REST API呼び出し(Cookie自動送信 + X-CSRF-Token)", "HTTPS/JSON")
+Rel(bff, keycloak, "Authorization Code+PKCE / Refresh / RP-Initiated Logout", "OIDC")
+Rel(bff, redis, "セッション読み書き・分散ロック", "RESP")
+Rel(bff, backend, "Flag=OFF: REST v1 / Flag=ON: gRPC v2\n(Access Tokenをヘッダ/metadataで転送)", "HTTP or gRPC (internal-net限定)")
+Rel(backend, mysql, "CRUD", "GORM / go-sql-driver/mysql")
+Rel(backend, keycloak, "JWKS取得(iss/aud/exp/nbf検証)", "HTTPS")
+
+SHOW_LEGEND()
+@enduml

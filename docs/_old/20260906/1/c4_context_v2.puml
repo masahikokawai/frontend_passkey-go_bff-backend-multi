@@ -1,0 +1,30 @@
+@startuml c4_context_v2
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title bff-gin システムコンテキスト図 (C4 Level 1) - BFFパターン + OIDC(Keycloak)構成
+
+Person(general_user, "一般ユーザー", "自分のタスクを登録・管理する")
+Person(admin_user, "管理者ユーザー", "ラベル管理・ユーザー管理も行う")
+
+System(bff_gin, "bff-gin", "React SPA + Go BFF + Go backend\n(training-go/gin からの発展形。ブラウザにJWTを渡さないBFFパターンを採用)")
+
+System_Ext(keycloak, "Keycloak", "OIDC IdP。認証・認可・ユーザー管理を担う")
+
+SystemDb_Ext(mysql, "MySQL 8.0", "ユーザー・タスク・ラベル等を永続化")
+SystemDb_Ext(redis, "Redis", "BFFのセッション(Access/Refresh/ID Token)を保持")
+
+Rel(general_user, bff_gin, "タスクの登録・検索・更新を行う", "HTTPS")
+Rel(admin_user, bff_gin, "上記に加え、ラベル/ユーザー管理を行う", "HTTPS")
+Rel(bff_gin, keycloak, "Authorization Code + PKCE / トークンリフレッシュ / RP-Initiated Logout", "OIDC")
+Rel(bff_gin, mysql, "データの読み書き", "TCP/SQL (GORM)")
+Rel(bff_gin, redis, "セッションID→トークンの保存・参照", "TCP (RESP)")
+
+note right of bff_gin
+  training-go/gin(サーバーサイドレンダリング+セッションCookie)からの
+  アーキテクチャ刷新版。認証責務はKeycloakへ委譲し、
+  UserCredential/UserTokenによる自前パスワード管理は廃止した。
+  詳細: bff-gin/CONTRACT.md セクション10
+end note
+
+SHOW_LEGEND()
+@enduml

@@ -1,0 +1,36 @@
+@startuml sequence_login_v2
+title シーケンス図: ログイン(OIDC Authorization Code + PKCE、BFFパターン)
+
+actor "ブラウザ(React)" as Browser
+participant "bff: auth handler" as BFF
+participant "Redis" as Redis
+participant "Keycloak" as KC
+participant "backend" as Backend
+
+Browser -> BFF : GET /api/me (未ログイン)
+BFF --> Browser : 401
+
+Browser -> BFF : GET /api/auth/login?redirect=/tasks
+BFF -> BFF : state/nonce/code_verifier生成
+BFF -> Redis : SET tmp state (TTL数分)
+BFF --> Browser : 302 Keycloak Authorization Endpoint
+
+Browser -> KC : ログイン画面で認証
+KC --> Browser : 302 /api/auth/callback?code=...&state=...
+
+Browser -> BFF : GET /api/auth/callback?code=...&state=...
+BFF -> Redis : state検証・取得
+BFF -> KC : POST /token (code, code_verifier)
+KC --> BFF : access_token / refresh_token / id_token
+BFF -> BFF : iss/aud/exp/nonce検証
+BFF -> Backend : POST /internal/v1/users/provision\n(Authorization: Bearer access_token、bodyは送っても無視される)
+Backend -> Backend : Bearerトークンの検証済みJWTクレームから\nkeycloak_sub/name/emailを自ら取得(BFF申告値は信頼しない)
+Backend --> BFF : users行(upsert済み)
+BFF -> BFF : sessionID(UUIDv4)発行
+BFF -> Redis : SET session:{sessionID} (TTL=refresh_token有効期限)
+BFF --> Browser : Set-Cookie session_id(HttpOnly/Secure/SameSite=Lax)\n302 redirectへ
+
+Browser -> BFF : GET /api/me (Cookie送信)
+BFF -> Redis : GET session:{sessionID}
+BFF --> Browser : 200 { user, feature_flags }
+@enduml

@@ -1,0 +1,46 @@
+@startuml sequence_external_api
+title シーケンス図: 外部公開API (Client Credentials Grant + offset/cursorページングのFeature Flag切替)
+
+actor "外部APIクライアント" as Client
+participant "Keycloak" as KC
+participant "backend: RequireExternalClientAuth" as AuthMW
+participant "backend: featureflag evaluator" as Flag
+participant "backend: handler/external/task.go" as Handler
+database "MySQL" as DB
+
+Client -> KC : POST /realms/training/protocol/openid-connect/token\n(grant_type=client_credentials, client_id=external-api-client)
+KC --> Client : access_token(azp=external-api-client)
+
+Client -> AuthMW : GET /external/v1/tasks?user_id=...\n(Authorization: Bearer access_token) [:8081, BFF非経由]
+AuthMW -> AuthMW : JWKS検証(iss/aud/exp/nbf) + azp=="external-api-client"を確認
+AuthMW -> Handler : 認可済みリクエストを委譲
+
+Handler -> Flag : BoolValue("backend.external-tasks-pagination-v2",\n default=false, targetingKey=azp)
+
+alt Flag = OFF (v1: offsetページング)
+  Handler -> DB : Preload("Labels") + OFFSET/LIMIT (page, page_size)
+  DB --> Handler : tasks, total
+  Handler --> Client : 200 { tasks, page, page_size, total }
+  note right of Handler
+    深いページ(pageが大きい)ほどOFFSETのスキャンコストが増える
+    典型的な弱点を学習用に残した実装(v1)。
+  end note
+else Flag = ON (v2: cursorページング)
+  Handler -> Handler : cursorをbase64デコード(created_at, id)
+  Handler -> DB : Preload("Labels") + WHERE (created_at, id) < (?, ?)\nORDER BY created_at DESC, id DESC LIMIT ?
+  DB --> Handler : tasks
+  Handler -> Handler : 次ページ用cursorをbase64エンコード(created_at, id)
+  Handler --> Client : 200 { tasks, next_cursor, limit }
+  note right of Handler
+    OFFSETを使わないキーセットページングにより、
+    深いページでも性能が劣化しない(v2)。
+  end note
+end
+
+note over Client, Handler
+  このAPIはBFFを経由しない唯一の例外的な公開経路。
+  user_idはクライアントが任意に指定できるため、Client Credentials
+  資格情報を持つ者は任意ユーザーのタスクを読み取れる
+  (サーバー間の信頼関係を前提にした設計。CONTRACT.mdセクション11参照)。
+end note
+@enduml

@@ -1,0 +1,51 @@
+@startuml sequence_token_refresh
+title シーケンス図: アクセストークン失効時のリアクティブリフレッシュ
+
+actor "ブラウザ(React)" as Browser
+participant "bff: proxy" as Proxy
+participant "bff: session.go" as Session
+participant "Redis" as Redis
+participant "backend" as Backend
+participant "Keycloak" as KC
+
+Browser -> Proxy : API呼び出し(Cookie: session_id)
+Proxy -> Session : GetAccessToken(sessionID)
+Session -> Redis : GET session:{sessionID}
+Redis --> Session : access_token(期限切れ)
+Session --> Proxy : access_token
+
+Proxy -> Backend : リクエスト転送(Authorization: Bearer expired)
+Backend --> Proxy : 401 (exp切れ)
+
+Proxy -> Session : TryLock(sessionID)
+Session -> Redis : SETNX lock:session:{sessionID} (TTL数秒)
+
+alt ロック取得成功
+  Session -> KC : POST /token (grant_type=refresh_token)
+  alt リフレッシュ成功
+    KC --> Session : 新access/refresh/id_token
+    Session -> Redis : SET session:{sessionID} (更新・TTL再設定)
+    Session -> Redis : DEL lock:session:{sessionID}
+    Proxy -> Backend : 元のリクエストを1回だけリトライ(新access_token)
+    Backend --> Proxy : 200 OK
+    Proxy --> Browser : 200 OK
+  else リフレッシュ失敗(refresh_token失効)
+    KC --> Session : エラー
+    Session -> Redis : DEL session:{sessionID}
+    Session -> Redis : DEL lock:session:{sessionID}
+    Proxy --> Browser : 401 (再ログイン要求)
+  end
+else ロック取得失敗(他インスタンスが更新中)
+  Session -> Session : 短時間ポーリングして更新完了を待つ
+  Session -> Redis : GET session:{sessionID} (更新後の値)
+  Proxy -> Backend : 元のリクエストを新access_tokenでリトライ
+  Backend --> Proxy : 200 OK
+  Proxy --> Browser : 200 OK
+end
+
+note right of Session
+  BFFはステートレスで複数インスタンスが同時に動きうるため、
+  Redis SETNXによる分散ロックでrefresh tokenの二重使用
+  (rotationによる強制失効)を防ぐ。
+end note
+@enduml

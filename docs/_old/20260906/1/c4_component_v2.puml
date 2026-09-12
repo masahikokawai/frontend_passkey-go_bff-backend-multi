@@ -1,0 +1,48 @@
+@startuml c4_component_v2
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title bff-gin コンポーネント図 (C4 Level 3) - bff / backend 内部
+
+Container(react_spa, "frontend(React SPA)", "features/tasks配下のみTypeScript")
+System_Ext(keycloak, "Keycloak", "OIDC IdP")
+ContainerDb(redis, "Redis", "session:{id} / lock:session:{id}")
+ContainerDb(mysql, "MySQL", "users/tasks/labels/task_labels")
+
+Container_Boundary(bff, "bff") {
+  Component(auth_mw, "auth/middleware.go", "gin.HandlerFunc", "セッションCookie検証、backend呼び出し前のAuthorizationヘッダ/metadata付与")
+  Component(auth_oidc, "auth/oidc.go", "OIDCクライアント", "Authorization Code+PKCE、トークン交換、JWKS非依存(Keycloakを信頼しトークン検証は行わずbackendに委譲)")
+  Component(auth_session, "auth/session.go", "Redisセッションストア", "session:{id}のCRUD、lock:session:{id}によるリフレッシュの排他制御")
+  Component(auth_csrf, "auth/csrf.go", "Double Submit Cookie", "csrf_token発行・X-CSRF-Tokenヘッダ検証")
+  Component(featureflag, "featureflag/evaluator.go", "OpenFeature Go SDK + GO Feature Flag", "frontend.tasks-ts-rewrite / bff.tasks-backend-v2 を flags.yaml から評価")
+  Component(proxy, "proxy/task_route.go 等", "HTTPハンドラ", "Flag評価結果に応じてbackendへREST v1 or gRPC v2で委譲し、レスポンスを統一JSON形状へ変換")
+}
+
+Container_Boundary(backend, "backend") {
+  Component(handler_v1, "handler/v1/task.go", "Gin Controller", "REST v1。labelsをループで個別取得(意図的なN+1)")
+  Component(grpc_v2, "grpcserver/task_service.go", "gRPC Service", "gRPC v2。Preloadで一括取得、cursorページング")
+  Component(service_v1, "service/task_v1.go", "旧ユースケース", "N+1のまま業務ロジックを実行")
+  Component(service_v2, "service/task_v2.go", "新ユースケース", "Preloadを使う最適化済みロジック")
+  Component(repo, "repository/task.go", "GORMラッパー", "共通repository。Preloadの有無は呼び出し側(service)が制御")
+  Component(authjwt, "authjwt/", "JWKS検証", "iss/aud/exp/nbf/alg=RS256を検証するミドルウェア/interceptor")
+}
+
+Rel(react_spa, auth_mw, "HTTPS(Cookie+X-CSRF-Token)")
+Rel(auth_mw, auth_session, "session_id→トークン取得")
+Rel(auth_mw, auth_csrf, "CSRF検証")
+Rel(auth_mw, proxy, "認証済みリクエストを委譲")
+Rel(auth_oidc, keycloak, "Authorization Code+PKCE / Refresh / Logout")
+Rel(auth_session, redis, "GET/SET/DEL, SETNX(lock)")
+Rel(proxy, featureflag, "bff.tasks-backend-v2を評価")
+Rel(proxy, handler_v1, "Flag=OFF", "HTTP")
+Rel(proxy, grpc_v2, "Flag=ON", "gRPC")
+Rel(handler_v1, authjwt, "Authorizationヘッダ検証")
+Rel(grpc_v2, authjwt, "metadata検証(interceptor)")
+Rel(authjwt, keycloak, "JWKS取得")
+Rel(handler_v1, service_v1, "")
+Rel(grpc_v2, service_v2, "")
+Rel(service_v1, repo, "Preloadなしで呼び出し")
+Rel(service_v2, repo, "Preloadありで呼び出し")
+Rel(repo, mysql, "SQL発行")
+
+SHOW_LEGEND()
+@enduml

@@ -1,0 +1,38 @@
+@startuml sequence_task_create_v2
+title シーケンス図: タスク作成 (POST /api/tasks) - BFF経由・Feature Flagによるv1/v2分岐
+
+actor "ブラウザ(React)" as Browser
+participant "bff: auth middleware" as AuthMW
+participant "bff: csrf middleware" as CsrfMW
+participant "bff: proxy/task_route.go" as Proxy
+participant "bff: featureflag evaluator" as Flag
+participant "backend v1 (REST)" as V1
+participant "backend v2 (gRPC)" as V2
+database "MySQL" as DB
+
+Browser -> AuthMW : POST /api/tasks\n(Cookie: session_id, Header: X-CSRF-Token)
+AuthMW -> AuthMW : Redisからaccess_token取得
+AuthMW -> CsrfMW : 検証OK
+CsrfMW -> Proxy : リクエスト委譲
+Proxy -> Flag : Evaluate("bff.tasks-backend-v2", targetingKey=user_id)
+
+alt Flag = OFF (旧実装)
+  Proxy -> V1 : POST /internal/v1/tasks (Authorization: Bearer)
+  V1 -> V1 : JWT検証(authjwt)
+  V1 -> DB : INSERT tasks / INSERT task_labels
+  V1 --> Proxy : 201 Task(JSON, v1形状)
+else Flag = ON (新実装)
+  Proxy -> V2 : TaskService.CreateTask (metadata: authorization)
+  V2 -> V2 : JWT検証(interceptor)
+  V2 -> DB : INSERT tasks / INSERT task_labels (Preloadで整合)
+  V2 --> Proxy : Task(protobuf, v2形状)
+end
+
+Proxy -> Proxy : v1/v2いずれのレスポンスも共通JSON形状へ変換
+Proxy --> Browser : 201 { id, name, ..., labels: [...] }
+
+note over Proxy, V2
+  Reactはbackendがv1/v2どちらで処理したか一切意識しない。
+  BFFが下流プロトコル差異(REST/gRPC)とレスポンス形状差異を吸収する。
+end note
+@enduml

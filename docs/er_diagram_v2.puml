@@ -1,0 +1,57 @@
+@startuml er_diagram_v2
+title bff-gin ER図 (migrations/ が正本) - Keycloak採用によりuser_credentials/user_tokensを廃止
+
+entity "users" as users {
+  * id : BIGINT UNSIGNED <<PK>>
+  --
+  keycloak_sub : VARCHAR(255) <<unique>>
+  email : VARCHAR(255) <<unique>>
+  name : VARCHAR(255)
+  role : TINYINT UNSIGNED (1=general, 2=management)
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "tasks" as tasks {
+  * id : BIGINT UNSIGNED <<PK>>
+  --
+  name : VARCHAR(20)
+  description : TEXT (nullable)
+  status : TINYINT UNSIGNED (1=waiting, 2=work_in_progress, 3=completed)
+  finished_on : DATE
+  user_id : BIGINT UNSIGNED <<FK>>
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "labels" as labels {
+  * id : BIGINT UNSIGNED <<PK>>
+  --
+  name : VARCHAR(255) <<unique>>
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "task_labels" as task_labels {
+  * id : BIGINT UNSIGNED <<PK>>
+  --
+  task_id : BIGINT UNSIGNED <<FK>>
+  label_id : BIGINT UNSIGNED <<FK>>
+  created_at : DATETIME
+  updated_at : DATETIME
+  ..
+  unique(task_id, label_id)
+}
+
+users ||--o{ tasks : "has_many"
+tasks ||--o{ task_labels : "has_many"
+labels ||--o{ task_labels : "has_many"
+
+note right of users
+  旧ER図(er_diagram.puml)にあった user_credentials(bcryptパスワード)・
+  user_tokens(招待/パスワード設定トークン)は廃止。
+  認証はKeycloakへ全面委譲し、usersはJIT(Just-In-Time)
+  プロビジョニングでkeycloak_subをキーにupsertされる。
+  詳細: bff-gin/CONTRACT.md セクション10
+end note
+@enduml

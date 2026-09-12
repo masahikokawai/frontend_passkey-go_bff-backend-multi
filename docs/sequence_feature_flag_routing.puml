@@ -1,0 +1,42 @@
+@startuml sequence_feature_flag_routing
+title シーケンス図: Feature Flagによるbackend v1/v2ルーティング分岐 (Strangler Fig学習例)
+
+actor "ブラウザ(React)" as Browser
+participant "bff: proxy/task_route.go" as Proxy
+participant "bff: featureflag evaluator\n(OpenFeature + GO Feature Flag)" as Flag
+participant "flags.yaml" as FlagFile
+participant "backend v1 (REST, N+1あり)" as V1
+participant "backend v2 (gRPC, Preload)" as V2
+
+Browser -> Proxy : GET /api/tasks
+Proxy -> Flag : BoolValue("bff.tasks-backend-v2",\n default=false, targetingKey=user_id)
+Flag -> FlagFile : ルール読込(ユーザー単位のON/OFF、%ロールアウト設定)
+FlagFile --> Flag : 評価結果
+Flag --> Proxy : true or false
+
+alt false (デフォルト、旧実装へ)
+  Proxy -> V1 : GET /internal/v1/tasks
+  note right of V1
+    labelsをTaskごとにループで個別クエリ取得(意図的なN+1)。
+    学習用の「Before」実装。
+  end note
+  V1 --> Proxy : REST JSON (offsetページング)
+else true (新実装へ)
+  Proxy -> V2 : TaskService.ListTasks (gRPC)
+  note right of V2
+    Preload("Labels")で一括取得しN+1を解消。
+    cursorページングを採用。
+    学習用の「After」実装。
+  end note
+  V2 --> Proxy : protobuf (cursorページング)
+end
+
+Proxy -> Proxy : 共通JSON形状(offset/limit)へ変換して統一
+Proxy --> Browser : 200 { tasks, total, limit, offset }
+
+note over Proxy
+  同じ操作(タスク一覧取得)の実装をFlagで即座に切り替え・
+  ロールバックできることが、BFFレベルのStrangler Figの要点。
+  ロールアウト完了後はFlagとv1実装を削除する運用が前提(Release Toggle)。
+end note
+@enduml

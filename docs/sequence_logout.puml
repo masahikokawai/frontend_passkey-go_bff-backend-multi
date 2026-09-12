@@ -1,0 +1,24 @@
+@startuml sequence_logout
+title シーケンス図: ログアウト (RP-Initiated Logoutのみ)
+
+actor "ブラウザ(React)" as Browser
+participant "bff: auth handler" as BFF
+participant "Redis" as Redis
+participant "Keycloak" as KC
+
+Browser -> BFF : POST /api/auth/logout (Cookie: session_id)
+BFF -> Redis : GET session:{sessionID} (id_token取得のため)
+Redis --> BFF : { id_token, ... }
+BFF -> Redis : DEL session:{sessionID}
+BFF --> Browser : Set-Cookie session_id (Max-Age=0)\n302 Keycloak end_session_endpoint\n(id_token_hint, post_logout_redirect_uri)
+
+Browser -> KC : GET end_session_endpoint?id_token_hint=...&post_logout_redirect_uri=...
+KC -> KC : Keycloak側SSOセッション終了
+KC --> Browser : 302 post_logout_redirect_uri (frontendのトップ/ログイン画面)
+
+note right of KC
+  今回はRP-Initiated Logoutのみを実装対象とする(確定事項)。
+  Keycloak管理コンソールからの強制ログアウトや他デバイスでの
+  ログアウトに追従するBackchannel Logoutは対象外。
+end note
+@enduml
