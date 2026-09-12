@@ -1,0 +1,110 @@
+# training-go/bff-gin ローカル開発用
+# Production構成ではない
+#
+# 【重要な設計判断】backend/bffはこのcompose.yamlではコンテナ化せず、README記載の通り`go run ./cmd/server` でホストマシン上に直接起動する前提にしている
+#
+# 理由:
+# KeycloakのAuthorization Code Flowはブラウザを直接Keycloakへリダイレクトするため、「BFFがKeycloakに到達するためのURL」と「ブラウザがKeycloakに到達するためのURL」が
+# 一致していないと、Keycloakが発行するissuer/各種endpoint URLと実際にブラウザが使うURLが食い違い、oidc発行者検証(iss不一致)で失敗する
+#
+# もし bff/backend もコンテナ化すると、bffコンテナ内部からは `keycloak:8080` で疎通できても、ブラウザは `keycloak` というホスト名を解決できず(Dockerネットワーク内部のDNS名のため)、
+# 逆にブラウザ向けに `localhost:8082` を使わせるとbffコンテナ内部の `localhost` は自分自身を指してしまいKeycloakへ届かない
+#
+# この矛盾を回避する最も簡単な方法は、
+# bff/backendをブラウザと同じホストマシン上(コンテナ外)で動かし、両者が同じ `http://localhost:8082` を使えるようにすることである
+# 本番環境ではリバースプロキシ等でホスト名を統一する構成にすればコンテナ化できるが、学習用途ではこの複雑さは扱わない
+services:
+  mysql:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-time-zone=+09:00
+    environment:
+      # 指示により学習用途はrootのみ・パスワードなし
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: bff_gin_development
+    ports:
+      # 127.0.0.1限定
+      # 0.0.0.0へbindすると同一LANの第三者がノーパスワードで接続できる
+      - "127.0.0.1:13306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - bff-gin-mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:latest
+    ports:
+      - "127.0.0.1:16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # KC_HOSTNAME=localhost + ポート8082固定公開により、Keycloakが発行するissuer/各種endpoint URLは常に http://localhost:8082/... になる
+  # bff(ホスト上でgo run)もブラウザも同じ http://localhost:8082 を使うため、issuer不一致が起きない
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: "8082"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - ./bff/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    healthcheck:
+      # 【統合後の実機検証で判明した修正】
+      # 1. このイメージの `/bin/sh` は /dev/tcp をサポートしないため、CMD-SHELL(sh経由)
+      #    ではなく明示的に bash を呼ぶ必要がある(bash自体はイメージに含まれている)
+      # 2. `/health/ready` はデフォルトで無効(KC_HEALTH_ENABLED未設定)で404になり、
+      #    有効化はKeycloakのバージョンによって公開ポートが変わる(9000番の管理ポートに
+      #    分離される場合がある)ため、バージョン差異の影響を受けない
+      #    「8080番ポートへのTCP到達性」だけを見る簡易チェックに変更した
+      #    Keycloakはrealmインポート完了後にHTTPリスナーをbindするため、
+      #    TCP接続できる時点でrealm-export.jsonの読み込みも完了している
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # 生成済みOpenAPI(backend/openapi/external-api.yaml)をブラウザで読む・試すためのビューア
+  # 表示されるのは外部公開API(CONTRACT.mdセクション11、公開ポートは:8081のまま)の契約
+  # 「Try it out」はブラウザから直接 http://localhost:8081 へリクエストするため、このswagger-uiコンテナ自体はbackendへのネットワーク到達性を必要としない
+  # 【CONTRACT.mdセクション20.7で変更】:8081は新設したgateway(gateway/go・gateway/nginxのいずれか、
+  # ネイティブ実行)が待ち受け、backend自身の外部公開APIは内部アドレス:8097へ振り分けられるようになった
+  # (swagger-uiからは変更前と同じ:8081を叩けばよく、この変更による影響は無い)
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    environment:
+      SWAGGER_JSON: /spec/external-api.yaml
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - ./backend/openapi:/spec:ro
+
+  # frontendはVite dev server
+  # BFFはホスト上でgo runする前提(上記コメント参照)なので、
+  # コンテナ内からは host.docker.internal 経由でBFFへ到達する(Docker Desktop for Macの機能)
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      VITE_BFF_ORIGIN: http://host.docker.internal:8080
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend/src:/app/src:ro
+
+volumes:
+  bff-gin-mysql-data:
