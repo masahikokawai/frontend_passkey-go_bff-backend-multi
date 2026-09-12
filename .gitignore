@@ -1,0 +1,134 @@
+# このリポジトリはGo/Rust/Scala/Ruby(Rails)/Node(React)が混在するため、
+# 各言語エコシステムの標準的な生成物・依存パッケージ・macOS/エディタ固有ファイルを
+# まとめてここで無視する(サブディレクトリごとの.gitignoreと併用可能)
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# --- エディタ/IDE ---
+.vscode/
+# Vim
+*.swp
+*.swo
+*.un~
+*~
+Session.vim
+.netrwhist
+# Emacs
+#*#
+.#*
+# Sublime Text(ワークスペースは個人設定を含むため無視、プロジェクトファイル自体は対象外)
+*.sublime-workspace
+
+# --- JetBrains系(IntelliJ IDEA・RubyMine・GoLand・WebStorm等) ---
+# .idea/自体を丸ごと無視するのが基本方針(ワークスペース設定・データソース接続情報等、
+# 個人の環境やDB接続情報(パスワード含みうる)を含むファイルが混在するため)
+# Scala(backend-scala-http4s/backend-scala-pekko)をIntelliJのScalaプラグイン経由でビルドした場合に
+# sbtの target/ とは別に生成される out/ もここで無視する
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# --- マージ/パッチの衝突解消時に残る一時ファイル ---
+*.orig
+*.rej
+
+# --- 環境変数(秘匿情報を含みうるため) ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# --- 各backend/gatewayをネイティブ実行(docker composeを使わない)した際に出るログ ---
+# Rails各アプリのlog/*.logは既に下のRuby/Railsセクションで対応済みだが、
+# Go(backend/bff/admin/go/gateway/go)・Rust(backend-rust)・Scala(backend-scala-http4s/pekko)は
+# 標準出力にログを出すだけで既定ではファイルに書き出さない。手元で
+# `go run ./cmd/server > server.log 2>&1 &`のようにリダイレクトして確認する場合を想定し、
+# 拡張子.log/nohup.outは場所を問わず無視する
+*.log
+nohup.out
+# direnv(.envrc)を使ってこのリポジトリの環境変数を管理する場合のローカルキャッシュ
+.direnv/
+
+# --- Go(backend/・bff/・admin/go/・gateway/go/・gateway/nginx/sidecar/) ---
+# バイナリ名はディレクトリ名と揃えている慣習があるため、代表的なものだけでなく
+# パターンでも拾う
+*.exe
+*.test
+*.out
+/backend/backend
+/bff/bff
+/admin/go/admin-go
+
+# --- Rust(backend-rust/) ---
+/backend-rust/target/
+**/target/
+
+# --- Scala/sbt(backend-scala-http4s/・backend-scala-pekko/) ---
+target/
+project/target/
+project/project/
+.bloop/
+.metals/
+.bsp/
+*.class
+
+# --- Ruby/Rails(backend-rails/・bff-rails/・admin/rails/・frontend-rails/) ---
+/**/log/*
+/**/tmp/*
+!/**/log/.keep
+!/**/tmp/.keep
+/**/.bundle/
+/**/config/master.key
+/**/storage/*
+!/**/storage/.keep
+*.sqlite3
+*.sqlite3-*
+# Propshaft/Sprocketsが生成するコンパイル済みアセット(Railsアプリ全般の既定の.gitignoreに
+# 個別に入っているものだが、このプロジェクトはRailsアプリが5つ(backend-rails/bff-rails/
+# admin/rails/frontend-rails/without-bff/frontend-rails/with-bff)あるため、ここへ集約する)
+/**/public/assets
+# 各Railsアプリの vendor/ は現状 .keep のみのプレースホルダ(コミット対象のままでよい)だが、
+# `bundle config set --local path vendor/bundle` を実行するとgem一式がここへ展開される。
+# 実行された場合に大量のgemバイナリを誤ってコミットしないよう、bundle配下だけ先に無視しておく
+/**/vendor/bundle/
+# Ruby REPL(byebug/irb)の実行履歴。ローカルでのデバッグ時に変数の中身等が残りうるため無視する
+.byebug_history
+.irb_history
+
+# --- Node/React(frontend/・e2e/playwright/・e2e/cypress/・e2e/selenium/) ---
+node_modules/
+dist/
+.vite/
+coverage/
+
+# --- e2e実行結果(playwright/cypress、実行のたびに再生成されるアーティファクト) ---
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+
+# --- nginx(gateway/nginx/) ---
+gateway/nginx/run/*
+gateway/nginx/logs/*
+!gateway/nginx/run/.gitkeep
+!gateway/nginx/logs/.gitkeep
+
+# --- 個人の作業メモ(起動手順・ロールバック手順等、リポジトリに含めたくない個人用ファイル) ---
+# ファイル名に".local"を含めれば、ディレクトリを問わずコミット対象から外れる
+# (例: NOTES.local.md、rollback.local.txt、memo/anything.local.md)
+*.local.md
+*.local.txt
+/memo/
+/notes/
