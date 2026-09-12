@@ -1,0 +1,42 @@
+# bob (https://github.com/stephenafamo/bob) のMySQLコード生成設定
+#
+# CONTRACT.md セクション24(backend内でのORM比較、GORM/bob)向け。
+# 対象を tasks/labels/task_labels の3テーブルに絞っているのは、
+# このコード生成がFeature Flag `backend.external-tasks-orm` で切り替える
+# 外部公開API(/external/v1/tasks)のTask一覧取得ロジックだけに使うためで、
+# それ以外のテーブル(users/feature_flags/webauthn_credentials等)はGORMのまま
+# 変更しない対象なのでbob側のコード生成には含めない(生成物を最小限にする)
+#
+# 再生成コマンド(README.md参照):
+#   go install github.com/stephenafamo/bob/gen/bobgen-mysql@v0.50.0
+#   MySQLをdocker-composeで起動した状態で:
+#   bobgen-mysql -c ./bobgen.yaml
+mysql:
+  dsn: "root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true"
+  only:
+    tasks: null
+    labels: null
+    task_labels: null
+
+# 生成物の出力先は plugins: 配下にネストして指定する
+# (bobgen-helpers.GetConfigFromFile はトップレベルの "plugins" キー配下だけを
+#  plugins.Config としてデコードするため、トップレベルに直接 models:/factory: を
+#  書いても無視される。実機で一度generateして初めて気づいた落とし穴で、READMEにも記す)
+#
+# 生成先は internal/repository/bobgen/ 配下にまとめる
+# (repository層の中に閉じ込め、service/handler層からはGORMのmodel.Task同様、
+#  repository.Taskのメソッド経由でのみ触らせる設計にするため)
+plugins:
+  dbinfo:
+    destination: "internal/repository/bobgen/dbinfo"
+    pkgname: "dbinfo"
+  models:
+    destination: "internal/repository/bobgen/models"
+    pkgname: "models"
+  # factory(テストデータ生成器)・dberrors(MySQLエラーコードのラップ)は
+  # このタスクのスコープ外(テストは既存方針通りrepository/service層で直接
+  # INSERTして用意し、エラー分類もGORM実装と同様errors.Isで十分なため)
+  factory:
+    disabled: true
+  dberrors:
+    disabled: true

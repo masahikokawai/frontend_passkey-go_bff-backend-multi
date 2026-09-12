@@ -1,0 +1,21 @@
+# GO Feature Flag のフラグ定義(ファイルベース)
+#   CONTRACT.md セクション11参照
+#
+# backend.external-tasks-pagination-v2:
+#   BFFを経由しない外部公開API(/external/v1/tasks)のページング方式を切り替える
+#   OFF(既定): offsetページング(page/page_size)
+#     深いページほどOFFSETのスキャン
+#     コストが増える典型的な弱点を持つ「旧実装」
+#   ON: (created_at, id)によるキーセット(cursor)ページング
+#     大量データでもページが深くなっても性能が劣化しない「新実装」
+#   このパスにBFFは介在しないため、backendプロセス自身がこのファイルを読んで評価する
+#   (bff/internal/featureflag/flags.yamlとは別ファイル)
+#   targeting keyはAPIクライアントのclient_id(トークンのazpクレーム)
+
+backend.external-tasks-pagination-v2:
+  variations:
+    "on": true
+    "off": false
+  defaultRule:
+    variation: "off"
+  disable: false

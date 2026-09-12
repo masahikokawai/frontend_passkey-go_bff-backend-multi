@@ -1,0 +1,61 @@
+# training-go/gin/.golangci.yml(jinjer-ats方針踏襲)と同じlinterセットを使う
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - revive
+    - errorlint
+    - exhaustive
+    - bodyclose
+    - noctx
+    - sloglint
+    - gosec
+
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+    sloglint:
+      attr-only: true
+      static-msg: true
+      no-mixed-args: true
+
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+      # buf generateの生成物はlintの対象外
+      - path: gen/.*\.go
+        linters:
+          - errcheck
+          - govet
+          - staticcheck
+          - ineffassign
+          - unused
+          - revive
+          - errorlint
+          - exhaustive
+          - bodyclose
+          - noctx
+          - sloglint
+          - gosec
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

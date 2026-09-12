@@ -1,0 +1,162 @@
+openapi: 3.0.3
+info:
+  title: training-go/bff-gin 外部公開API
+  version: "1.0.0"
+  description: |
+    BFF(ブラウザ向けセッション認証)を経由しない、サーバー間連携用の直接API
+    CONTRACT.md セクション11参照
+
+    認証はOAuth2 Client Credentials Grantを使う
+    Keycloakのrealm `training` に登録された `external-api-client`(confidential、Service Accounts Enabled)で
+    アクセストークンを取得し、Authorizationヘッダに `Bearer <token>` として付与する
+
+    トークン取得例:
+      curl -X POST http://localhost:8180/realms/training/protocol/openid-connect/token \
+        -d grant_type=client_credentials \
+        -d client_id=external-api-client \
+        -d client_secret=<secret>
+
+    ページング方式はFeature Flag `backend.external-tasks-pagination-v2` の値に応じて
+    backendが自動的に切り替える(クライアント側でどちらを使うか選ぶことはできない)
+      - OFF(既定): offsetページング。`page`/`page_size`パラメータが使われる
+        深いページほどOFFSETのスキャンコストが増える弱点がある「旧実装」
+      - ON: keyset(cursor)ページング。`cursor`/`limit`パラメータが使われる
+        大量データでもページが深くなっても性能が劣化しない「新実装」
+    どちらのモードでも、リクエストされたクエリパラメータのうち対応しない側は無視される
+
+    既知の制約: `user_id` はクライアント側が任意に指定できる
+    このAPIのクライアント資格情報を持つ者は任意ユーザーのタスクを読み取れる(サーバー間の信頼関係を前提にした設計であり、エンドユーザー単位の認可は行わない)
+
+servers:
+  - url: http://localhost:8081
+    description: ローカル開発(backendの外部API専用ポート)
+
+security:
+  - clientCredentials: []
+
+paths:
+  /external/v1/tasks:
+    get:
+      summary: 指定ユーザーのタスク一覧を取得する
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: 取得対象のユーザーID
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: (offsetページング時のみ)ページ番号、1始まり
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: (offsetページング時のみ)1ページあたりの件数
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: (cursorページング時のみ)前回レスポンスのnext_cursorをそのまま渡す。省略時は先頭ページ
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: (cursorページング時のみ)1ページあたりの件数
+      responses:
+        "200":
+          description: OK。Feature Flagの状態に応じて2種類のいずれかの形状で返る
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TaskListOffsetResponse"
+                  - $ref: "#/components/schemas/TaskListCursorResponse"
+        "400":
+          description: user_id未指定など、リクエストが不正
+        "401":
+          description: トークンが無いか無効
+        "403":
+          description: external-api-client以外のクライアントからのアクセス
+
+components:
+  securitySchemes:
+    clientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: http://localhost:8180/realms/training/protocol/openid-connect/token
+          scopes: {}
+  schemas:
+    Label:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [waiting, work_in_progress, completed]
+        finished_on:
+          type: string
+          format: date
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Label"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TaskListOffsetResponse:
+      type: object
+      description: Feature Flag OFF(既定)時のレスポンス形状
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    TaskListCursorResponse:
+      type: object
+      description: Feature Flag ON時のレスポンス形状
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        next_cursor:
+          type: string
+          nullable: true
+          description: 次ページが無い場合はnull
+        limit:
+          type: integer
