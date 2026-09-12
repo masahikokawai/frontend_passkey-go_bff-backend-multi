@@ -1,0 +1,12 @@
+[debug] Extracted from /Users/masahiko.kawai/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar:
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/empty.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/wrappers.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/type.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/field_mask.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/struct.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/api.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/duration.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/source_context.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/descriptor.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/timestamp.proto
+[debug]  * /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/protobuf_external/google/protobuf/any.proto

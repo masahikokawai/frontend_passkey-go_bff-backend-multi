@@ -1,0 +1,11 @@
+[debug] Running TaskDef(com.bffgin.backendpekko.TaskDuplicateLabelIdDbSpec, org.scalatest.tools.Framework$$anon$1@3fdb3871, false, [SuiteSelector])
+[info] TaskDuplicateLabelIdDbSpec:
+[info] SlickTaskRepository
+[info] - should dedupe a duplicate label id in create/update instead of raising a raw DB error
+[info] Run completed in 1 second, 177 milliseconds.
+[info] Total number of tests run: 1
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[debug] Passed tests:
+[debug] 	com.bffgin.backendpekko.TaskDuplicateLabelIdDbSpec

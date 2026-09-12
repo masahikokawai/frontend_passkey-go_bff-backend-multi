@@ -1,0 +1,4 @@
+[0m[[0m[0mdebug[0m] [0m[0mInvalidating cache (input changed)[0m
+[0m[[0m[0minfo[0m] [0m[0mCompiling 1 protobuf files to /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/scala-2.13/src_managed/main/scalapb,/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/target/scala-2.13/src_managed/main/fs2-grpc[0m
+[0m[[0m[0mdebug[0m] [0m[0mprotoc options:[0m
+[0m[[0m[0mdebug[0m] [0m[0mCompiling schema /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/src/main/protobuf/task/v1/task.proto[0m

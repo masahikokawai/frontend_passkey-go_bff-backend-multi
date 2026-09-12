@@ -1,0 +1,7 @@
+[error] /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/src/main/scala/com/bffgin/backend/Main.scala:12:8: object NettyServerBuilder is not a member of package io.grpc.netty
+[error] import io.grpc.netty.NettyServerBuilder
+[error]        ^
+[error] /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/src/main/scala/com/bffgin/backend/Main.scala:42:26: not found: value NettyServerBuilder
+[error]             val server = NettyServerBuilder.forPort(grpcPortNum).addService(serviceDef).build()
+[error]                          ^
+[error] two errors found

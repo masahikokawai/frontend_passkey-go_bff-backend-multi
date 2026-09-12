@@ -1,0 +1,3 @@
+[debug] Copy resource mappings: 
+[debug] 	(/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/src/main/protobuf/task/v1/task.proto,/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/target/scala-2.13/classes/task/v1/task.proto)
+[debug] 	(/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/src/main/resources/application.conf,/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/target/scala-2.13/classes/application.conf)

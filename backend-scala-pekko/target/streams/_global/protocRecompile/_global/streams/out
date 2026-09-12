@@ -1,0 +1,5 @@
+[info] Generating Apache Pekko gRPC service interface for task.v1.TaskService
+[info] Generating Apache Pekko gRPC client for task.v1.TaskService
+[info] Generating Apache Pekko gRPC service handler for task.v1.TaskService
+[info] Generating Apache Pekko gRPC service power API handler for task.v1.TaskService
+[info] Generating Apache Pekko gRPC service power API interface for task.v1.TaskService

@@ -1,0 +1,14 @@
+[debug] downloaded https://repo1.maven.org/maven2/org/apache/pekko/pekko-grpc-sbt-plugin_2.12_1.0/1.1.1/pekko-grpc-sbt-plugin_2.12_1.0-1.1.1.pom
+[debug] downloaded https://repo1.maven.org/maven2/org/apache/pekko/pekko-grpc-codegen_2.12/1.1.1/pekko-grpc-codegen_2.12-1.1.1.pom
+[debug] downloaded https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.67.1/grpc-protobuf-1.67.1.pom
+[debug] downloaded https://repo1.maven.org/maven2/org/playframework/twirl/twirl-api_2.12/2.0.7/twirl-api_2.12-2.0.7.pom
+[debug] downloaded https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.67.1/grpc-protobuf-lite-1.67.1.pom
+[debug] downloaded https://repo1.maven.org/maven2/com/google/api/grpc/proto-google-common-protos/2.41.0/proto-google-common-protos-2.41.0.pom
+[debug] downloaded https://repo1.maven.org/maven2/io/grpc/grpc-api/1.67.1/grpc-api-1.67.1.pom
+[debug] downloaded https://repo1.maven.org/maven2/org/apache/pekko/pekko-grpc-sbt-plugin_2.12_1.0/1.1.1/pekko-grpc-sbt-plugin_2.12_1.0-1.1.1.jar
+[debug] downloaded https://repo1.maven.org/maven2/org/apache/pekko/pekko-grpc-codegen_2.12/1.1.1/pekko-grpc-codegen_2.12-1.1.1.jar
+[debug] downloaded https://repo1.maven.org/maven2/io/grpc/grpc-protobuf/1.67.1/grpc-protobuf-1.67.1.jar
+[debug] downloaded https://repo1.maven.org/maven2/io/grpc/grpc-protobuf-lite/1.67.1/grpc-protobuf-lite-1.67.1.jar
+[debug] downloaded https://repo1.maven.org/maven2/org/playframework/twirl/twirl-api_2.12/2.0.7/twirl-api_2.12-2.0.7.jar
+[debug] downloaded https://repo1.maven.org/maven2/io/grpc/grpc-api/1.67.1/grpc-api-1.67.1.jar
+[debug] downloaded https://repo1.maven.org/maven2/com/google/api/grpc/proto-google-common-protos/2.41.0/proto-google-common-protos-2.41.0.jar

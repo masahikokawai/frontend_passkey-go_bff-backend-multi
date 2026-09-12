@@ -1,0 +1,112 @@
+[debug] Running TaskDef(com.bffgin.backendpekko.ExternalCursorCodecSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.TaskNulByteRoundTripDbSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.external.ExternalTaskRoutesSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.ModelSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.rest.TaskRoutesSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.TaskServiceSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.TaskDuplicateLabelIdDbSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.grpc.LoggingTaskGrpcServiceSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backendpekko.FeatureFlagLogicSpec, org.scalatest.tools.Framework$$anon$1@71e0889, false, [SuiteSelector])
+[info] ExternalCursorCodecSpec:
+[info] encode/decode
+[info] - should 往復してもとの値に戻る
+[info] - should 不正なbase64はLeftを返す
+[info] - should 区切り文字が無いとLeftを返す
+[info] ModelSpec:
+[info] TaskStatus
+[info] - should waiting/work_in_progress/completedを1/2/3にマッピングする(Rails enumとの互換性)
+[info] - should 1/2/3をwaiting/work_in_progress/completedへ復元する
+[info] - should 不明な値はunknown(N)を返す
+[info] - should isValidは既知の3値のみtrueを返す
+[info] TaskDuplicateLabelIdDbSpec:
+[info] SlickTaskRepository
+[info] - should dedupe a duplicate label id in create/update instead of raising a raw DB error !!! CANCELED !!!
+[info]   Map("LC_TERMINAL" -> "iTerm2", "JAVA_HOME" -> "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home", "OSLogRateLimit" -> "64", "__CF_USER_TEXT_ENCODING" -> "0x1F6:0x1:0xE", "SHLVL" -> "2", "GOBIN" -> "/Users/masahiko.kawai/.local/share/mise/installs/go/1.27.0/bin", "MISE_SHELL" -> "bash", "COLORFGBG" -> "7;0", "SSH_AUTH_SOCK" -> "/var/run/com.apple.launchd.8O6pzEdiAI/Listeners", "__CFBundleIdentifier" -> "com.googlecode.iterm2", "SHELL" -> "/bin/bash", "LOGNAME" -> "masahiko.kawai", "__MISE_SESSION" -> "eAHqWpOTn5iSmhJfkp+fUzxhHZSXnJ+XlplePPGmnn5ocWpRsX5uYnFiRmZ2vl52Ynlipr4eRIF+bmZxqj6ErVeSn5uzBsKOL0gsySiesDg1r6xpqbu/k6ffTTscBuXkJyfm6BdnJBalQkzLzCsuSczJKdZPz9c31DMy1zPQT8rMW+buH+TvH3LTinxjlifmZCYWpxY3rCoBLLUoMT4tMye1eMLq8sSS5AwIZzKpvr2pTqRrbprjV1iSWAL1fUlRaXFJaoouJByLF6dkFu3Erjc9s2RNal5ZfFliUXxGYnHGhiRjS8PUNFODJHPDZENTC7O1OYklqcUl8aUFKYklqUcEGOCAcUGX7/osANS9wHA", "PATH" -> "/Users/masahiko.kawai/.cargo/bin:/opt/homebrew/opt/mysql-client/bin:/Users/masahiko.kawai/.local/share/mise/installs/go/1.27.0/bin:/Users/masahiko.kawai/.local/share/mise/installs/node/22.18.0/bin:/Users/masahiko.kawai/.local/share/mise/installs/ruby/3.3.9/bin:/Users/masahiko.kawai/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/opt/homebrew/bin:/Applications/iTerm.app/Contents/Resources/utilities:/Users/masahiko.kawai/.docker/bin", "JAVA_OPTS" -> "-Dfile.encoding=UTF-8", "GOROOT" -> "/Users/masahiko.kawai/.local/share/mise/installs/go/1.27.0", "CLAUDE_CODE_ENTRYPOINT" -> "cli", "TERM" -> "xterm-256color", "__MISE_EXE" -> "/opt/homebrew/bin/mise", "XPC_SERVICE_NAME" -> "0", "TERM_PROGRAM" -> "iTerm.app", "CLAUDE_CODE_EXECPATH" -> "/Users/masahiko.kawai/.local/share/claude/versions/2.1.267", "CLAUDE_PID" -> "69017", "HOME" -> "/Users/masahiko.kawai", "COLORTERM" -> "truecolor", "LC_TERMINAL_VERSION" -> "3.6.11", "TERM_FEATURES" -> "T3LrMSc7UUw9Ts3BFGsSyHNoSxFP", "ITERM_SESSION_ID" -> "w0t5p0:FD156E61-D5D7-4BEA-8EB1-3733C50CF041", "COMMAND_MODE" -> "unix2003", "AI_AGENT" -> "claude-code_2-1-267_agent", "GIT_EDITOR" -> "true", "CLAUDE_CODE_SESSION_ID" -> "bf15ada2-f301-4e08-810d-50dcb459609b", "TERMINFO_DIRS" -> "/Applications/iTerm.app/Contents/Resources/terminfo:/usr/share/terminfo", "USER" -> "masahiko.kawai", "CLAUDECODE" -> "1", "SECURITYSESSIONID" -> "186ba", "COREPACK_ENABLE_AUTO_PIN" -> "0", "CLAUDE_CODE_MESSAGING_TOKEN" -> "898c571b7be843f61efa201e5ce82818", "XPC_FLAGS" -> "0x0", "TMPDIR" -> "/var/folders/2x/ww9wjnw55qvbqt4tb9wvl_hh0000gp/T/", "TERM_SESSION_ID" -> "w0t5p0:FD156E61-D5D7-4BEA-8EB1-3733C50CF041", "CLAUDE_CODE_CHILD_SESSION" -> "1", "CLAUDE_CODE_MESSAGING_SOCKET" -> "/tmp/cc-socks/69017.sock", "TERM_PROGRAM_VERSION" -> "3.6.11", "PWD" -> "/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko", "LaunchInstanceID" -> "CE62EBAF-9813-40AE-BBA8-2F5410EB7E2B", "CLAUDE_EFFORT" -> "high", "__MISE_ORIG_PATH" -> "/Users/masahiko.kawai/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/opt/homebrew/bin:/Applications/iTerm.app/Contents/Resources/utilities:/Users/masahiko.kawai/.docker/bin", "LANG" -> "ja_JP.UTF-8", "NoDefaultCurrentDirectoryInExePath" -> "1", "ITERM_PROFILE" -> "Default", "__MISE_DIFF" -> "eAFqXpyfk9KwOC+1vGmpu7+Tp99NO/3Q4tSiYv3cxOLEjMzsfL3sxPLETH29nPzkxBz94ozEolT93MziVP3MvOKSxJycYv30fH1DPSNzPQP9pMy8Ze7+Qf7+ITcBsyLfmCUFiSUZkyl1yE1Hkl2Ql5+Sqm9kpGdoAfHLTXuSjSgqTarUN9Yz1rMEBQYALhZ/3g") did not contain key "TEST_DB_DSN" TEST_DB_DSN未設定のためこのDB接続テストはスキップします(このファイル冒頭のコメント参照) (TaskDuplicateLabelIdDbSpec.scala:32)
+[info] TaskNulByteRoundTripDbSpec:
+[info] SlickTaskRepository
+[info] - should round-trip a task name/description containing NUL and control characters without truncation or corruption !!! CANCELED !!!
+[info]   Map("LC_TERMINAL" -> "iTerm2", "JAVA_HOME" -> "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home", "OSLogRateLimit" -> "64", "__CF_USER_TEXT_ENCODING" -> "0x1F6:0x1:0xE", "SHLVL" -> "2", "GOBIN" -> "/Users/masahiko.kawai/.local/share/mise/installs/go/1.27.0/bin", "MISE_SHELL" -> "bash", "COLORFGBG" -> "7;0", "SSH_AUTH_SOCK" -> "/var/run/com.apple.launchd.8O6pzEdiAI/Listeners", "__CFBundleIdentifier" -> "com.googlecode.iterm2", "SHELL" -> "/bin/bash", "LOGNAME" -> "masahiko.kawai", "__MISE_SESSION" -> "eAHqWpOTn5iSmhJfkp+fUzxhHZSXnJ+XlplePPGmnn5ocWpRsX5uYnFiRmZ2vl52Ynlipr4eRIF+bmZxqj6ErVeSn5uzBsKOL0gsySiesDg1r6xpqbu/k6ffTTscBuXkJyfm6BdnJBalQkzLzCsuSczJKdZPz9c31DMy1zPQT8rMW+buH+TvH3LTinxjlifmZCYWpxY3rCoBLLUoMT4tMye1eMLq8sSS5AwIZzKpvr2pTqRrbprjV1iSWAL1fUlRaXFJaoouJByLF6dkFu3Erjc9s2RNal5ZfFliUXxGYnHGhiRjS8PUNFODJHPDZENTC7O1OYklqcUl8aUFKYklqUcEGOCAcUGX7/osANS9wHA", "PATH" -> "/Users/masahiko.kawai/.cargo/bin:/opt/homebrew/opt/mysql-client/bin:/Users/masahiko.kawai/.local/share/mise/installs/go/1.27.0/bin:/Users/masahiko.kawai/.local/share/mise/installs/node/22.18.0/bin:/Users/masahiko.kawai/.local/share/mise/installs/ruby/3.3.9/bin:/Users/masahiko.kawai/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/opt/homebrew/bin:/Applications/iTerm.app/Contents/Resources/utilities:/Users/masahiko.kawai/.docker/bin", "JAVA_OPTS" -> "-Dfile.encoding=UTF-8", "GOROOT" -> "/Users/masahiko.kawai/.local/share/mise/installs/go/1.27.0", "CLAUDE_CODE_ENTRYPOINT" -> "cli", "TERM" -> "xterm-256color", "__MISE_EXE" -> "/opt/homebrew/bin/mise", "XPC_SERVICE_NAME" -> "0", "TERM_PROGRAM" -> "iTerm.app", "CLAUDE_CODE_EXECPATH" -> "/Users/masahiko.kawai/.local/share/claude/versions/2.1.267", "CLAUDE_PID" -> "69017", "HOME" -> "/Users/masahiko.kawai", "COLORTERM" -> "truecolor", "LC_TERMINAL_VERSION" -> "3.6.11", "TERM_FEATURES" -> "T3LrMSc7UUw9Ts3BFGsSyHNoSxFP", "ITERM_SESSION_ID" -> "w0t5p0:FD156E61-D5D7-4BEA-8EB1-3733C50CF041", "COMMAND_MODE" -> "unix2003", "AI_AGENT" -> "claude-code_2-1-267_agent", "GIT_EDITOR" -> "true", "CLAUDE_CODE_SESSION_ID" -> "bf15ada2-f301-4e08-810d-50dcb459609b", "TERMINFO_DIRS" -> "/Applications/iTerm.app/Contents/Resources/terminfo:/usr/share/terminfo", "USER" -> "masahiko.kawai", "CLAUDECODE" -> "1", "SECURITYSESSIONID" -> "186ba", "COREPACK_ENABLE_AUTO_PIN" -> "0", "CLAUDE_CODE_MESSAGING_TOKEN" -> "898c571b7be843f61efa201e5ce82818", "XPC_FLAGS" -> "0x0", "TMPDIR" -> "/var/folders/2x/ww9wjnw55qvbqt4tb9wvl_hh0000gp/T/", "TERM_SESSION_ID" -> "w0t5p0:FD156E61-D5D7-4BEA-8EB1-3733C50CF041", "CLAUDE_CODE_CHILD_SESSION" -> "1", "CLAUDE_CODE_MESSAGING_SOCKET" -> "/tmp/cc-socks/69017.sock", "TERM_PROGRAM_VERSION" -> "3.6.11", "PWD" -> "/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko", "LaunchInstanceID" -> "CE62EBAF-9813-40AE-BBA8-2F5410EB7E2B", "CLAUDE_EFFORT" -> "high", "__MISE_ORIG_PATH" -> "/Users/masahiko.kawai/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/opt/homebrew/bin:/Applications/iTerm.app/Contents/Resources/utilities:/Users/masahiko.kawai/.docker/bin", "LANG" -> "ja_JP.UTF-8", "NoDefaultCurrentDirectoryInExePath" -> "1", "ITERM_PROFILE" -> "Default", "__MISE_DIFF" -> "eAFqXpyfk9KwOC+1vGmpu7+Tp99NO/3Q4tSiYv3cxOLEjMzsfL3sxPLETH29nPzkxBz94ozEolT93MziVP3MvOKSxJycYv30fH1DPSNzPQP9pMy8Ze7+Qf7+ITcBsyLfmCUFiSUZkyl1yE1Hkl2Ql5+Sqm9kpGdoAfHLTXuSjSgqTarUN9Yz1rMEBQYALhZ/3g") did not contain key "TEST_DB_DSN" TEST_DB_DSN未設定のためこのDB接続テストはスキップします(このファイル冒頭のコメント参照) (TaskNulByteRoundTripDbSpec.scala:42)
+[info] FeatureFlagLogicSpec:
+[info] resolveBool
+[info] - should 行が無ければdefaultValueを返す
+[info] - should enabled=falseならdefaultValueを返す(variationsの中身に関わらず)
+[info] - should enabled=trueかつdefault_variation=onならvariationsのon値(true)を返す
+[info] - should enabled=trueかつdefault_variation=offならfalseを返す
+[info] - should variationsがNone(古い行)なら既定の{on:true,off:false}にフォールバックする
+[info] - should variationsが不正なJSONならdefaultBooleanVariationsにフォールバックする
+[info] - should default_variationがvariationsのキーに無ければdefaultValueにフォールバックする
+[info] LoggingTaskGrpcServiceSpec:
+[info] LoggingTaskGrpcService
+[info] - should 成功時、delegateが返した値をそのまま透過する(ログのための副作用が値をすり替えない)
+[info] - should 失敗時(GrpcServiceException)、ステータスコード・メッセージを変えずそのまま伝播する
+[info] - should GrpcServiceException以外の予期しない例外も、そのまま(すり替えず)伝播する
+[info] - should 5つのRPC全てが、対応するdelegateのメソッドだけを呼ぶ(取り違えて別のRPCを呼んでいないか)
+[info] - should 複数RPCを並行に呼んでも、それぞれ独立した結果を返す(ログ処理がグローバルな状態を共有して混線しないか)
+[info] TaskServiceSpec:
+[info] TaskService.validate
+[info] - should nameが空なら Validation を返す
+[info] - should nameが21文字以上なら Validation を返す
+[info] - should nameがちょうど20文字なら成功する
+[info] - should 基本多言語面外の文字(絵文字)20文字なら成功する(UTF-16コード単位数ではなくコードポイント数で判定)
+[info] - should 基本多言語面外の文字(絵文字)21文字なら Validation を返す
+[info] - should finished_onが過去日なら Validation を返す
+[info] - should statusが不明な値なら Validation を返す
+[info] - should 全て妥当なら成功する
+[info] - should todayデフォルト引数はUTC基準である(実行環境のタイムゾーンに依存しない)
+[info] TaskService.resolveUserId
+[info] - should ローカル発行issuerかつsubがusersに存在すれば内部user_idを解決する
+[info] - should ローカル発行issuerでもsubに対応するuserが無ければUserNotProvisioned
+[info] - should ローカル発行issuerでもsubが数値でなければUserNotProvisioned
+[info] - should Keycloak発行issuerならkeycloak_subで検索する
+[info] - should Keycloak発行issuerでkeycloak_subが未登録ならUserNotProvisioned
+[info] - should 外部公開API用トークン(external-api-clientのサービスアカウント)は内部APIのuser解決に失敗する
+[info] TaskService CRUD
+[info] - should createはバリデーション成功時にNotFoundにならず生成される
+[info] - should createはバリデーション失敗時にValidationを返す(DBへは到達しない)
+[info] - should getは存在しないIDでNotFoundを返す
+[info] - should updateは他人のtaskをNotFound扱いする(認可漏れ防止)
+[info] - should deleteは存在しないIDでNotFoundを返す
+[info] - should deleteは既に削除済みのIDへの2回目の呼び出しでもNotFoundを返す(冪等)
+[info] ExternalTaskRoutesSpec:
+[info] GET /external/v1/tasks
+[info] - should Authorizationヘッダが無ければ401 unauthorized
+[info] - should 検証に失敗するトークンなら401 invalid_token
+[info] - should azpクレームが期待値と不一致なら403 client_not_allowed
+[info] - should azpクレームが無ければ403 client_not_allowed
+[info] - should user_idクエリが無ければ400
+[info] - should user_idが数値でなければ400
+[info] - should flag OFF(既定)ならoffsetページング形状(page/page_size/total)で返す
+[info] - should flag ONならcursorページング形状(next_cursor/limit)で返す
+[info] - should 不正なcursorは422
+[info] - should レスポンスのTask JSONにはuser_idが含まれない
+[info] TaskRoutesSpec:
+[info] GET /internal/v1/tasks
+[info] - should Authorizationヘッダが無ければ401 unauthorized
+[info] - should 不正なトークンなら401 invalid_token
+[info] - should 有効なトークンだがusersに未登録なら403 user_not_provisioned
+[info] - should 不正なstatusクエリパラメータは422 invalid_status
+[info] - should 妥当なリクエストは200でtasks/total/limit/offsetを返す
+[info] POST /internal/v1/tasks
+[info] - should 必須項目(name)が無ければ400 invalid_request
+[info] - should finished_onの形式が不正なら422 invalid_finished_on
+[info] - should nameが21文字以上なら422 validation_error
+[info] - should 妥当なリクエストは201でTaskを返す
+[info] GET/PATCH/DELETE /internal/v1/tasks/:id
+[info] - should 存在しないIDのGETは404 not_found
+[info] - should 存在しないIDのDELETEは404 not_found
+[info] - should 作成したtaskはDELETEで204、以後のGETは404になる
+[info] Run completed in 488 milliseconds.
+[info] Total number of tests run: 62
+[info] Suites: completed 9, aborted 0
+[info] Tests: succeeded 62, failed 0, canceled 2, ignored 0, pending 0
+[info] All tests passed.
+[debug] Passed tests:
+[debug] 	com.bffgin.backendpekko.FeatureFlagLogicSpec
+[debug] 	com.bffgin.backendpekko.external.ExternalTaskRoutesSpec
+[debug] 	com.bffgin.backendpekko.rest.TaskRoutesSpec
+[debug] 	com.bffgin.backendpekko.ModelSpec
+[debug] 	com.bffgin.backendpekko.TaskServiceSpec
+[debug] 	com.bffgin.backendpekko.grpc.LoggingTaskGrpcServiceSpec
+[debug] 	com.bffgin.backendpekko.ExternalCursorCodecSpec
+[debug] 	com.bffgin.backendpekko.TaskDuplicateLabelIdDbSpec
+[debug] 	com.bffgin.backendpekko.TaskNulByteRoundTripDbSpec

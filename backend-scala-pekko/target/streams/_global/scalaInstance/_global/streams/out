@@ -1,0 +1,46 @@
+[error] java.lang.RuntimeException: expected `backend-scala-pekko/scalaVersion` to be "2.13.15" or later,
+[error] but found "2.13.14"; upgrade scalaVersion to fix the build.
+[error] 
+[error] to support backwards-only binary compatibility (SIP-51),
+[error] the Scala 2.13 compiler cannot be older than scala-library on the
+[error] dependency classpath.
+[error] see `backend-scala-pekko/evicted` to know why scala-library 2.13.15 is getting pulled in.
+[error] 
+[error] 	at scala.sys.package$.error(package.scala:30)
+[error] 	at sbt.Defaults$.$anonfun$scalaInstanceFromUpdate$14(Defaults.scala:1195)
+[error] 	at sbt.Defaults$.$anonfun$scalaInstanceFromUpdate$14$adapted(Defaults.scala:1184)
+[error] 	at scala.Option.foreach(Option.scala:407)
+[error] 	at sbt.Defaults$.$anonfun$scalaInstanceFromUpdate$12(Defaults.scala:1184)
+[error] 	at sbt.Defaults$.$anonfun$scalaInstanceFromUpdate$12$adapted(Defaults.scala:1182)
+[error] 	at scala.collection.Iterator.foreach(Iterator.scala:943)
+[error] 	at scala.collection.Iterator.foreach$(Iterator.scala:943)
+[error] 	at scala.collection.AbstractIterator.foreach(Iterator.scala:1431)
+[error] 	at scala.collection.IterableLike.foreach(IterableLike.scala:74)
+[error] 	at scala.collection.IterableLike.foreach$(IterableLike.scala:73)
+[error] 	at scala.collection.AbstractIterable.foreach(Iterable.scala:56)
+[error] 	at sbt.Defaults$.$anonfun$scalaInstanceFromUpdate$11(Defaults.scala:1182)
+[error] 	at sbt.Defaults$.$anonfun$scalaInstanceFromUpdate$11$adapted(Defaults.scala:1181)
+[error] 	at scala.Option.foreach(Option.scala:407)
+[error] 	at sbt.Defaults$.$anonfun$scalaInstanceFromUpdate$1(Defaults.scala:1181)
+[error] 	at scala.Function1.$anonfun$compose$1(Function1.scala:49)
+[error] 	at sbt.internal.util.$tilde$greater.$anonfun$$u2219$1(TypeFunctions.scala:63)
+[error] 	at sbt.std.Transform$$anon$4.work(Transform.scala:69)
+[error] 	at sbt.Execute.$anonfun$submit$2(Execute.scala:283)
+[error] 	at sbt.internal.util.ErrorHandling$.wideConvert(ErrorHandling.scala:24)
+[error] 	at sbt.Execute.work(Execute.scala:292)
+[error] 	at sbt.Execute.$anonfun$submit$1(Execute.scala:283)
+[error] 	at sbt.ConcurrentRestrictions$$anon$4.$anonfun$submitValid$1(ConcurrentRestrictions.scala:265)
+[error] 	at sbt.CompletionService$$anon$2.call(CompletionService.scala:65)
+[error] 	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:330)
+[error] 	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:545)
+[error] 	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:330)
+[error] 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
+[error] 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
+[error] 	at java.base/java.lang.Thread.run(Thread.java:1516)
+[error] (scalaInstance) expected `backend-scala-pekko/scalaVersion` to be "2.13.15" or later,
+[error] but found "2.13.14"; upgrade scalaVersion to fix the build.
+[error] 
+[error] to support backwards-only binary compatibility (SIP-51),
+[error] the Scala 2.13 compiler cannot be older than scala-library on the
+[error] dependency classpath.
+[error] see `backend-scala-pekko/evicted` to know why scala-library 2.13.15 is getting pulled in.

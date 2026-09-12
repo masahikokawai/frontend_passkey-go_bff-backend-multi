@@ -1,0 +1,4 @@
+[debug] Invalidating cache (input changed)
+[info] Compiling 1 protobuf files to /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/target/scala-2.13/pekko-grpc/main
+[debug] protoc options:
+[debug] Compiling schema /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/src/main/protobuf/task/v1/task.proto

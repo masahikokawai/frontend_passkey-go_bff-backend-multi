@@ -1,0 +1,23 @@
+[debug] Running TaskDef(com.bffgin.backend.TaskServiceValidationSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.TaskNulByteRoundTripDbSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.TaskRepoDeleteIdempotencyDbSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.auth.JwtAuthSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.external.ExternalJsonSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.AppErrorMappingSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.grpc.LoggingServerInterceptorSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.UserResolverSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.TaskRepoDuplicateLabelIdDbSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(com.bffgin.backend.TaskStatusSuite, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Summary for munit not available.
+[info] Passed: Total 51, Failed 0, Errors 0, Passed 48, Skipped 3
+[debug] Passed tests:
+[debug] 	com.bffgin.backend.auth.JwtAuthSuite
+[debug] 	com.bffgin.backend.AppErrorMappingSuite
+[debug] 	com.bffgin.backend.TaskRepoDeleteIdempotencyDbSuite
+[debug] 	com.bffgin.backend.UserResolverSuite
+[debug] 	com.bffgin.backend.external.ExternalJsonSuite
+[debug] 	com.bffgin.backend.TaskRepoDuplicateLabelIdDbSuite
+[debug] 	com.bffgin.backend.TaskNulByteRoundTripDbSuite
+[debug] 	com.bffgin.backend.TaskServiceValidationSuite
+[debug] 	com.bffgin.backend.grpc.LoggingServerInterceptorSuite
+[debug] 	com.bffgin.backend.TaskStatusSuite

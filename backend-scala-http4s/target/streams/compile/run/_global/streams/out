@@ -1,0 +1,9 @@
+[error] java.net.BindException: Address already in use
+[error] 	at java.base/sun.nio.ch.Net.bind0(Native Method)
+[error] 	at java.base/sun.nio.ch.Net.bind(Net.java:525)
+[error] 	at java.base/sun.nio.ch.Net.bind(Net.java:514)
+[error] 	at java.base/sun.nio.ch.AsynchronousServerSocketChannelImpl.bind(AsynchronousServerSocketChannelImpl.java:158)
+[error] 	at java.base/java.nio.channels.AsynchronousServerSocketChannel.bind(AsynchronousServerSocketChannel.java:197)
+[error] 	at fs2.io.net.SocketGroupCompanionPlatform$AsyncSocketGroup.$anonfun$serverResource$7(SocketGroupPlatform.scala:102)
+[error] 	at delay @ fs2.io.net.SocketGroupCompanionPlatform$AsyncSocketGroup.$anonfun$serverResource$6(SocketGroupPlatform.scala:99)
+[error] (Compile / run) java.net.BindException: Address already in use

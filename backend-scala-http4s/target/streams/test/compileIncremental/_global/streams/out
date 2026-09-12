@@ -1,0 +1,6 @@
+[debug] [zinc] IncrementalCompile -----------
+[debug] IncrementalCompile.incrementalCompile
+[debug] previous = Stamps for: 20 products, 10 sources, 13 libraries
+[debug] current source = Set(${BASE}/src/test/scala/com/bffgin/backend/grpc/LoggingServerInterceptorSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/TaskRepoDeleteIdempotencyDbSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/TaskRepoDuplicateLabelIdDbSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/TaskNulByteRoundTripDbSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/external/ExternalJsonSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/UserResolverSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/TaskStatusSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/AppErrorMappingSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/TaskServiceValidationSuite.scala, ${BASE}/src/test/scala/com/bffgin/backend/auth/JwtAuthSuite.scala)
+[debug] > initialChanges = InitialChanges(Changes(added = Set(), removed = Set(), changed = Set(), unmodified = ...),Set(),Set(),API Changes: Set())
+[debug] No changes

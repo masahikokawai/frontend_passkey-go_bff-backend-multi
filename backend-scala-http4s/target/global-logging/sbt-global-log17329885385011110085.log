@@ -1,0 +1,96 @@
+[debug] > Exec(early(addDefaultCommands), None, None)
+[debug] > Exec(addDefaultCommands, None, None)
+[debug] > Exec(early(initialize), None, None)
+[debug] > Exec(initialize, None, None)
+[debug] > Exec(boot, None, None)
+[debug] > Exec(writeSbtVersion, None, None)
+[debug] > Exec(reload, None, None)
+[debug] > Exec(sbtStashOnFailure, None, None)
+[debug] > Exec(onFailure loadFailed, None, None)
+[debug] > Exec(loadp, None, None)
+[info] welcome to sbt 1.10.7 (Homebrew Java 26.0.2.1)
+[debug] Load.defaultLoad until apply took 30.76525ms
+[debug]           Load.loadUnit: plugins took 16.383416ms
+[debug]           Load.loadUnit: defsScala took 0.089125ms
+[debug] [Loading] Scanning directory /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/project
+[debug]             Load.loadUnit: mkEval took 2.014291ms
+[debug] [Loading] Found non-root projects 
+[debug] [Loading] Done in /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/project, returning: ()
+[debug] deducing auto plugins based on known facts Set(Atom(sbt.plugins.CorePlugin)) and clauses Clauses(Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.ScriptedPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.SbtPlugin),Set(Atom(sbt.ScriptedPlugin)))
+[debug] Clause(Atom(sbt.plugins.SemanticdbPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JUnitXmlReportPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.MiniDependencyTreePlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.plugins.IvyPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.SemanticdbPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.JUnitXmlReportPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.Giter8TemplatePlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.MiniDependencyTreePlugin))))
+[debug]   :: deduced result: Matched(sbt.plugins.CorePlugin,sbt.plugins.Giter8TemplatePlugin,sbt.plugins.IvyPlugin,sbt.plugins.JvmPlugin,sbt.plugins.MiniDependencyTreePlugin,sbt.plugins.JUnitXmlReportPlugin,sbt.plugins.SemanticdbPlugin)
+[debug] Plugins.deducer#function took 3.91925 ms
+[info] loading settings for project backend-scala-http4s-build from plugins.sbt...
+[debug]               Load.resolveProject(backend-scala-http4s-build) took 11.96025ms
+[debug]             Load.loadTransitive: finalizeProject(Project(id backend-scala-http4s-build, base: /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/project, plugins: List(<none>))) took 22.183834ms
+[debug] [Loading] Done in /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/project, returning: (backend-scala-http4s-build)
+[debug]           Load.loadUnit: loadedProjectsRaw took 109.929125ms
+[debug]           Load.loadUnit: cleanEvalClasses took 1.259625ms
+[debug]         Load.loadUnit(file:/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/project/, ...) took 129.422083ms
+[debug]       Load.apply: load took 298.191208ms
+[debug]       Load.apply: resolveProjects took 1.221458ms
+[debug]       Load.apply: finalTransforms took 17.092459ms
+[debug]       Load.apply: config.delegates took 1.560958ms
+[debug]       Load.apply: Def.make(settings)... took 104.821084ms
+[debug]       Load.apply: structureIndex took 28.534584ms
+[debug]       Load.apply: mkStreams took 0.436917ms
+[info] loading project definition from /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/project
+[debug] Running task... Cancel: Signal, check cycles: false, forcegc: true
+[debug]     Load.loadUnit: plugins took 712.562375ms
+[debug]     Load.loadUnit: defsScala took 0.001292ms
+[debug] [Loading] Scanning directory /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s
+[debug]       Load.loadUnit: mkEval took 0.09ms
+[debug] [Loading] Found root project root w/ remaining 
+[debug] deducing auto plugins based on known facts Set(Atom(fs2.grpc.codegen.Fs2Grpc), Atom(sbt.plugins.CorePlugin)) and clauses Clauses(Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.ScriptedPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.SbtPlugin),Set(Atom(sbt.ScriptedPlugin)))
+[debug] Clause(Atom(sbt.plugins.SemanticdbPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JUnitXmlReportPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.MiniDependencyTreePlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(fs2.grpc.codegen.Fs2Grpc),Set(Atom(fs2.grpc.codegen.Fs2GrpcPlugin)))
+[debug] Clause(Atom(fs2.grpc.codegen.Fs2GrpcPlugin),Set(Atom(sbtprotoc.ProtocPlugin)))
+[debug] Clause(Atom(fs2.grpc.codegen.Fs2GrpcPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbtprotoc.ProtocPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(org.portablescala.sbtplatformdeps.PlatformDepsPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.plugins.IvyPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.SemanticdbPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.JUnitXmlReportPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.Giter8TemplatePlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.MiniDependencyTreePlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbtprotoc.ProtocPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(org.portablescala.sbtplatformdeps.PlatformDepsPlugin))))
+[debug]   :: deduced result: Matched(sbt.plugins.CorePlugin,fs2.grpc.codegen.Fs2Grpc,sbt.plugins.Giter8TemplatePlugin,sbt.plugins.IvyPlugin,fs2.grpc.codegen.Fs2GrpcPlugin,sbt.plugins.JvmPlugin,sbtprotoc.ProtocPlugin,org.portablescala.sbtplatformdeps.PlatformDepsPlugin,sbt.plugins.MiniDependencyTreePlugin,sbt.plugins.JUnitXmlReportPlugin,sbt.plugins.SemanticdbPlugin)
+[debug] Plugins.deducer#function took 0.848667 ms
+[info] loading settings for project root from build.sbt...
+[debug]         Load.resolveProject(root) took 1.133291ms
+[debug]       Load.loadTransitive: finalizeProject(Project(id root, base: /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s, plugins: List(<none>))) took 2.413417ms
+[debug] [Loading] Done in /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s, returning: (root)
+[debug]     Load.loadUnit: loadedProjectsRaw took 23.659083ms
+[debug]     Load.loadUnit: cleanEvalClasses took 0.498541ms
+[debug]   Load.loadUnit(file:/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/, ...) took 737.033666ms
+[debug] Load.apply: load took 741.231833ms
+[debug] Load.apply: resolveProjects took 0.050416ms
+[debug] Load.apply: finalTransforms took 4.807375ms
+[debug] Load.apply: config.delegates took 0.127208ms
+[debug] Load.apply: Def.make(settings)... took 31.721916ms
+[debug] Load.apply: structureIndex took 10.602375ms
+[debug] Load.apply: mkStreams took 0.001334ms
+[info] set current project to backend-scala-http4s (in build file:/Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-http4s/)
+[debug] > Exec(sbtPopOnFailure, None, None)
+[debug] > Exec(resumeFromFailure, None, None)
+[debug] > Exec(notifyUsersAboutShell, None, None)
+[debug] > Exec(iflast shell, None, None)
+[debug] > Exec(run, None, None)
+[debug] Evaluating tasks: Compile / run
+[debug] Running task... Cancel: Signal, check cycles: false, forcegc: true

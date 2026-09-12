@@ -1,0 +1,6 @@
+[debug] [zinc] IncrementalCompile -----------
+[debug] IncrementalCompile.incrementalCompile
+[debug] previous = Stamps for: 16 products, 10 sources, 19 libraries
+[debug] current source = Set(${BASE}/src/test/scala/com/bffgin/backendpekko/external/ExternalTaskRoutesSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/grpc/LoggingTaskGrpcServiceSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/TaskNulByteRoundTripDbSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/ExternalCursorCodecSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/FeatureFlagLogicSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/TaskDuplicateLabelIdDbSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/rest/TaskRoutesSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/ModelSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/TaskServiceSpec.scala, ${BASE}/src/test/scala/com/bffgin/backendpekko/InMemoryRepositories.scala)
+[debug] > initialChanges = InitialChanges(Changes(added = Set(), removed = Set(), changed = Set(), unmodified = ...),Set(),Set(),API Changes: Set())
+[debug] No changes

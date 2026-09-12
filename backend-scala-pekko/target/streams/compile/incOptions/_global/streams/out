@@ -1,0 +1,2 @@
+[debug] Created transactional ClassFileManager with tempDir = /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/target/scala-2.13/classes.bak
+[debug] Removing the temporary directory used for backing up class files: /Users/masahiko.kawai/git/training-go/bff-gin/backend-scala-pekko/target/scala-2.13/classes.bak
