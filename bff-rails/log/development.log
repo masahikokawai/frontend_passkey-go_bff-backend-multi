@@ -1,0 +1,266 @@
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:45:14 +0900
+Processing by AuthController#login as */*
+feature flag export取得に失敗しました: Failed to open TCP connection to localhost:8090 (Connection refused - connect(2) for "localhost" port 8090)
+Completed 500 Internal Server Error in 12ms (GC: 0.0ms)
+
+
+  
+NoMethodError (undefined method `instance' for class RedisClient):
+  
+app/services/auth/pending_login_store.rb:23:in `create'
+app/controllers/auth_controller.rb:5:in `login'
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:45:40 +0900
+Processing by AuthController#login as */*
+feature flag export取得に失敗しました: Failed to open TCP connection to localhost:8090 (Connection refused - connect(2) for "localhost" port 8090)
+Completed 500 Internal Server Error in 7ms (GC: 0.0ms)
+
+
+  
+ArgumentError (unknown keyword: quirks_mode):
+  
+app/services/auth/pending_login_store.rb:25:in `create'
+app/controllers/auth_controller.rb:5:in `login'
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:46:43 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&nonce=05327aaddd8e2c676c5fb7175c16c4a6&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=8b8c1f0a9c89614d40424d91f0dedcb1
+Completed 302 Found in 12ms (GC: 0.2ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:46:48 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&nonce=3ca1bc04269ec0dfd39538e7902a33aa&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=09cacf352f1696af754e02af23c08b31
+Completed 302 Found in 5ms (GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:47:33 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&nonce=89a0374202b075a37e6396aa28aa9717&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=083e4c7c79a3e5c2046bdeec3b3b3b9f
+Completed 302 Found in 26ms (GC: 0.9ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:47:59 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&nonce=51b0ea2b5a619c0bf162aa7ef7c50a31&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=a8ed0d256f042d3960f69df0b9b1051c
+Completed 302 Found in 11ms (GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:48:12 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&nonce=fde0a5403aa74e3f8853a295b19dc919&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=6fca07242576d95803891fa2da5f7701
+Completed 302 Found in 9ms (GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:48:19 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&nonce=a1b7894d2423f8d6d9f60ed6ab856351&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=9d1185eb716c4ed5640182e4dfbeb6fb
+Completed 302 Found in 7ms (GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:49:37 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=dwTy45YKMAwCp_Wuv-GkHUJr1xjAjAjxXmgd2X8jz14&code_challenge_method=S256&nonce=32a6252a1fdd5bfc02d47ae43770f609&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=a40560b920b8c6ac617b6a22fc7fb0ea
+Completed 302 Found in 14ms (GC: 0.0ms)
+
+
+Started GET "/auth/openid_connect/callback?state=a40560b920b8c6ac617b6a22fc7fb0ea&session_state=10TtuW20sj761d1LUKiPlS4U&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=aff24b7d-aa18-c348-6ab1-367a2b524831.10TtuW20sj761d1LUKiPlS4U.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 08:49:50 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"a40560b920b8c6ac617b6a22fc7fb0ea", "session_state"=>"10TtuW20sj761d1LUKiPlS4U", "iss"=>"http://localhost:8082/realms/training", "code"=>"aff24b7d-aa18-c348-6ab1-367a2b524831.10TtuW20sj761d1LUKiPlS4U.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Completed 500 Internal Server Error in 69ms (GC: 0.0ms)
+
+
+  
+TypeError (no implicit conversion of Hash into String):
+  
+app/services/auth/omniauth_gem_login.rb:30:in `exchange_code'
+app/controllers/auth_controller.rb:25:in `callback'
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:50:20 +0900
+Processing by AuthController#login as */*
+feature flag export取得に失敗しました: Failed to open TCP connection to localhost:8090 (Connection refused - connect(2) for "localhost" port 8090)
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=uSGk9JO0x--bWKkOKo_7oC3fuICXzgl3vKXK-QIb34A&code_challenge_method=S256&nonce=3cc6d39a8a7fd17fc76ffe52d0b7d345&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=28fba0cb9ca6df8ba6b153afc0120744
+Completed 302 Found in 15ms (GC: 3.9ms)
+
+
+Started GET "/auth/openid_connect/callback?state=28fba0cb9ca6df8ba6b153afc0120744&session_state=sOznOD1yKZO9JqZ2mrJwhpkj&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=2ca0befc-9f54-0410-c67b-76069b07b394.sOznOD1yKZO9JqZ2mrJwhpkj.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 08:50:20 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"28fba0cb9ca6df8ba6b153afc0120744", "session_state"=>"sOznOD1yKZO9JqZ2mrJwhpkj", "iss"=>"http://localhost:8082/realms/training", "code"=>"2ca0befc-9f54-0410-c67b-76069b07b394.sOznOD1yKZO9JqZ2mrJwhpkj.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Completed 500 Internal Server Error in 11ms (GC: 0.0ms)
+
+
+  
+TypeError (no implicit conversion of Hash into String):
+  
+app/services/auth/omniauth_gem_login.rb:30:in `exchange_code'
+app/controllers/auth_controller.rb:25:in `callback'
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:51:27 +0900
+Processing by AuthController#login as */*
+feature flag export取得に失敗しました: Failed to open TCP connection to localhost:8090 (Connection refused - connect(2) for "localhost" port 8090)
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=flWUHfHOFCPF6Uluq0xyFB9DqnwAvogGovbjXEZ0oI4&code_challenge_method=S256&nonce=ace0fc7815389a5eb811c3ca18379fdb&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=344ee1aa3f481ac5c02a6c4786fda4c0
+Completed 302 Found in 11ms (GC: 0.0ms)
+
+
+Started GET "/auth/openid_connect/callback?state=344ee1aa3f481ac5c02a6c4786fda4c0&session_state=ymUN1bPUco0DBONjAia6phSf&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=1bdbdb8d-4d0e-1330-697a-4ccf096ca2cf.ymUN1bPUco0DBONjAia6phSf.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 08:51:27 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"344ee1aa3f481ac5c02a6c4786fda4c0", "session_state"=>"ymUN1bPUco0DBONjAia6phSf", "iss"=>"http://localhost:8082/realms/training", "code"=>"1bdbdb8d-4d0e-1330-697a-4ccf096ca2cf.ymUN1bPUco0DBONjAia6phSf.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Completed 502 Bad Gateway in 21ms (Views: 0.1ms | GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:51:55 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=xHzpoiXp4QiWOyMU8NB5Gn1BUuqNmj2JZKICzBZRpV4&code_challenge_method=S256&nonce=5f98178f27689731dccb18816411e820&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=b3414230b2aaf314cf087ad75a156e9d
+Completed 302 Found in 10ms (GC: 0.0ms)
+
+
+Started GET "/auth/openid_connect/callback?state=b3414230b2aaf314cf087ad75a156e9d&session_state=DLj4xjbfJSPUaQTNJ9aLalKQ&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=42e1c07e-e127-fa40-c9c7-8f61432cf52c.DLj4xjbfJSPUaQTNJ9aLalKQ.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 08:51:55 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"b3414230b2aaf314cf087ad75a156e9d", "session_state"=>"DLj4xjbfJSPUaQTNJ9aLalKQ", "iss"=>"http://localhost:8082/realms/training", "code"=>"42e1c07e-e127-fa40-c9c7-8f61432cf52c.DLj4xjbfJSPUaQTNJ9aLalKQ.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Completed 500 Internal Server Error in 40ms (GC: 0.0ms)
+
+
+  
+NameError (undefined local variable or method `cookies' for an instance of AuthController):
+  
+app/controllers/auth_controller.rb:41:in `callback'
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:52:19 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=u0DSlPBvq-gZt4X57Cjz5EaV7d8DcxQRgEUqwTfhbj4&code_challenge_method=S256&nonce=f146bbba71a6124c9d58152487c19acb&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=7bbf491efd1ebf87c26ead57520444cd
+Completed 302 Found in 15ms (GC: 0.0ms)
+
+
+Started GET "/auth/openid_connect/callback?state=7bbf491efd1ebf87c26ead57520444cd&session_state=jskA9O9AWrC9doMRrQCjgCGf&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=7bfbd5aa-da15-0bce-73a0-757061b976fe.jskA9O9AWrC9doMRrQCjgCGf.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 08:52:19 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"7bbf491efd1ebf87c26ead57520444cd", "session_state"=>"jskA9O9AWrC9doMRrQCjgCGf", "iss"=>"http://localhost:8082/realms/training", "code"=>"7bfbd5aa-da15-0bce-73a0-757061b976fe.jskA9O9AWrC9doMRrQCjgCGf.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Redirected to http://localhost:5175
+Completed 302 Found in 32ms (GC: 0.0ms)
+
+
+Started GET "/api/me" for ::1 at 2026-09-09 08:52:24 +0900
+Processing by MeController#show as */*
+Completed 200 OK in 3ms (Views: 0.2ms | GC: 0.0ms)
+
+
+Started GET "/api/tasks" for ::1 at 2026-09-09 08:52:24 +0900
+Processing by TasksController#index as */*
+Completed 200 OK in 25ms (Views: 0.6ms | GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 08:52:48 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=pmA2sckIhnyrXzQifH1ny7hiMVt04Dh9MUwpcQ6s8E8&code_challenge_method=S256&nonce=4773e35c899e07438e26111458420bae&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=30889d947210f4727089ef730bbfeda8
+Completed 302 Found in 29ms (GC: 0.0ms)
+
+
+Started GET "/auth/openid_connect/callback?state=30889d947210f4727089ef730bbfeda8&session_state=SocvYH9dKPYsd_ZcJfvZlDZm&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=57e26a09-8d6a-b9e0-76bd-9db39abb7e57.SocvYH9dKPYsd_ZcJfvZlDZm.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 08:52:48 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"30889d947210f4727089ef730bbfeda8", "session_state"=>"SocvYH9dKPYsd_ZcJfvZlDZm", "iss"=>"http://localhost:8082/realms/training", "code"=>"57e26a09-8d6a-b9e0-76bd-9db39abb7e57.SocvYH9dKPYsd_ZcJfvZlDZm.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Redirected to http://localhost:5175
+Completed 302 Found in 24ms (GC: 0.0ms)
+
+
+Started GET "/api/me" for ::1 at 2026-09-09 08:52:48 +0900
+Processing by MeController#show as */*
+Completed 200 OK in 1ms (Views: 0.1ms | GC: 0.0ms)
+
+
+Started GET "/api/tasks" for ::1 at 2026-09-09 08:54:16 +0900
+Processing by TasksController#index as */*
+Completed 200 OK in 31ms (Views: 0.4ms | GC: 0.0ms)
+
+
+Started POST "/api/auth/logout" for ::1 at 2026-09-09 08:57:03 +0900
+Processing by AuthController#logout as */*
+Completed 200 OK in 6ms (Views: 0.1ms | GC: 0.0ms)
+
+
+Started GET "/api/me" for ::1 at 2026-09-09 08:57:03 +0900
+Processing by MeController#show as */*
+Completed 401 Unauthorized in 1ms (Views: 0.1ms | GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 09:26:30 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=2_eAtuZnDF09_sA9so_aaan9sFCeurx8vo0YYBJPM0A&code_challenge_method=S256&nonce=350da381591a134e8cccd18402f5a5bd&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=045d8963f5a8c80dc54cb2eb76d81429
+Completed 302 Found in 13ms (GC: 0.1ms)
+
+
+Started GET "/auth/openid_connect/callback?state=045d8963f5a8c80dc54cb2eb76d81429&session_state=ahP6T4WPJyql6KzfPURE8pdj&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=4c790ae9-0516-ece3-8ddb-a5d6a613541a.ahP6T4WPJyql6KzfPURE8pdj.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 09:26:49 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"045d8963f5a8c80dc54cb2eb76d81429", "session_state"=>"ahP6T4WPJyql6KzfPURE8pdj", "iss"=>"http://localhost:8082/realms/training", "code"=>"4c790ae9-0516-ece3-8ddb-a5d6a613541a.ahP6T4WPJyql6KzfPURE8pdj.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Redirected to http://localhost:5175
+Completed 302 Found in 119ms (GC: 0.0ms)
+
+
+Started GET "/api/me" for ::1 at 2026-09-09 09:26:50 +0900
+Processing by MeController#show as */*
+Completed 200 OK in 1ms (Views: 0.1ms | GC: 0.0ms)
+
+
+Started POST "/api/auth/passkey/register/begin" for ::1 at 2026-09-09 09:27:24 +0900
+Processing by PasskeysController#register_begin as */*
+  Parameters: {"passkey"=>{}}
+Completed 200 OK in 7ms (Views: 0.9ms | GC: 0.0ms)
+
+
+Started POST "/api/auth/passkey/register/finish" for ::1 at 2026-09-09 09:27:24 +0900
+Processing by PasskeysController#register_finish as */*
+  Parameters: {"state"=>"6642a5bda9cc135dd7d677512c9d55d2", "credential"=>{"type"=>"public-key", "id"=>"YOoDnBscG8a_a1PsVRcvHw", "rawId"=>"YOoDnBscG8a_a1PsVRcvHw", "authenticatorAttachment"=>"platform", "clientExtensionResults"=>nil, "response"=>{"attestationObject"=>"o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViUSZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NBAAAAAHFHrysVTfyr_ydQzxDsxSIAEGDqA5wbHBvGv2tT7FUXLx-lAyYgASFYIEQUcWXvXn1sNByf2xcC05leuzlyu6QDPIGEuni-N2n4AQIiWCArI4YU7x_MM_tKE86NTJX7AIzPMvXciCQc_lbisJIC-A", "clientDataJSON"=>"eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiRHdGSVp1SmFsbGFTZzZFUmllYl9XVnI0aVBSckFTaVZpT2drN1lnVVcxcyIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3NSJ9", "transports"=>["internal"]}}, "passkey"=>{"state"=>"6642a5bda9cc135dd7d677512c9d55d2", "credential"=>{"type"=>"public-key", "id"=>"YOoDnBscG8a_a1PsVRcvHw", "rawId"=>"YOoDnBscG8a_a1PsVRcvHw", "authenticatorAttachment"=>"platform", "clientExtensionResults"=>nil, "response"=>{"attestationObject"=>"o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViUSZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NBAAAAAHFHrysVTfyr_ydQzxDsxSIAEGDqA5wbHBvGv2tT7FUXLx-lAyYgASFYIEQUcWXvXn1sNByf2xcC05leuzlyu6QDPIGEuni-N2n4AQIiWCArI4YU7x_MM_tKE86NTJX7AIzPMvXciCQc_lbisJIC-A", "clientDataJSON"=>"eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiRHdGSVp1SmFsbGFTZzZFUmllYl9XVnI0aVBSckFTaVZpT2drN1lnVVcxcyIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3NSJ9", "transports"=>["internal"]}}}}
+Completed 200 OK in 19ms (Views: 0.1ms | GC: 0.0ms)
+
+
+Started POST "/api/auth/logout" for ::1 at 2026-09-09 09:27:24 +0900
+Processing by AuthController#logout as */*
+  Parameters: {"auth"=>{}}
+Completed 200 OK in 1ms (Views: 0.0ms | GC: 0.0ms)
+
+
+Started POST "/api/auth/passkey/login/begin" for ::1 at 2026-09-09 09:27:24 +0900
+Processing by PasskeysController#login_begin as */*
+  Parameters: {"passkey"=>{}}
+Completed 200 OK in 1ms (Views: 0.5ms | GC: 0.0ms)
+
+
+Started POST "/api/auth/passkey/login/finish" for ::1 at 2026-09-09 09:27:24 +0900
+Processing by PasskeysController#login_finish as */*
+  Parameters: {"state"=>"3d5548f83e0485d9066614dbedfd0324", "credential"=>{"type"=>"public-key", "id"=>"YOoDnBscG8a_a1PsVRcvHw", "rawId"=>"YOoDnBscG8a_a1PsVRcvHw", "clientExtensionResults"=>nil, "authenticatorAttachment"=>"platform", "response"=>{"clientDataJSON"=>"eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiRE9zU2lwLW8wYXp3eVNxdnJxSm5UTzZPZlBTa003Q0RzUGw2Y0h4YUFKVSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3NSJ9", "authenticatorData"=>"SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MRAAAAAQ", "signature"=>"MEQCIGCspJ2lnIt8TlAfS7VSGkcwPQ2IObAKulApa_0Zk1fHAiAsRWoxH6PCP8qhvTQq2nqwrubVjjeBCxDzRHL5iCm5tw", "userHandle"=>nil}}, "passkey"=>{"state"=>"3d5548f83e0485d9066614dbedfd0324", "credential"=>{"type"=>"public-key", "id"=>"YOoDnBscG8a_a1PsVRcvHw", "rawId"=>"YOoDnBscG8a_a1PsVRcvHw", "clientExtensionResults"=>nil, "authenticatorAttachment"=>"platform", "response"=>{"clientDataJSON"=>"eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiRE9zU2lwLW8wYXp3eVNxdnJxSm5UTzZPZlBTa003Q0RzUGw2Y0h4YUFKVSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NTE3NSJ9", "authenticatorData"=>"SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MRAAAAAQ", "signature"=>"MEQCIGCspJ2lnIt8TlAfS7VSGkcwPQ2IObAKulApa_0Zk1fHAiAsRWoxH6PCP8qhvTQq2nqwrubVjjeBCxDzRHL5iCm5tw", "userHandle"=>nil}}}}
+Completed 200 OK in 13ms (Views: 0.2ms | GC: 0.0ms)
+
+
+Started GET "/api/me" for ::1 at 2026-09-09 09:27:24 +0900
+Processing by MeController#show as */*
+Completed 200 OK in 1ms (Views: 0.1ms | GC: 0.0ms)
+
+
+Started GET "/api/tasks" for ::1 at 2026-09-09 09:27:24 +0900
+Processing by TasksController#index as */*
+Completed 502 Bad Gateway in 1ms (Views: 0.0ms | GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 09:42:16 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=XxrlG4yys8QsC0PlhC-vap7nz29LAAj74JtmKta1iQE&code_challenge_method=S256&nonce=122488cda398697621a9cd4b4701c040&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=1b137075e77bc1292e8ed7e60c0604b0
+Completed 302 Found in 16ms (GC: 0.3ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 09:42:37 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=_xWXVsnYWtpnzxfQ7x2ziRSejjMr2QoqZCVFzfnZBDo&code_challenge_method=S256&nonce=7d4f27d64492989eaf3c645db33a0c24&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=ca14d709915454ece50e2df366e1beb8
+Completed 302 Found in 11ms (GC: 0.0ms)
+
+
+Started GET "/api/auth/login" for ::1 at 2026-09-09 09:42:57 +0900
+Processing by AuthController#login as */*
+Redirected to http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-rails&code_challenge=ThtQrFmwW7MVGr1OPdNZ_BPxwfPEk0D0T7G7ZQ6s09w&code_challenge_method=S256&nonce=a3cada7dc952b50493bc476018c48b1b&redirect_uri=http%3A%2F%2Flocalhost%3A8102%2Fauth%2Fopenid_connect%2Fcallback&response_type=code&scope=openid%20profile%20email&state=fe28a890dd821f5d89bc8e926c11d4f8
+Completed 302 Found in 12ms (GC: 0.0ms)
+
+
+Started GET "/auth/openid_connect/callback?state=fe28a890dd821f5d89bc8e926c11d4f8&session_state=zB99gUFxdYaylrsDhywr4VdC&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Ftraining&code=be99b04d-931b-6407-c30f-5298ef800d03.zB99gUFxdYaylrsDhywr4VdC.dc61ad84-441b-4d62-95e9-a5849c4e84ef" for ::1 at 2026-09-09 09:42:57 +0900
+Processing by AuthController#callback as */*
+  Parameters: {"state"=>"fe28a890dd821f5d89bc8e926c11d4f8", "session_state"=>"zB99gUFxdYaylrsDhywr4VdC", "iss"=>"http://localhost:8082/realms/training", "code"=>"be99b04d-931b-6407-c30f-5298ef800d03.zB99gUFxdYaylrsDhywr4VdC.dc61ad84-441b-4d62-95e9-a5849c4e84ef"}
+Redirected to http://localhost:5175
+Completed 302 Found in 37ms (GC: 0.0ms)
+
+
+Started GET "/api/me" for ::1 at 2026-09-09 09:43:14 +0900
+Processing by MeController#show as */*
+Completed 200 OK in 5ms (Views: 1.5ms | GC: 0.0ms)
+
+

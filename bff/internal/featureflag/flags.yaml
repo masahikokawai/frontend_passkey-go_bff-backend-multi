@@ -1,0 +1,44 @@
+# 【このファイルはもう読まれない・参考用として残している】
+# 以前はGO Feature Flagがこのファイルをin-processのFile retrieverで直接読んでいたが、
+# CONTRACT.mdセクション13の決定により、Feature Flagの設定はMySQL(feature_flagsテーブル、
+# backend管理)を正本にし、bffはbackendが公開する GET /internal/v1/feature-flags/export を
+# HTTP retrieverでポーリングする方式に切り替えた(internal/featureflag/evaluator.go参照)
+#
+# admin/go・admin/rails から変更できるのは実際にはそちらのDBの値であり、このYAMLを編集しても評価結果には反映されない
+# 定義していたフラグの一覧としての参考資料としてのみ残す
+#
+# GO Feature Flag のフラグ定義(ファイルベース、旧方式)
+# CONTRACT.md セクション4参照
+#
+# frontend.tasks-ts-rewrite:
+#   React側でTask一覧の新実装(TypeScript)/旧実装(JS, legacy/)を切り替える Release Toggle
+#   ロールアウト完了後はこのフラグ自体と旧実装・切替コンポーネントを削除すること(恒久的に残すフラグではない)
+#
+# bff.tasks-backend-v2:
+#   BFFがTask系リクエストをbackend v1(REST, N+1あり)/v2(gRPC, Preload最適化)の
+#   どちらへルーティングするかを決めるRelease Toggle
+#   Reactには公開しない
+#   (BFF内部でのみ評価する)
+#
+# 将来、割合ロールアウトを試す場合は defaultRule に percentage ルールを足す
+# 例:
+#   defaultRule:
+#     percentage:
+#       "on": 10
+#       "off": 90
+
+frontend.tasks-ts-rewrite:
+  variations:
+    "on": true
+    "off": false
+  defaultRule:
+    variation: "off"
+  disable: false
+
+bff.tasks-backend-v2:
+  variations:
+    "on": true
+    "off": false
+  defaultRule:
+    variation: "off"
+  disable: false

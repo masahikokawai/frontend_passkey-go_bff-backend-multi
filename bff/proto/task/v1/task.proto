@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package task.v1;
+
+option go_package = "github.com/masahikokawai/bff-gin/bff/proto/task/v1;taskv1";
+
+import "google/protobuf/timestamp.proto";
+
+// この.protoはbackend/proto/task/v1/task.proto(正)の複製
+// 統合レビューで両モジュールが独立にprotoを書いて食い違っていたことが判明したため、
+// backendの契約に合わせて同期した(go_packageの行のみ異なる)
+// 本来はbuf等で契約を1箇所管理し両モジュールへ配布するのが望ましいが、
+// 今回は学習目的の2モジュール構成のため.protoを複製して同期している
+service TaskService {
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc GetTask(GetTaskRequest) returns (Task);
+  rpc CreateTask(CreateTaskRequest) returns (Task);
+  rpc UpdateTask(UpdateTaskRequest) returns (Task);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+}
+
+message Label {
+  uint64 id = 1;
+  string name = 2;
+}
+
+message Task {
+  uint64 id = 1;
+  string name = 2;
+  optional string description = 3;
+  // "waiting" | "work_in_progress" | "completed"
+  string status = 4;
+  // YYYY-MM-DD(Rails/MySQLのDATE型に相当、時刻を持たない)
+  string finished_on = 5;
+  repeated Label labels = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// user_id は含めない
+// BFFから転送されたAccess TokenのJWT `sub` から
+// backendが自分でユーザーを解決する(BFFの申告を信頼しない設計、CONTRACT.md参照)
+message ListTasksRequest {
+  string name = 1;
+  string status = 2;
+  repeated uint64 label_ids = 3;
+  uint64 cursor = 4;
+  int32 limit = 5;
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  // 0なら次ページ無し
+  uint64 next_cursor = 2;
+}
+
+message GetTaskRequest {
+  uint64 id = 1;
+}
+
+message CreateTaskRequest {
+  string name = 1;
+  optional string description = 2;
+  string status = 3;
+  string finished_on = 4;
+  repeated uint64 label_ids = 5;
+}
+
+message UpdateTaskRequest {
+  uint64 id = 1;
+  string name = 2;
+  optional string description = 3;
+  string status = 4;
+  string finished_on = 5;
+  repeated uint64 label_ids = 6;
+}
+
+message DeleteTaskRequest {
+  uint64 id = 1;
+}
+
+message DeleteTaskResponse {}
