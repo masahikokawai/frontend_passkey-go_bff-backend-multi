@@ -247,3 +247,14 @@ Processing by External::V1::TasksController#index as */*
 Completed 200 OK in 56ms (Views: 7.2ms | ActiveRecord: 6.3ms (3 queries, 0 cached) | GC: 6.9ms)
 
 
+Started GET "/" for ::1 at 2026-09-13 11:37:37 +0900
+Processing by Rails::WelcomeController#index as HTML
+  Rendering /Users/masahiko.kawai/.rbenv/versions/3.3.12/lib/ruby/gems/3.3.0/gems/railties-7.2.3.2/lib/rails/templates/rails/welcome/index.html.erb
+  Rendered /Users/masahiko.kawai/.rbenv/versions/3.3.12/lib/ruby/gems/3.3.0/gems/railties-7.2.3.2/lib/rails/templates/rails/welcome/index.html.erb (Duration: 0.2ms | GC: 0.0ms)
+Completed 200 OK in 8ms (Views: 2.0ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+
+
+Started GET "/icon.png" for ::1 at 2026-09-13 11:37:37 +0900
+  
+ActionController::RoutingError (No route matches [GET] "/icon.png"):
+  

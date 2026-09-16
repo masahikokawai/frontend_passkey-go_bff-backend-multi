@@ -1,6 +1,6 @@
 # bff-gin Verification Checklist
 
-環境構築後の動作確認チェックリスト(bff-gin 検証ランブックの内容を Markdown 化したもの)。
+環境構築後の動作確認チェックリスト(bff-gin 検証ランブック v10 の内容を Markdown 化したもの)。
 
 - 上から順に進めるのを推奨するが、セクション単位で行き来してもよい。
 - `[SECURITY]` はセキュリティ回帰確認、`[NEW]` は直近の監査ラウンド(第4〜11ラウンド)で見つかった実バグの回帰確認項目。
@@ -397,8 +397,6 @@ _Railsで再現した2つの認証パターン。omniauth-openid-connect / openi
   ```
 - [ ] `[RAILS]` `[NEW]` frontend-rails/without-bffでもパスキーを登録・ログインできる(要: 事前にKeycloakでログイン済みであること)
   - note: CONTRACT.mdセクション22.9で追加した新機能。welcome画面の「パスキーを登録する」リンクから `/account` へ進み「パスキーを登録」ボタンを押す→登録成功後ログアウト→`/login`画面の「パスキーでログイン」ボタンからメールアドレス入力無しでログインできる。backendの`webauthn_credentials`テーブルを共有するため、React+bff(Go)や後述のbff-railsで登録したパスキーもそのままログインに使える。
-- [ ] `[SECURITY]` Keycloakログイン→/accountでパスキー登録の一連の流れで、セッションCookieが4KB上限を超え ActionDispatch::Cookies::CookieOverflow が発生し、途中の画面(/welcomeや/account)へ遷移できなくなることがある
-  - note: セッションCookieにid_token等を詰め込みすぎているのが原因(実測4832バイト、4KB上限超過)。Playwright/Selenium/chromedp/go-rod/playwright-goのe2eでも同一に再現する(Cypressはこのシナリオを持たない)。Cookieストア側の見直し(session[:access_token]等を減らす、サーバーサイドセッションストアへの移行等)が必要。
 - [ ] パスキーのみでログインした場合、welcome画面に「ログイン方式: passkey」と表示される
   - note: パスキーログインはKeycloakを経由しないため、bff(Go)/bff-railsと同じ自前JWT(iss=bff-gin-local-hmac)がsession[:access_tokenに入る。この自前トークンでも/accountからの追加パスキー登録が問題なくできることも確認するとよい(backend側がiss=bff-gin-local-hmacのJWTも通常のaccess_tokenと同様に扱うため)。
 - [ ] `[RAILS]` 追加構成: bff-rails + frontend-rails/with-bff を起動する(React+bffと同じ役割分担をRailsで再現)
@@ -550,17 +548,13 @@ _JS 3種(Playwright/Cypress/Selenium)+ Go 3種(chromedp/go-rod/playwright-go)、
   - note: 実行中にfrontend.task-create-uxをDB上で一時的に切り替えるため、複数のe2eスイートを同時実行すると競合することがある。1つずつ順番に実行し、実行後はフラグがinlineに戻っていることを確認する。
 - [ ] Playwright/Selenium/chromedp/go-rod/playwright-goの5種に、仮想認証器を使ったパスキー登録→ログインのシナリオが含まれている(コア構成のReact+bff(Go)フロー)
   - note: Cypressのみ、WebAuthn仮想認証器の第一級APIが無いため見送り(cypress/README.mdに理由を明記済み)。
-- [ ] frontend-rails/without-bff独自のパスキー機能(22.9)のシナリオが、6フレームワーク全て(playwright-go含む)に含まれている
-  - note: Keycloakログイン→/accountでパスキー登録→ログアウト→パスキーのみでログイン、という一連の流れを確認する。
-- [ ] `[SECURITY]` backend.task-language(多言語backend切り替え)・backend.external-tasks-orm(GORM/bob切り替え)のシナリオが5フレームワーク(playwright-go以外)に含まれている
-  - note: playwright-goにはこの2シナリオ(`backend_task_language_test.go`・`backend_external_tasks_orm_test.go`)が存在せず未実装。task-languageはbackend-rustが実際に起動している必要があるため、未起動の場合は自動的にスキップされる設計になっている(chromedp/go-rod)。JS 3フレームワークはMySQLクライアントへの依存を避けるため、admin/goの画面をHTTP経由で操作する方式でFeature Flagを切り替える。
+- [ ] frontend-rails/without-bff独自のパスキー機能(22.9)のシナリオが、playwright/cypress/selenium/chromedp/go-rodの5種に含まれている
+  - note: playwright-goのみ未追加(既知の残課題、READMEに明記)。Keycloakログイン→/accountでパスキー登録→ログアウト→パスキーのみでログイン、という一連の流れを確認する。
+- [ ] backend.task-language(多言語backend切り替え)・backend.external-tasks-orm(GORM/bob切り替え)のシナリオが6フレームワーク全てに含まれている
+  - note: 以前はこの2つのシナリオが手動確認のみだった(自動化されていなかった)ことが判明し、全フレームワークに追加した。task-languageはbackend-rustが実際に起動している必要があるため、未起動の場合は自動的にスキップされる設計になっている(chromedp/go-rod)。JS 3フレームワークはMySQLクライアントへの依存を避けるため、admin/goの画面をHTTP経由で操作する方式でFeature Flagを切り替える。
 - [ ] `[SECURITY]` Feature Flagを切り替えるシナリオ(task-create-ux・task-language・external-tasks-orm)は、テストがアサーション失敗で途中終了しても、Flagが元の値に確実に戻る
-  - note: JS 3フレームワーク(playwright/cypress/selenium)のtask-language・external-tasks-ormシナリオは`afterEach`/`after`フックへ確実な復元処理が配線されている。
-- [ ] `[SECURITY]` Go製3フレームワーク(chromedp/go-rod/playwright-go)のtask-create-ux flag復元(`t.Cleanup`でinlineへ戻す処理)に反映待ちが入っておらず、直後に実行される別テスト(TestTaskCRUD)がflag未反映のまま失敗・ハングすることがある
-  - note: `feature_flag_helpers.go`の`setTaskCreateUX`は切替直後こそ`waitForFeatureFlagPropagation()`(12秒待機)を呼ぶが、`t.Cleanup`内での値復元は待機なしで即終了する。chromedp/playwright-goはタイムアウトでFAIL、go-rodはタイムアウト機構が無く5分ハングしてpanicする(`TestTaskCRUD`を単独実行すると即pass、実行順序に依存するバグ)。
+  - note: 【信頼性監査で発見・修正】JS 3フレームワーク(playwright/cypress/selenium)のtask-language・external-tasks-ormシナリオは、以前はテスト本体の末尾でのみFlagを復元しており、途中で失敗するとFlagが変更されたまま以降の全テスト実行に影響が残る構造だった。`afterEach`/`after`フックへ確実な復元処理を配線済み(Go製3フレームワークは元から`t.Cleanup`で安全だった)。
 - [ ] `[SECURITY]` 6種全てに、resilience系シナリオ(ネットワーク遅延・戻る/リロード・複数タブセッション共有・パスキー登録がパスワードログインを壊さない回帰確認)が含まれている
   - note: Cypressのみ複数タブシナリオを見送り(仕様上の制約、CONTRACT.mdセクション18.5参照)。
 - [ ] `[SECURITY]` 6種全てに、security系シナリオ(セッションCookie改ざん・CSRFヘッダ欠落・XSS実地確認・ログアウト後の情報露出確認)が含まれている
   - note: この4シナリオはCypress含む6フレームワーク全てで実装できている(WebAuthn・複数タブのような構造的制約に該当しないため)。
-- [ ] Seleniumの backend-task-language.test.js が再現性を持って失敗することがある(タスク更新後の一覧反映待ちでタイムアウト)
-  - note: 同一ロジックの`task-crud.test.js`は同一実行内で成功しており、backend側のログ上もUpdate自体は成功しているため、原因は特定できていない(Selenium固有のタイミング問題の可能性)。

@@ -58,6 +58,9 @@ nohup.out
 # direnv(.envrc)を使ってこのリポジトリの環境変数を管理する場合のローカルキャッシュ
 .direnv/
 
+*.pid
+
+
 # --- Go(backend/・bff/・admin/go/・gateway/go/・gateway/nginx/sidecar/) ---
 # バイナリ名はディレクトリ名と揃えている慣習があるため、代表的なものだけでなく
 # パターンでも拾う
@@ -132,3 +135,6 @@ gateway/nginx/logs/*
 *.local.txt
 /memo/
 /notes/
+
+# AI agent
+opencode.json*

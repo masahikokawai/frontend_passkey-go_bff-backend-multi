@@ -1,0 +1,1717 @@
+# bff-gin
+
+training-go/gin(サーバーサイドレンダリング + セッションCookie認証)を、
+`frontend(React) / bff(Go) / backend(Go)` の3層構成へ発展させた学習用アプリケーション
+認証はOIDC(Keycloak)に準拠し、**ブラウザにはJWTを一切渡さないBFFパターン**を採用
+
+設計の詳細・確定事項は [`CONTRACT.md`](./CONTRACT.md) を正本として参照すること
+アーキテクチャ図(PlantUMLソース+PNG)は [`docs/`](./docs/) 配下を参照(`docs/_old/`は過去バージョンのバックアップにつき参照専用)
+
+## アーキテクチャ概要
+
+```
+ブラウザ(React, HttpOnly Cookieのみ保持)
+   │ HTTPS + Cookie + X-CSRF-Token
+   ▼
+bff(Go/Gin) ── OIDC(Authorization Code+PKCE) ──> Keycloak
+   │  Redis(session:{id} → Access/Refresh/ID Token, lock:session:{id})
+   │  REST v1 or gRPC v2 (Feature Flag: bff.tasks-backend-v2)
+   ▼
+backend(Go, private network限定) ── JWKS検証 ──> Keycloak
+   │
+   ▼
+MySQL 8.0
+```
+
+- **v1 (REST)**: 学習用にあえてN+1クエリを再現した「旧実装」
+- **v2 (gRPC)**: `Preload`でN+1を解消し、cursorページングを採用した「新実装」
+- BFFが `bff.tasks-backend-v2` フラグでv1/v2を切り替える(Strangler Figパターンの学習例)
+- frontendは `features/tasks/` のみTypeScript化し、`frontend.tasks-ts-rewrite` フラグで新旧コンポーネントを切り替える学習例も用意
+- 認証はKeycloak(OIDC)だけでなく、比較学習用に**bff自身がJWTを発行するローカル認証(HMAC版/RSA版)**も用意し、ログインURL(`/login`/`/login/rsa`/`/login/keycloak`)で3方式を切り替えられる(詳細は後述の「ローカル(非Keycloak)認証」参照)
+
+**ローカル開発でのプロセス配置(実機検証で確定)**: KeycloakのAuthorization Code Flowはブラウザを直接Keycloakへリダイレクトするため、
+コンテナ内部向けホスト名とブラウザが到達できるホスト名が一致している必要がある
+そのため`mysql`/`redis`/`keycloak`/`frontend`/`swagger-ui`は
+`docker compose`でコンテナ化する一方、`backend`/`bff`はコンテナ化せずホスト上で直接`go run`する(下記手順の通り)
+`docs/c4_container_v2.puml`の注記も参照
+
+| プロセス | 既定ポート | URL | 実行方法 |
+|---|---|---|---|
+| frontend | 5173 | http://localhost:5173 | docker compose(またはネイティブ) |
+| bff | 8080 | http://localhost:8080 | ネイティブ(`go run`)。Keycloakのredirect_uriがこの値を前提にしている |
+| backend REST v1 | 8090 | http://localhost:8090 | ネイティブ(`go run`)。bffの8080と衝突するため8080ではなく8090にした |
+| backend gRPC v2 | 9090 | localhost:9090(gRPC、ブラウザから直接は使わない) | ネイティブ(`go run`) |
+| backend 外部公開API | 8081 | http://localhost:8081 | ネイティブ(`go run`) |
+| keycloak | 8082(→コンテナ内8080) | http://localhost:8082 | docker compose |
+| mysql | 13306(→コンテナ内3306) | 127.0.0.1:13306(MySQLプロトコル) | docker compose |
+| redis | 16379(→コンテナ内6379) | 127.0.0.1:16379(Redisプロトコル) | docker compose |
+| swagger-ui | 18080(→コンテナ内8080) | http://localhost:18080 | docker compose |
+| admin/go | 8091 | http://localhost:8091 | ネイティブ(`go run`)。Basic Auth必須 |
+| admin/rails | 8092 | http://localhost:8092 | ネイティブ(`rails s -p 8092`) Basic Auth必須 |
+| frontend-rails/without-bff | 5174 | http://localhost:5174 | ネイティブ(`bin/rails server -p 5174`)。追加構成(既定では未起動)、bffを経由せずRails自身がKeycloakと直接OIDCを行う比較実装(CONTRACT.mdセクション21・22.9) |
+
+**ログインURL(比較学習用に3方式、詳細は後述「ローカル(非Keycloak)認証」参照)**:
+
+| 方式 | frontendのURL | 実際に送信される先(bff) |
+|---|---|---|
+| ローカル・HMAC版(既定) | http://localhost:5173/login | `POST http://localhost:8080/api/auth/login` |
+| ローカル・RSA版 | http://localhost:5173/login/rsa | `POST http://localhost:8080/api/auth/login/rsa` |
+| Keycloak(OIDC) | http://localhost:5173/login 内の「Keycloakでログイン」ボタン | `GET http://localhost:8080/api/auth/login/keycloak` |
+
+**各URLでログインできるユーザー**(いずれも後述「4. マイグレーションを実行する」の`go run ./cmd/migrate up`実行時にseedとして投入済み):
+
+| ログインURL | ユーザー(email/username) | パスワード | 備考 |
+|---|---|---|---|
+| `/login`(ローカルHMAC) | `local-user@example.com` | `password` | role: general。`user_passwords`テーブルにseed(有効期限2099年) |
+| `/login/rsa`(ローカルRSA) | `local-user@example.com` | `password` | 上記と**同じユーザー**(署名方式が違うだけで、認証されるユーザー・照合ロジックは共通) |
+| `/login/keycloak` | `general-user` | `password` | role: general。Keycloakのrealm-export.jsonにテストユーザーとして定義 |
+| `/login/keycloak` | `admin-user` | `password` | role: management(管理者相当) |
+
+**frontend-rails/without-bffのログインURL**(追加構成、上記の3方式とは別のRails単独実装、CONTRACT.mdセクション21・22.9):
+
+| 方式 | URL | 備考 |
+|---|---|---|
+| Keycloak(OIDC) | http://localhost:5174/login 内の「Keycloakでログイン」ボタン | Railsアプリ自身がKeycloakと直接Authorization Codeフローを行う(bffを経由しない)。ユーザーは上記の`general-user`/`admin-user`と共用(同じKeycloak realm) |
+| パスキー | http://localhost:5174/login 内の「パスキーでログイン」ボタン | 上記Keycloakログインの後に http://localhost:5174/account で事前登録したパスキーが必要(discoverable credential、メールアドレス入力不要)。backendの`webauthn_credentials`テーブルはbff(Go)・bff-railsと共有しており、どちらで登録したパスキーも使い回せる |
+
+**ユーザー作成の入口パターン・role・その後の認証方式**:
+
+| 作成の入口 | 作成されるユーザーの種別 | roleの決まり方 | 作成直後にログインできる方式 | 追加でパスキー登録できるか |
+|---|---|---|---|---|
+| `admin/go`(:8091)または`admin/rails`(:8092)で新規作成(Basic Auth必須) | ローカル認証ユーザー(name/email/passwordを画面で指定、backendの`users`+`user_passwords`テーブル) | 作成時に`general`/`management`を選択 | `http://localhost:5173/login`(ローカルHMAC)・`http://localhost:5173/login/rsa`(ローカルRSA)。いずれも同一ユーザー | できる(React+bffでログイン後、アカウント関連画面からパスキー登録。CONTRACT.mdセクション22、対象はローカル認証ユーザーのみ) |
+| Keycloakで初回ログイン(JITプロビジョニング、admin画面を経由しない) | Keycloak発行ユーザー(backendの`users`テーブルに自動作成、パスワードは持たない) | Keycloak側の`realm_access.roles`クレームに従う(`realm-export.json`定義で`general-user`→`general`、`admin-user`→`management`) | `http://localhost:5173/login`または`http://localhost:5174/login`の「Keycloakでログイン」ボタン(ローカルHMAC/RSAではログイン不可、パスワード自体を持たないため) | `http://localhost:5174/login`(frontend-rails/without-bff)経由、または`http://localhost:5175`(frontend-rails/with-bff、実体はbff-rails)経由でならできる(CONTRACT.mdセクション22.9)。`http://localhost:5173`(React+bff)側はKeycloakユーザー向けパスキーは非対応(セクション22.1で意図的に対象外) |
+
+補足: Keycloak自体へのユーザー追加(realmへの新規ユーザー登録)は、上記いずれの経路でもなく、Keycloakの管理コンソール(`http://localhost:8082`、`admin`/`admin`)から別途行う。admin/go・admin/railsが作成できるのはローカル認証ユーザーのみで、Keycloak側のユーザーは作成できない。
+
+
+
+
+
+
+
+
+
+
+
+■http://localhost:5173/login
+ローカルHMAC
+
+local-user@example.com
+password
+
+role: general
+`user_passwords`テーブルにseed(有効期限2099年) 
+
+
+■http://localhost:5173/login/rsa
+ローカルRSA
+
+local-user@example.com
+password
+
+上記と**同じユーザー**(署名方式が違うだけで、認証されるユーザー・照合ロジックは共通) 
+
+
+■keycloak
+http://localhost:8082/realms/training/protocol/openid-connect/auth?client_id=bff-gin&code_challenge=Ttz8KxXFGOVsIUt8iF4zPWSwmwNoYTd1nDEfhmmEPqg&code_challenge_method=S256&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fauth%2Fcallback&response_type=code&scope=openid+profile+email&state=XXX
+
+①
+general-user
+password
+
+role: general
+Keycloakのrealm-export.jsonにテストユーザーとして定義
+
+②
+admin-user
+password
+
+role: management(管理者相当)
+
+③http://localhost:8082 → keycloak の管理画面
+
+admin
+admin
+
+左上の「Manage realms」から、training を選択
+左メニューの Clients を選択
+bff-gin, external-api-client があることを確認
+```text
+ついでに、各クライアントの中身も見ておくと理解が深まる
+
+- bff-ginをクリック → 「Settings」タブで以下を確認できる
+  - Client authentication: On(confidential client)
+  - Standard flow: 有効(Authorization Code Flow)
+  - Direct access grants: 無効(README/CONTRACT.mdで説明したdirectAccessGrantsEnabled: false)
+  - 「Client scopes」タブや「Dedicated scopes」内に、audクレームへbackendを注入するoidc-audience-mapper(Mapperとして登録されているはず)があることも確認できる
+- external-api-clientをクリック → 「Settings」タブで以下を確認できる
+  - Client authentication: On
+  - Service accounts roles: 有効(Client Credentials Grant用)
+  - こちらにも同じoidc-audience-mapperが設定されているはず
+
+
+#「bff-gin クライアントに oidc-audience-mapper(aud=backend)が設定されている」の確認方法
+以下、管理画面のパンクズリンク
+Clients > Client details > Dedicated scopes > Mapper details
+
+Mapper type: Audience
+Included Custom Audience: backend
+
+# Sessions
+ログインユーザーの状態がわかる
+```
+
+
+#### Admin
+■admin(Go)
+http://localhost:8091/
+
+Basic認証
+admin
+password
+
+■admin(Rails)
+http://localhost:8092/
+
+Basic認証
+admin
+password
+
+
+#### パスキーの削除
+```sql
+# DB
+## 中身を確認する場合
+docker compose exec mysql mysql -uroot bff_gin_development -e \
+  "SELECT id, user_id, sign_count, transports, name, created_at FROM webauthn_credentials;"
+
+## 全件削除する場合
+docker compose exec mysql mysql -uroot bff_gin_development -e \
+  "DELETE FROM webauthn_credentials;"
+
+## 特定ユーザーのみ削除する場合(例: user_id=1)
+docker compose exec mysql mysql -uroot bff_gin_development -e \
+  "DELETE FROM webauthn_credentials WHERE user_id=1;"
+
+# ブラウザ
+## chrome
+chrome://password-manager/passwords/localhost)
+```
+
+#### パスキー成功のログ
+```text
+- bff
+{"time":"2026-09-10T23:27:35.297664+09:00","level":"INFO","msg":"request","method":"POST","path":"/api/auth/passkey/login/begin","status":200,"duration_ms":8}
+{"time":"2026-09-10T23:27:38.962862+09:00","level":"INFO","msg":"request","method":"POST","path":"/api/auth/passkey/login/finish","status":200,"duration_ms":22}
+{"time":"2026-09-10T23:27:39.428672+09:00","level":"INFO","msg":"feature flag評価","flag":"frontend.tasks-ts-rewrite","user_id":"1","value":true}
+{"time":"2026-09-10T23:27:39.428715+09:00","level":"INFO","msg":"feature flag評価","flag":"frontend.task-create-ux","user_id":"1","value":"inline"}
+{"time":"2026-09-10T23:27:39.428753+09:00","level":"INFO","msg":"request","method":"GET","path":"/api/me","status":200,"duration_ms":1}
+{"time":"2026-09-10T23:27:39.44493+09:00","level":"INFO","msg":"feature flag評価","flag":"backend.task-language","user_id":"1","value":"go"}
+{"time":"2026-09-10T23:27:39.445006+09:00","level":"INFO","msg":"feature flag評価","flag":"backend.task-protocol","user_id":"1","value":"rest"}
+{"time":"2026-09-10T23:27:39.445013+09:00","level":"INFO","msg":"backend.task-language/backend.task-protocolの評価結果によりTaskの実装を振り分け","user_id":1,"language":"go","protocol":"rest","implementation":"go:rest"}
+{"time":"2026-09-10T23:27:39.450378+09:00","level":"INFO","msg":"request","method":"GET","path":"/api/labels","status":200,"duration_ms":6}
+{"time":"2026-09-10T23:27:39.460965+09:00","level":"INFO","msg":"request","method":"GET","path":"/api/tasks","status":200,"duration_ms":16}
+
+- backend
+{"time":"2026-09-10T23:27:33.508338+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"3.434958ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:27:33.508607+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":3}
+{"time":"2026-09-10T23:27:38.950982+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"4.633584ms","sql":"SELECT * FROM `webauthn_credentials` WHERE credential_id = '<binary>' ORDER BY `webauthn_credentials`.`id` LIMIT 1","rows":1}
+{"time":"2026-09-10T23:27:38.952697+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"1.496166ms","sql":"SELECT * FROM `users` WHERE `users`.`id` = 1 ORDER BY `users`.`id` LIMIT 1","rows":1}
+{"time":"2026-09-10T23:27:38.953046+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/auth/webauthn/credentials/iP2372JBhEZ_4i-emk2tWQ","status":200,"duration_ms":6}
+{"time":"2026-09-10T23:27:38.961713+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"7.407ms","sql":"UPDATE `webauthn_credentials` SET `sign_count`=0,`updated_at`='2026-09-10 14:27:38.955' WHERE credential_id = '<binary>'","rows":1}
+{"time":"2026-09-10T23:27:38.961746+09:00","level":"INFO","msg":"request","method":"PATCH","path":"/internal/v1/auth/webauthn/credentials/iP2372JBhEZ_4i-emk2tWQ/sign-count","status":204,"duration_ms":7}
+{"time":"2026-09-10T23:27:39.450054+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"4.594375ms","sql":"SELECT * FROM `labels` ORDER BY name ASC","rows":10}
+{"time":"2026-09-10T23:27:39.450124+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/labels","status":200,"duration_ms":4}
+{"time":"2026-09-10T23:27:39.454326+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"8.7845ms","sql":"SELECT * FROM `users` WHERE `users`.`id` = 1 ORDER BY `users`.`id` LIMIT 1","rows":1}
+{"time":"2026-09-10T23:27:39.455531+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"1.161334ms","sql":"SELECT count(*) FROM `tasks` WHERE user_id = 1","rows":1}
+{"time":"2026-09-10T23:27:39.456331+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"773.417µs","sql":"SELECT * FROM `tasks` WHERE user_id = 1 ORDER BY created_at DESC LIMIT 20","rows":6}
+{"time":"2026-09-10T23:27:39.457225+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"867.5µs","sql":"SELECT `labels`.`id`,`labels`.`name`,`labels`.`created_at`,`labels`.`updated_at` FROM `labels` JOIN task_labels ON task_labels.label_id = labels.id WHERE task_labels.task_id = 8","rows":3}
+{"time":"2026-09-10T23:27:39.457839+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"580.125µs","sql":"SELECT `labels`.`id`,`labels`.`name`,`labels`.`created_at`,`labels`.`updated_at` FROM `labels` JOIN task_labels ON task_labels.label_id = labels.id WHERE task_labels.task_id = 7","rows":2}
+{"time":"2026-09-10T23:27:39.45853+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"674.417µs","sql":"SELECT `labels`.`id`,`labels`.`name`,`labels`.`created_at`,`labels`.`updated_at` FROM `labels` JOIN task_labels ON task_labels.label_id = labels.id WHERE task_labels.task_id = 6","rows":3}
+{"time":"2026-09-10T23:27:39.45913+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"567.875µs","sql":"SELECT `labels`.`id`,`labels`.`name`,`labels`.`created_at`,`labels`.`updated_at` FROM `labels` JOIN task_labels ON task_labels.label_id = labels.id WHERE task_labels.task_id = 5","rows":1}
+{"time":"2026-09-10T23:27:39.460042+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"892.583µs","sql":"SELECT `labels`.`id`,`labels`.`name`,`labels`.`created_at`,`labels`.`updated_at` FROM `labels` JOIN task_labels ON task_labels.label_id = labels.id WHERE task_labels.task_id = 4","rows":1}
+{"time":"2026-09-10T23:27:39.46067+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"594.5µs","sql":"SELECT `labels`.`id`,`labels`.`name`,`labels`.`created_at`,`labels`.`updated_at` FROM `labels` JOIN task_labels ON task_labels.label_id = labels.id WHERE task_labels.task_id = 1","rows":2}
+{"time":"2026-09-10T23:27:39.460765+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/tasks","status":200,"duration_ms":15}
+{"time":"2026-09-10T23:27:39.832474+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"9.624625ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:27:43.51332+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"7.77875ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:27:43.513561+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":8}
+{"time":"2026-09-10T23:27:49.829027+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"5.603166ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:27:53.507662+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"2.9005ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:27:53.50779+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":3}
+{"time":"2026-09-10T23:27:59.827874+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"4.969584ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:03.510924+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"6.293584ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:03.511346+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":6}
+{"time":"2026-09-10T23:28:09.828408+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"5.326083ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:13.507507+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"3.166042ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:13.507714+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":3}
+{"time":"2026-09-10T23:28:19.831652+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"8.138458ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:23.506853+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"2.914166ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:23.507096+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":3}
+{"time":"2026-09-10T23:28:29.828955+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"5.644625ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:33.50557+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"1.301459ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:33.505683+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":1}
+{"time":"2026-09-10T23:28:39.827429+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"4.472875ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:43.505254+09:00","level":"DEBUG","msg":"クエリを実行した","duration":"1.309041ms","sql":"SELECT * FROM `feature_flags` ORDER BY flag_key ASC","rows":8}
+{"time":"2026-09-10T23:28:43.50537+09:00","level":"INFO","msg":"request","method":"GET","path":"/internal/v1/feature-flags/export","status":200,"duration_ms":1}
+```
+
+
+
+
+
+### Swagger UI
+http://localhost:18080/
+
+
+```sh
+# Keycloakのトークンエンドポイントでaccess_tokenを取得
+curl -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=<realm-export.jsonの値>
+
+
+curl -s -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=external-api-client-local-dev-secret
+
+curl -s -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=external-api-client-local-dev-secret \
+  | python3 -m json.tool
+
+{"access_token":"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJQX1p5N1hPRURZUkVzMGxPNWQyM19kWVAwYVdjSkZwYjZYendZRlJGaHRnIn0.eyJleHAiOjE3ODg4MzUyOTMsImlhdCI6MTc4ODgzNDk5MywianRpIjoidHJydGNjOmQyNWRiNjRjLWUxMzEtNDc5MC00MDM1LTY3NDc5ZTllOTc1ZiIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4Mi9yZWFsbXMvdHJhaW5pbmciLCJhdWQiOlsiYmFja2VuZCIsImFjY291bnQiXSwic3ViIjoiZWExMGQ5YzMtMTJjZi00ZWQyLTliZWYtMDFiNzIyNDNjY2ZlIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiZXh0ZXJuYWwtYXBpLWNsaWVudCIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZWZhdWx0LXJvbGVzLXRyYWluaW5nIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiIiwiY2xpZW50SG9zdCI6IjE3Mi4yMy4wLjEiLCJjbGllbnRBZGRyZXNzIjoiMTcyLjIzLjAuMSIsImNsaWVudF9pZCI6ImV4dGVybmFsLWFwaS1jbGllbnQifQ.e7JMNo2Koy8dwM2QG-4f0Hd7Oij-ILA_RUMsWzXPWHb--JgMLGw6M4scIaxYzTZ86FGtuId7sFChhBaXuBIVeSAdxyvmWJ0aqfe6HEt3TtVVjIw23QtRFkKqlWIkLuBLxz8OnqTAgxOcISrK7ap63CVxRz_ma_QKN2x_DdxFUn1P7zHROIQoP151N_zbpePhs8Ht1LZq-b2ayg3cqSLZTnhZ4n-ju1hlM43mAPElk84FpzA9ok4Cii-2MVV1BFI0e-Boa7xhR8ZYHN3DKSuJ4iFZN_-BZr4Uc1sv_G4GjlAaHjuhG-GRBoMmAqOEC7CKx9yr3GX8fCfc21diEwS67Q","expires_in":300,"refresh_expires_in":0,"token_type":"Bearer","not-before-policy":0,"scope":""}
+
+以下のようなJSONが返ってくれば成功
+{"access_token":"eyJhbGciOiJSUzI1NiIs...(長い文字列)...","expires_in":300,"refresh_expires_in":0,"token_type":"Bearer","not-before-policy":0,"scope":"..."}
+
+
+TOKEN=$(curl -s -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=external-api-client-local-dev-secret \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+echo $TOKEN
+
+## 中身(クレーム)も見てみる
+JWTはヘッダ.ペイロード.署名の3つがピリオドで区切られた構造です
+真ん中のペイロード部分をbase64デコードすると中身が読める
+
+echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | python3 -m json.tool
+
+以下のようなクレームが確認できれば、前回の「aud=backendマッパー」も裏付けられる
+{
+  "iss": "http://localhost:8082/realms/training",
+  "aud": ["backend", "account"],
+  "azp": "external-api-client",
+  "typ": "Bearer",
+  ...
+}
+- audに"backend"が含まれている → Audience Protocol Mapperが機能している証拠
+- azpが"external-api-client" → このクライアントが発行したトークンである証拠
+
+### エラーになる場合
+$ echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | python3 -m json.tool
+Expecting ',' delimiter: line 1 column 535 (char 534)
+
+
+■原因
+macOS の base64 コマンドと JWT のエンコード形式の食い違い
+
+JWTのペイロード部分は「base64url」というbase64の亜種でエンコードされている
+- 通常のbase64は+//という文字を使うが、base64urlは-/_を使う(URLの中に埋め込んでも壊れないようにするため)
+- さらにJWTでは末尾のパディング(=)を省略するのが慣例
+
+macOS の base64 -dコマンドは「通常のbase64(パディングあり)」しか正しく扱えないため、トークンの中身によっては-/_が混ざっていたり、パディングが無かったりすると、デコード結果が途中で壊れてしまう
+それがJSONとして不完全な文字列になり、python3 -m json.toolが「535文字目でカンマが来るはずなのに無い」というエラーを出していた、という流れ
+
+### 別のコマンド
+
+base64.urlsafe_b64decodeが-/_を正しく解釈し、paddedの行で不足しているパディングを自動的に補っていて、これで正しくデコードできるはず
+
+- 補足(このプロジェクトの実装との面白い共通点)
+「base64urlはパディング無し・記号が違う」という特性は、
+このプロジェクト自身のbackend実装(authjwt/jwks.go)でも直接扱っている問題
+KeycloakのJWKS(公開鍵情報)のn/eフィールドも同じ base64url・パディング無しでエンコードされているため、
+Goの標準ライブラリで base64.RawURLEncoding.DecodeString を使って手動でデコードしている
+今回のエラーは、まさにその「JWTの世界で地味にハマりやすいポイント」を実地で踏んだ形
+
+
+echo $TOKEN | python3 -c "
+import sys, base64, json
+payload = sys.stdin.read().strip().split('.')[1]
+padded = payload + '=' * (-len(payload) % 4)
+print(json.dumps(json.loads(base64.urlsafe_b64decode(padded)), indent=2, ensure_ascii=False))
+"
+
+
+$ echo $TOKEN | python3 -c "
+> import sys, base64, json
+> payload = sys.stdin.read().strip().split('.')[1]
+> padded = payload + '=' * (-len(payload) % 4)
+> print(json.dumps(json.loads(base64.urlsafe_b64decode(padded)), indent=2, ensure_ascii=False))
+> "
+{
+  "exp": 1788835413,
+  "iat": 1788835113,
+  "jti": "trrtcc:fe7941ff-e1a1-247c-8d9f-bc0e00e3ab71",
+  "iss": "http://localhost:8082/realms/training",
+  "aud": [
+    "backend",
+    "account"
+  ],
+  "sub": "ea10d9c3-12cf-4ed2-9bef-01b72243ccfe",
+  "typ": "Bearer",
+  "azp": "external-api-client",
+  "realm_access": {
+    "roles": [
+      "default-roles-training",
+      "offline_access",
+      "uma_authorization"
+    ]
+  },
+  "resource_access": {
+    "account": {
+      "roles": [
+        "manage-account",
+        "manage-account-links",
+        "view-profile"
+      ]
+    }
+  },
+  "scope": "",
+  "clientHost": "172.23.0.1",
+  "clientAddress": "172.23.0.1",
+  "client_id": "external-api-client"
+}
+
+
+# 取得したトークンで GET /external/v1/tasks が呼べる
+curl http://localhost:8081/external/v1/tasks?user_id=1 \
+  -H "Authorization: Bearer <access_token>"
+
+
+$ TOKEN=$(curl -s -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=external-api-client-local-dev-secret \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+$ echo $TOKEN
+eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJQX1p5N1hPRURZUkVzMGxPNWQyM19kWVAwYVdjSkZwYjZYendZRlJGaHRnIn0.eyJleHAiOjE3ODg4MzYxMTYsImlhdCI6MTc4ODgzNTgxNiwianRpIjoidHJydGNjOjNlN2JiYjZlLTIzYzItMzYwNy1iMDAzLWIyNjEzYTEyZGI4NSIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4Mi9yZWFsbXMvdHJhaW5pbmciLCJhdWQiOlsiYmFja2VuZCIsImFjY291bnQiXSwic3ViIjoiZWExMGQ5YzMtMTJjZi00ZWQyLTliZWYtMDFiNzIyNDNjY2ZlIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiZXh0ZXJuYWwtYXBpLWNsaWVudCIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZWZhdWx0LXJvbGVzLXRyYWluaW5nIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiIiwiY2xpZW50SG9zdCI6IjE3Mi4yMy4wLjEiLCJjbGllbnRBZGRyZXNzIjoiMTcyLjIzLjAuMSIsImNsaWVudF9pZCI6ImV4dGVybmFsLWFwaS1jbGllbnQifQ.KmSlaFzoZ4dSfFAfihVMGxFh7fgvspIJwqtin_1z6FFV4qVbhaEOLsjZ0SOu6311geUPxYi-RyxubUAl0pe7bKcY3mk9zP-Cc6HSmmmvUTWm8w2pDL0t7NU0xsizFMFAYzwbORK9vymrjnH-Ip4pdeGcanzcbgf3FiYUWznHbfXUNDOpVhM3L0qtgC_aZ7oM73LPZApCaZymabKZoWimHGH__cVGa2qtKmVXdX7zG2mhqXEYqHaWS-IOZtLaPU1YWt83k5KuunVZMPFb9wjWRL_h1zLhhQz129OGpg48ft83SEKz159xn2bmlLDeY6TAzdWuC3XBviYgoyQSWZbUlg
+
+
+curl http://localhost:8081/external/v1/tasks?user_id=1 \
+  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJQX1p5N1hPRURZUkVzMGxPNWQyM19kWVAwYVdjSkZwYjZYendZRlJGaHRnIn0.eyJleHAiOjE3ODg4MzYxMTYsImlhdCI6MTc4ODgzNTgxNiwianRpIjoidHJydGNjOjNlN2JiYjZlLTIzYzItMzYwNy1iMDAzLWIyNjEzYTEyZGI4NSIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4Mi9yZWFsbXMvdHJhaW5pbmciLCJhdWQiOlsiYmFja2VuZCIsImFjY291bnQiXSwic3ViIjoiZWExMGQ5YzMtMTJjZi00ZWQyLTliZWYtMDFiNzIyNDNjY2ZlIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiZXh0ZXJuYWwtYXBpLWNsaWVudCIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZWZhdWx0LXJvbGVzLXRyYWluaW5nIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiIiwiY2xpZW50SG9zdCI6IjE3Mi4yMy4wLjEiLCJjbGllbnRBZGRyZXNzIjoiMTcyLjIzLjAuMSIsImNsaWVudF9pZCI6ImV4dGVybmFsLWFwaS1jbGllbnQifQ.KmSlaFzoZ4dSfFAfihVMGxFh7fgvspIJwqtin_1z6FFV4qVbhaEOLsjZ0SOu6311geUPxYi-RyxubUAl0pe7bKcY3mk9zP-Cc6HSmmmvUTWm8w2pDL0t7NU0xsizFMFAYzwbORK9vymrjnH-Ip4pdeGcanzcbgf3FiYUWznHbfXUNDOpVhM3L0qtgC_aZ7oM73LPZApCaZymabKZoWimHGH__cVGa2qtKmVXdX7zG2mhqXEYqHaWS-IOZtLaPU1YWt83k5KuunVZMPFb9wjWRL_h1zLhhQz129OGpg48ft83SEKz159xn2bmlLDeY6TAzdWuC3XBviYgoyQSWZbUlg"
+
+
+$ curl http://localhost:8081/external/v1/tasks?user_id=1 \
+>   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJQX1p5N1hPRURZUkVzMGxPNWQyM19kWVAwYVdjSkZwYjZYendZRlJGaHRnIn0.eyJleHAiOjE3ODg4MzYxMTYsImlhdCI6MTc4ODgzNTgxNiwianRpIjoidHJydGNjOjNlN2JiYjZlLTIzYzItMzYwNy1iMDAzLWIyNjEzYTEyZGI4NSIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4Mi9yZWFsbXMvdHJhaW5pbmciLCJhdWQiOlsiYmFja2VuZCIsImFjY291bnQiXSwic3ViIjoiZWExMGQ5YzMtMTJjZi00ZWQyLTliZWYtMDFiNzIyNDNjY2ZlIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiZXh0ZXJuYWwtYXBpLWNsaWVudCIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZWZhdWx0LXJvbGVzLXRyYWluaW5nIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiIiwiY2xpZW50SG9zdCI6IjE3Mi4yMy4wLjEiLCJjbGllbnRBZGRyZXNzIjoiMTcyLjIzLjAuMSIsImNsaWVudF9pZCI6ImV4dGVybmFsLWFwaS1jbGllbnQifQ.KmSlaFzoZ4dSfFAfihVMGxFh7fgvspIJwqtin_1z6FFV4qVbhaEOLsjZ0SOu6311geUPxYi-RyxubUAl0pe7bKcY3mk9zP-Cc6HSmmmvUTWm8w2pDL0t7NU0xsizFMFAYzwbORK9vymrjnH-Ip4pdeGcanzcbgf3FiYUWznHbfXUNDOpVhM3L0qtgC_aZ7oM73LPZApCaZymabKZoWimHGH__cVGa2qtKmVXdX7zG2mhqXEYqHaWS-IOZtLaPU1YWt83k5KuunVZMPFb9wjWRL_h1zLhhQz129OGpg48ft83SEKz159xn2bmlLDeY6TAzdWuC3XBviYgoyQSWZbUlg"
+{"page":1,"page_size":10,"tasks":[{"created_at":"2026-09-08T00:13:43Z","description":"","finished_on":"2031-09-09","id":2,"labels":[{"id":2,"name":"寝る"}],"name":"20260908-test2","status":"work_in_progress","updated_at":"2026-09-08T00:13:43Z"},{"created_at":"2026-09-08T00:03:03Z","description":"20260908-test1","finished_on":"2030-09-09","id":1,"labels":[{"id":1,"name":"遊び"},{"id":2,"name":"寝る"},{"id":3,"name":"食べる"},{"id":5,"name":"旅行"},{"id":7,"name":"仕事"}],"name":"20260908-test11","status":"waiting","updated_at":"2026-09-08T00:03:24Z"}],"total":2}
+```
+
+
+## アーキテクチャ詳細
+
+### 全体構成(詳細版、docs/配下の図の要約)
+
+冒頭の概要図をもう少し具体化したもの
+正確な図(C4/ER/シーケンス)は`docs/`配下のPlantUML+PNGを参照
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ ブラウザ(React SPA, :5173)                                            │
+│ HttpOnly Cookie(session_id)+X-CSRF-Tokenのみ保持。JWTは一切渡らない    │
+└──────────────────────────────┬───────────────────────────────────────┘
+                                │ ログイン(3方式のいずれか、/loginページから)
+                                │  /login       → POST /api/auth/login       (ローカルHMAC・既定)
+                                │  /login/rsa   → POST /api/auth/login/rsa   (ローカルRSA)
+                                │  「Keycloakでログイン」ボタン → GET /api/auth/login/keycloak
+                                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ bff (Go/Gin, :8080)                                                     │
+│                                                                          │
+│  ローカルHMAC/RSAログイン                    Keycloakログイン            │
+│  POST /internal/v1/auth/               Authorization Code + PKCE(S256)  │
+│  verify-local-password(backendへ)  ───────────────► Keycloak(:8082)      │
+│  検証成功後、bffが自分でJWTを発行                                        │
+│  (HS256共有シークレット、またはbff自前のRS256鍵)                         │
+│  RS256用に GET /.well-known/jwks.json でbffが自分の公開鍵を配布          │
+│  (Keycloakログインの実エンドポイント:                                    │
+│   ① GET  http://localhost:8082/realms/training/protocol/openid-connect/auth │
+│      (ブラウザがここへリダイレクトされ、Keycloakのログイン画面を操作する)│
+│   ② GET  /api/auth/callback?code=...(Keycloakからブラウザ経由でbffへ戻る)│
+│   ③ POST http://localhost:8082/realms/training/protocol/openid-connect/token │
+│      (bffがcodeをAccess/Refresh/ID Tokenへサーバー間で交換、③はブラウザを経由しない)│
+│                                                                          │
+│  ログイン成功 → Redisへセッション保存(auth_mode含む)→ session_id Cookie  │
+│                                                                          │
+│  以降の各APIリクエスト: session_idからRedisのAccess Tokenを引き、        │
+│  Authorizationヘッダに付けてbackendへ転送                                │
+│  (bff.tasks-backend-v2フラグでTask系はREST v1/gRPC v2のどちらかへ)       │
+└───────────────┬──────────────────────────────────┬─────────────────────┘
+                │ REST v1(N+1あり、旧実装)   gRPC v2(Preload最適化、新実装)│
+                ▼                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ backend(Go、private network限定。REST::8090 / gRPC::9090)               │
+│                                                                          │
+│  authjwt.Dispatcher: JWTの`iss`クレームで検証方式を3方式に振り分け        │
+│    iss=Keycloak発行        → KeycloakのJWKS(:8082)で検証                │
+│    iss=bff-gin-local-hmac  → 共有シークレット(HS256)で検証              │
+│    iss=bff-gin-local-rsa   → bffのJWKS(:8080/.well-known/jwks.json)で検証│
+│                                                                          │
+│  Task/Label CRUD、Feature Flag評価(MySQLの`feature_flags`を参照)         │
+│  Admin::Usersのユーザー管理API(/internal/v1/admin/users、admin/*用)     │
+│  GET /internal/v1/feature-flags/export でフラグ一覧をJSON公開           │
+│  (bffがHTTP retrieverで定期ポーリングし、自分のFeature Flag評価に使う。 │
+│   `X-Feature-Flag-Poll-Token`ヘッダで認可。admin/go・admin/railsが       │
+│   MySQLを直接更新→この経路でbffへ伝わるまでにポーリング間隔分の遅延あり) │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                 ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ MySQL 8.0(:13306)                                                       │
+│  users / user_passwords(ローカル認証) / user_keycloaks(Keycloak連携)    │
+│  tasks / labels / task_labels                                          │
+│  feature_flags / feature_flag_audit_logs                               │
+└────────────────────────────────────────────────────────────────────────┘
+
+Redis(:16379、bffだけが利用。backendは一切触れない):
+  session:{sessionID}      … ログイン中セッション(Access/Refresh/ID Token, auth_mode)
+  lock:session:{sessionID} … トークンリフレッシュの分散ロック
+  oidc_pending:{state}     … Keycloakログイン処理中だけの一時状態(PKCE code_verifier等)
+
+--- 外部からのAPI利用(上記ブラウザ経路とは別系統、bffを経由しない) ---
+
+┌───────────────┐  Client Credentials Grant   ┌───────────┐
+│ 外部クライアント │ ──────────────────────────► │ Keycloak  │
+│(サーバー間連携) │ ◄── access_token(aud=backend)└───────────┘
+└───────┬───────┘
+        │ (① 事前にトークンエンドポイントを叩いてaccess_tokenを取得する:
+        │    POST http://localhost:8082/realms/training/protocol/openid-connect/token
+        │    body: grant_type=client_credentials, client_id=external-api-client, client_secret=<秘密>
+        │  ② 取得したaccess_tokenを Authorization: Bearer <access_token> として②のAPIへ付与する)
+        │ GET /external/v1/tasks (backend :8081)
+        ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ backend 外部公開API(:8081)                                             │
+│  RequireExternalClientAuth(azpクレームで検証)                           │
+│  backend.external-tasks-pagination-v2 フラグで offset/cursor ページング切替│
+└────────────────────────────────────────────────────────────────────────┘
+
+--- 管理系(Basic Auth、ブラウザから別途アクセス) ---
+
+┌──────────────┐              ┌──────────────┐
+│ admin/go     │              │ admin/rails  │
+│ (:8091)      │              │ (:8092)      │
+└──────┬───────┘              └──────┬───────┘
+       │ Feature Flag管理: MySQLへ直接GORM/ActiveRecordで接続
+       │ ユーザー管理: backendの /internal/v1/admin/users をHTTP経由
+       │ (共有シークレット X-Admin-Internal-Token)
+       └──────────────┬───────────────────────────┘
+                       ▼
+              (上記MySQL・backendへ)
+
+--- frontend-rails/without-bff(追加構成、bffを経由しない比較実装、CONTRACT.mdセクション21・22.9) ---
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ ブラウザ                                                                 │
+└──────────────────────────────┬───────────────────────────────────────┘
+                                │ http://localhost:5174/login
+                                │  「Keycloakでログイン」→ Authorization Code(Rails自身がKeycloakと直接やりとり)
+                                │  「パスキーでログイン」→ POST /auth/passkey/login/begin,finish(同じ画面)
+                                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ frontend-rails/without-bff (Rails, :5174)                              │
+│  RailsのCookieセッションのみで完結(bff・Redisを経由しない)                │
+│  Keycloakログイン成功時: backendへJITプロビジョニング(POST                │
+│  /internal/v1/users/provision、自分のaccess_token(aud=backend)を使用)    │
+│  パスキー登録(要ログイン、http://localhost:5174/account)・ログインは     │
+│  backendの /internal/v1/auth/webauthn/credentials/* を直接呼ぶ           │
+│  (bff(Go)・bff-railsと同じ内部APIを共有、credential自体も共有される)     │
+└──────────────────────────────┬───────────────────────────────────────┘
+                                ▼
+                       (上記backendへ、Task一覧等のデータ取得は行わない)
+```
+
+### Keycloak(OIDC IdP)
+
+- realm: `training`。`bff/keycloak/realm-export.json`を`--import-realm`でコンテナ起動時に一度だけ読み込む(永続ボリューム無し、コンテナを作り直すたびにこのファイルの内容で作り直される)
+- クライアントは2つ
+  - `bff-gin`: confidential、PKCE(S256)必須、Authorization Codeフローのみ有効(`directAccessGrantsEnabled: false`)
+    - redirect_uriは`http://localhost:8080/api/auth/callback`
+  - `external-api-client`: confidential、Service Accounts Enabled(Client Credentials Grant用)
+    - BFF非経由の外部公開APIの認証専用
+- **Audience Protocol Mapper(実機検証で追加した重要な設定)**: Keycloakの既定動作では、認可コードフローで発行されるAccess Tokenに`aud`クレームが一切含まれない(Client Credentials Grantでは`aud=account`が付くが、認可コードフローでは付かない)
+  - backendのJWT検証は`aud`の一致を必須にしているため、両クライアントに固定値`backend`を`aud`として注入する`oidc-audience-mapper`(`included.custom.audience=backend`)を追加している
+  - これが無いと本人確認が通っているのにbackendが常に401を返す、という分かりにくい不具合になる(実際に本セッション内で発生し、原因調査した)
+- `KC_HOSTNAME=localhost`・`KC_HOSTNAME_PORT=8082`により、Keycloakが発行するissuer/各種endpoint URLは常に`http://localhost:8082/...`になる
+  - backend/bffはコンテナ化せずネイティブ実行しているため、ブラウザが使うURLとbackend/bffが使うURLが完全に一致し、issuer検証で破綻しない(詳細は上の「ローカル開発でのプロセス配置」参照)
+- テストユーザー: `general-user`/`password`(role: general)、`admin-user`/`password`(role: management)
+- ログアウトはRP-Initiated Logoutのみ実装(Keycloak管理コンソールからの強制ログアウトに追従するBackchannel Logoutは対象外)
+
+### ローカル(非Keycloak)認証(CONTRACT.mdセクション16)
+
+Keycloak(OIDC)一本に加えて、比較学習用に「bff自身がユーザー名/パスワードを検証しJWTを発行する」認証方式を追加している
+Feature Flagでの切り替えも検討したが、ログイン前はセッションが無くuser_id単位のtargetingができないため不採用とし、
+**ログインURLを分ける**方式にした
+
+| URL(frontend) | 送信先(bff) | 方式 | JWTの署名 |
+|---|---|---|---|
+| `/login`(既定) | `POST /api/auth/login` | ローカル | HS256(共有シークレット) |
+| `/login/rsa` | `POST /api/auth/login/rsa` | ローカル | RS256(bffが起動時に生成する自分の鍵ペア。`GET /.well-known/jwks.json`でJWKSを公開) |
+| `/login/keycloak` | `GET /api/auth/login/keycloak` | Keycloak OIDC(既存) | RS256(Keycloakの鍵、既存のJWKS検証) |
+
+- **スキーマ**: `users`テーブルからは認証情報を分離済み(`keycloak_sub`カラムは廃止)
+  - `user_passwords`(`password_digest`・`password_expires_at`)と`user_keycloaks`(`keycloak_sub`)の2テーブルに分かれている(マイグレーション`000008_split_user_credentials`)
+- **seedされるローカルユーザー**(マイグレーション`000009_seed_local_user`): `local-user@example.com` / パスワード `password`、`password_expires_at`は`2099-12-31`
+  - 登録画面・パスワード変更画面は用意していない(実務でも最初の1人は管理者が手動発行するのが一般的、という割り切り)
+- **パスワード期限切れの挙動**: 期限切れの資格情報で`/login`(または`/login/rsa`)にログインしようとすると401 `{"error":"password_expired"}`が返り、そもそもログインできない(セッションを作らない)
+  - **「ログイン中に期限が来て強制ログアウトされる」機能ではない**
+  - 復旧手段(パスワード再設定画面)は用意していないため、seedユーザーのexpiryは学習中に詰まらないよう十分先の日付にしてある
+- **パスワード照合はbackend経由**: bffはDBに直接アクセスしない既存方針を維持するため、`POST /internal/v1/auth/verify-local-password`(共有シークレット`X-Local-Auth-Internal-Token`で認可)をbackendに新設し、bffはここへ問い合わせてからJWTを発行する
+- **RSA鍵は非永続化**: bffが起動時に一度だけ`rsa.GenerateKey`で生成し、プロセスメモリ上にのみ保持する
+  - bff再起動でRSA版のセッションは検証不能になり再ログインが必要(本番であれば鍵のローテーション・永続化が必要になる、学習用の簡略化)
+- **backend側のJWT検証**: `iss`クレームで3方式(Keycloak / `bff-gin-local-hmac` / `bff-gin-local-rsa`)を振り分ける`authjwt.Dispatcher`を新設
+  - `iss`を見てから対応するverifier(HMAC共有シークレット、またはbffのJWKS)が実際の署名検証を行う2段階構造(振り分けと信頼は別、というのがポイント)
+- ローカルセッションには`refresh_token`が無い(有効期限24時間、更新なし)
+  - backendから401が返ってもリフレッシュは試みずセッションを破棄する(Redisの`Session.auth_mode`で分岐)
+  - ログアウトも`auth_mode`が`keycloak`の場合のみKeycloakのRP-Initiated Logoutを行う
+- 新規環境変数:
+  - backend: `LOCAL_AUTH_INTERNAL_TOKEN`(既定`local-dev-local-auth-internal-token`)、`LOCAL_AUTH_HMAC_SECRET`(既定`local-dev-hmac-shared-secret-change-me`)、`LOCAL_AUTH_RSA_JWKS_URL`(既定`http://localhost:8080/.well-known/jwks.json`、bffを指す)
+  - bff: `LOCAL_AUTH_VERIFY_PASSWORD_URL`(既定`{BACKEND_REST_BASE_URL}/internal/v1/auth/verify-local-password`)、`LOCAL_AUTH_INTERNAL_TOKEN`(既定`local-dev-local-auth-internal-token`、backendと同じ値にすること)、`LOCAL_AUTH_HMAC_SECRET`(既定`local-dev-hmac-shared-secret-change-me`、backendと同じ値にすること)
+
+
+#### HMAC版とRSA版の違い
+「誰が鍵を持っているか」という点に集約される
+
+
+■暗号方式そのものの違い
+┌──────────────────┬─────────────────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────┐
+│                  │                            HMAC版(/login、既定)                             │                 RSA版(/login/rsa)                  │
+├──────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ 署名アルゴリズム │ HS256(共通鍵暗号)                                                           │ RS256(公開鍵暗号)                                  │
+├──────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ 鍵の数           │ 1つ(bffとbackendが同じ秘密の値を共有)                                       │ 2つ(bffだけが持つ秘密鍵+誰でも見られる公開鍵)      │
+├──────────────────┼─────────────────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ 鍵の実体         │ 環境変数LOCAL_AUTH_HMAC_SECRET(固定の文字列、bff/backend両方に同じ値を設定) │ bffが起動時にrsa.GenerateKeyでその場で生成するペア │
+└──────────────────┴─────────────────────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────┘
+
+
+##### 署名・検証の流れの違い
+■HMAC版:
+bffがログイン時にJWTを発行する際、LOCAL_AUTH_HMAC_SECRETという「合言葉」を使って署名する
+backendはトークンを検証するとき、同じ合言葉を使って「この署名は正しい合言葉で作られたものか」を確認する
+署名する側(bff)と検証する側(backend)が全く同じ鍵を持っている、という意味で「対称鍵」と呼ばれる
+
+■RSA版:
+bffは起動時に自分だけの秘密鍵・公開鍵のペアを作る
+ログイン時のJWT署名にはこの秘密鍵を使う
+backendは検証する際、bffがGET /.well-known/jwks.jsonで公開している公開鍵を取りに行き、それで署名を検証する
+署名する鍵と検証する鍵が別物(非対称)なので、backendは「署名を作る能力」自体は持っていない
+
+##### セキュリティ上の意味の違い
+- HMAC版:
+  - 合言葉(LOCAL_AUTH_HMAC_SECRET)が万一漏れると、漏れた側(backend含む)が本物そっくりの偽トークンを作れてしまう
+  - 「検証できる=偽造もできる」という弱点がある
+- RSA版:
+  - 公開鍵は文字通り公開して構わない情報
+  - backendの.well-known/jwks.jsonへのアクセス権が漏れても(そもそも公開情報ですが)、秘密鍵は bff のメモリ上にしか無いため偽トークンは作れない
+  - 「検証はできるが偽造はできない」という、より安全な形になる
+
+これはKeycloakが実際にやっていること(公開鍵をJWKSで配布し、秘密鍵は自分だけが持つ)と全く同じ仕組みで、bff が「小さな自前IdP」として振る舞っている形
+
+##### 運用上の違い(実装上の割り切り)
+- RSA版の鍵は永続化していない
+  - bff プロセスを再起動すると鍵ペアが失われ、それまでにRSA版で発行済みのセッションは全て検証不能(=再ログインが必要)になる
+  - HMAC版はこの影響を受けない(合言葉は環境変数なので再起動しても変わらない)
+- backendのauthjwt.Dispatcherは、JWTのiss(発行者)クレームを見て「HMAC用の検証ロジック」か「bffのJWKSを使うRSA用の検証ロジック(Keycloak検証と同じ汎用実装を流用)」かを振り分けている
+
+
+##### 変わらない部分
+パスワード自体の照合ロジック(POST /internal/v1/auth/verify-local-password)、対象ユーザー(同じlocal-user@example.com)、セッションの有効期限(24時間、リフレッシュ無し)は両方式で共通です
+違うのは「発行されたJWTの署名方式」だけ
+
+##### そもそもなぜ2つ用意したか
+機能的にはRSA版だけあれば十分だが、
+「対称鍵(シンプルだが鍵共有が必要)」
+と
+「非対称鍵(bff自身がミニIdPとして振る舞う、実務でよく使われる形)」
+を比較学習するため
+
+### Redis
+
+Redis を使うのは bff だけで、backendは一切Redisに触れない(backendはステートレスにJWT検証だけを行う設計のため)
+
+用途は3つ
+1. **セッションストア**(`session:{sessionID}`): ログイン中ユーザーのAccess/Refresh/ID Tokenと`auth_mode`(`keycloak`/`local_hmac`/`local_rsa`
+  - 前述の「ローカル(非Keycloak)認証」参照)を保持する
+  - ブラウザにはこのセッションIDだけがHttpOnly Cookieとして渡り、トークン本体はブラウザに一切渡さない(BFFパターンの核)
+2. **分散ロック**(`lock:session:{sessionID}`): BFFは複数インスタンスでの稼働を想定したステートレス設計のため、同一セッションに対する同時アクセスがそれぞれ独立にトークンリフレッシュを試みると、Keycloakのrefresh token rotationにより一方が強制失効しうる
+  - SETNXによる排他制御でこれを防ぐ
+3. **ログイン処理中の一時状態**(`oidc_pending:{state}`): Authorization Codeフロー開始時に生成したPKCEの`code_verifier`と、ログイン後に戻すべき元のパス(`redirect`)を、Callbackが呼ばれるまでの間だけ保持する
+  - Callback到達時に`GetDel`で1回読み出すと同時に消える(再利用防止)
+
+具体的なキー・TTLの一覧は後述の「Redisのキー設計」を参照
+
+
+
+```sh
+# redis-cliで接続
+docker compose exec redis redis-cli
+
+PING
+
+127.0.0.1:6379> PING
+PONG
+
+# ログイン中にKEYSで session:{id} が存在することを確認
+KEYS *
+
+1) "session:f3c238d3a85e5973281f17e14681705cc1cf57a8895861364597a5fc7045b018"
+2) "session:08f5e17bf2b2abcec984d1363a9ead49dc6dec312e3471ad56dc56c478d8495b"
+
+# session:{id} の中身(GET)に auth_mode が含まれ、ログイン方式(keycloak/local_hmac/local_rsa)と一致している
+GET session:<Cookieのsession_idの値>
+
+## ブラウザ(console)からは http only が付いていたら、session_id は取得できない
+document.cookie
+'csrf_token=0e4ea020b1c769bce95f1bab2d6f88640afc05100e8c278481be3b68c1d0fc54'
+
+## Chrome / Edgeの場合
+1. http://localhost:5173でいずれかの方法でログインする
+2. 開発者ツールを開く(Cmd + Option + I、または右クリック→「検証」)
+3. 上部タブから 「Application」(Edgeなら「アプリケーション」)を選ぶ
+4. 左側メニューの Storage → Cookies → http://localhost:5173 を選ぶ
+5. 一覧にsession_idという行があるので、そのValue列をクリックしてコピー
+(HttpOnly列に✓が付いていることも、このCookieがJSから読めない設定になっている証拠として確認できる)
+
+08f5e17bf2b2abcec984d1363a9ead49dc6dec312e3471ad56dc56c478d8495b
+を確認できる
+
+
+$ GET session:08f5e17bf2b2abcec984d1363a9ead49dc6dec312e3471ad56dc56c478d8495b
+
+127.0.0.1:6379> GET session:08f5e17bf2b2abcec984d1363a9ead49dc6dec312e3471ad56dc56c478d8495b
+"{\"user_id\":2,\"keycloak_sub\":\"4aff30ac-8341-4db8-87ed-762cde03cd62\",\"name\":\"\xe4\xb8\x80\xe8\x88\xac \xe3\x83\xa6\xe3\x83\xbc\xe3\x82\xb6\xe3\x83\xbc\",\"email\":\"general-user@example.com\",\"roles\":[\"management\"],\"auth_mode\":\"keycloak\",\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJQX1p5N1hPRURZUkVzMGxPNWQyM19kWVAwYVdjSkZwYjZYendZRlJGaHRnIn0.eyJleHAiOjE3ODg4MzE0MTksImlhdCI6MTc4ODgzMTExOSwianRpIjoib25ydHJ0OmFjZWVmNDVlLWMxNGQtMGY1OS03MjkxLTg3MWFhODhjZDhjZiIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4Mi9yZWFsbXMvdHJhaW5pbmciLCJhdWQiOiJiYWNrZW5kIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiYmZmLWdpbiIsInNpZCI6InhzRjhrOFJFZGRzY2JLR010WVdJQWtYbSIsInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJnZW5lcmFsIl19LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiLkuIDoiKwg44Om44O844K244O8IiwicHJlZmVycmVkX3VzZXJuYW1lIjoiZ2VuZXJhbC11c2VyIiwiZ2l2ZW5fbmFtZSI6IuS4gOiIrCIsImZhbWlseV9uYW1lIjoi44Om44O844K244O8IiwiZW1haWwiOiJnZW5lcmFsLXVzZXJAZXhhbXBsZS5jb20ifQ.Ec7bu1CTjNCol-ULftXHp2-PZFi37p3OhE38oLkaVrRVoi8uzPyUDBWG-4nwJR5gU1uYu4cADxU9oQDB6sHCInP_7JRR7Zn-ioSGbgBC3CKVY7XTzBAIGB4zXRPMIWzefwYlIZUo4eiMruKYOKMnGWMVel3iyQB2Ewanut2w53LCQn0fUtLA4qI-IFQ1CN9kj5LOUU_R9S-QM2L9L4cq0ZIXzoDXNyvFrbFUnhnH3k5CGivjVwtZHkFzGK_OVh7N2zTy-aV2mrSsFtwai98HEozKhD6amG--WO1IIsFzMoIr1oQ2C3kptjFmUfm3zuj0j0hdnwAiVPNLaFP6su9znQ\",\"refresh_token\":\"eyJhbGciOiJIUzUxMiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJjOTc0MzRkMy0wNzFmLTRkOTMtYjkwYy1lNzRlZDg0ZGJkNDQifQ.eyJleHAiOjE3ODg4MzI5MTksImlhdCI6MTc4ODgzMTExOSwianRpIjoiYTQ2YzdmYWItNDFiZS0wOTc3LWZjMGYtNTg5MDg3YWZiZjYwIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgyL3JlYWxtcy90cmFpbmluZyIsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4Mi9yZWFsbXMvdHJhaW5pbmciLCJ0eXAiOiJSZWZyZXNoIiwiYXpwIjoiYmZmLWdpbiIsInNpZCI6InhzRjhrOFJFZGRzY2JLR010WVdJQWtYbSIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgcm9sZXMgZW1haWwiLCJhdWRfeCI6ImJhY2tlbmQiLCJwcm92IjoiZGVmYXVsdCJ9.HtyvHzO40OxwlTWMlWyGLlqd7R9NoeWDASYFSD-9wHnpwPLGoVli4oXCo33lvOGpSP4VxgPAWW1v3gvai1IFpA\",\"id_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJQX1p5N1hPRURZUkVzMGxPNWQyM19kWVAwYVdjSkZwYjZYendZRlJGaHRnIn0.eyJleHAiOjE3ODg4MzE0MTksImlhdCI6MTc4ODgzMTExOSwianRpIjoiNGVmOGNhZTAtNjZlYy03NTYyLWFkNDEtNjQ5YTZkODdhOTY1IiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgyL3JlYWxtcy90cmFpbmluZyIsImF1ZCI6ImJmZi1naW4iLCJzdWIiOiI0YWZmMzBhYy04MzQxLTRkYjgtODdlZC03NjJjZGUwM2NkNjIiLCJ0eXAiOiJJRCIsImF6cCI6ImJmZi1naW4iLCJzaWQiOiJ4c0Y4azhSRWRkc2NiS0dNdFlXSUFrWG0iLCJhdF9oYXNoIjoiZ3dmSGlLNmhaMkNYSEtRZnZZMzYzUSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoi5LiA6IisIOODpuODvOOCtuODvCIsInByZWZlcnJlZF91c2VybmFtZSI6ImdlbmVyYWwtdXNlciIsImdpdmVuX25hbWUiOiLkuIDoiKwiLCJmYW1pbHlfbmFtZSI6IuODpuODvOOCtuODvCIsImVtYWlsIjoiZ2VuZXJhbC11c2VyQGV4YW1wbGUuY29tIn0.BwdwNn_ZjIi8Yz7A3TuMezNEc2kzyxJ_s1yoa-AQIocMQpt0ZTYl_KZOhsRVGDc-tyaf-zpl82cBbMKrubAnME3y6T04_nGtL6E6ierF8gXOogWX91dTg3rjPF9ZAlHEp2-gkQL5chgGgQUqdsJhnzdmBTo7lEGm55WM8N6xaIOpw9YvXu04yFiW28Fd-9T3wCwFTs0LsgcjMnL1s7C7KkHJfEJguSk1qMEg83QiJAN2E6F2QMEjGTGnAQVdizGz2k_Mz6GfeLuzgw6KTeBLnQaBJK3j91oRMREOkncRLLpCgs6gkin3kEU7yO2I0_LuQD6OhtdjrJNbwc69wcUqUQ\",\"access_token_exp\":\"2026-09-08T10:36:59.504778+09:00\",\"refresh_token_exp\":\"2026-09-08T11:01:59.505928+09:00\"}"
+
+
+ログアウト後: (nil)
+
+
+# TTLが設定されている(マイナスや-2ではない)
+TTL session:<session_idの値>
+
+TTL session:08f5e17bf2b2abcec984d1363a9ead49dc6dec312e3471ad56dc56c478d8495b
+
+(integer) 1055
+
+ログアウト後: (integer) -2
+```
+
+
+
+
+
+
+### Feature Flag(frontend・bff・backendそれぞれの責務)
+
+このプロジェクトには**3つの独立したFeature Flag評価ポイント**があり、「どこで評価するか」自体が設計上の学習ポイント
+
+【設計変更(後述の「Feature Flagの切り替え方法」参照)】以前は`flags.yaml`(ファイル)が正本だったが、
+現在は**MySQLの`feature_flags`テーブルが正本**で、admin/go・admin/rails(管理画面)から編集する
+以下の表の「定義の正本」列はこの変更後の実体
+
+| # | フラグ名 | 評価する場所 | 定義の正本 | Reactへの公開 |
+|---|---|---|---|---|
+| 1 | `frontend.tasks-ts-rewrite` | **bff** | MySQL `feature_flags`(backendの`/internal/v1/feature-flags/export`をbffがHTTP retrieverでポーリング) | `/api/me`の`feature_flags`経由で値だけ渡す |
+| 2 | `bff.tasks-backend-v2` | **bff** | 同上 | 渡さない(BFF内部限定) |
+| 3 | `backend.external-tasks-pagination-v2` | **backend** | 同じMySQL `feature_flags`をbackend自身が直接ポーリング(HTTPを介さない) | 該当なし(外部APIクライアント向け) |
+
+- **frontend自身はFeature Flag providerを一切持たない**
+  - `useFeatureFlag`フックはbffが評価済みの値(`/api/me`のレスポンス)を読むだけで、フロントエンドから直接flag providerへ問い合わせることはしない
+  - これは認証で確立した「BFFが外部サービスへの資格情報をブラウザに露出させない」という設計方針(CONTRACT.mdセクション4)をFeature Flagにも一貫して適用したもの
+- **bffが評価する2つのフラグ**は同じMySQLテーブル・同じOpenFeature Go SDK + GO Feature Flag(HTTP retriever)のインスタンスを使うが、公開範囲が異なる
+  - `frontend.tasks-ts-rewrite`はReact側のコンポーネント切り替えに使うため`/api/me`で公開し、`bff.tasks-backend-v2`はBFFがbackendのどちら(REST v1 / gRPC v2)へリクエストをルーティングするかだけに使うため、React側には一切見せない
+- **backendは自分専用のFeature Flag評価インスタンスを別途持つ**
+  - 理由は、外部公開API(`/external/v1/tasks`)がBFFを経由しない唯一の例外的な経路であり、この経路にはbffのFeature Flag評価が介在しようがないため
+  - backend は同じ MySQLテーブルを自分で直接ポーリングする
+  - bff のように HTTP経由にはしない backend自身が元々 MySQL接続を持つため
+- targeting keyの使い分け: フラグ1・2はログイン中ユーザーの`user_id`、フラグ3はAPIクライアントの`client_id`(人間のユーザーが存在しない機械間通信のため)
+
+
+#### Feature Flag(frontend・bff・backend) → それぞれの切り替える仕組みの詳細
+
+共通の土台: MySQL feature_flagsテーブルが正本
+
+admin/go・admin/railsはどちらも、MySQL の feature_flags/feature_flag_audit_logs テーブルへ直接GORM/ActiveRecordで書き込む
+(ユーザー管理機能とは違い、backend APIを経由しません)
+管理画面で「更新」ボタンを押すと、その場でこのテーブルのenabled/default_variationがUPDATEされ、同時に audit_log へ1行追記される
+
+この後の「切り替えが実際に反映されるまで」の経路が、3フラグで完全に分かれる
+
+##### ①backend.external-tasks-pagination-v2(backendが自分で評価)
+
+admin画面 → MySQL feature_flagsテーブル(UPDATE)
+                    │
+                    │ backend自身がGORMで直接クエリ(HTTPを一切経由しない)
+                    ▼
+backend 内部の mysqlRetriever.Retrieve() が FeatureFlagPollInterval(既定10秒)ごとに MySQL へ再クエリ
+                    │
+                    ▼
+OpenFeature の in-process プロバイダが最新値を保持
+                    │
+                    ▼
+external.TaskHandler.List() が h.flags.BoolValue
+(ctx, "backend.external-tasks-pagination-v2", false, azpクレーム)
+を呼び、true なら listV2(cursor)・falseならlistV1(offset)を実行
+
+backend は元々 MySQL への接続を持っているため、一番シンプルな経路
+HTTPを一切介さず、DBを直接見ている
+
+
+
+```sh
+curl -s -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=external-api-client-local-dev-secret \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])"
+
+
+
+TOKEN=$(curl -s -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=external-api-client-local-dev-secret \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+echo $TOKEN
+
+
+# backend.external-tasks-pagination-v2: ON
+$ curl -s "http://localhost:8081/external/v1/tasks?user_id=1" -H "Authorization: Bearer $TOKEN"
+
+curl -s "http://localhost:8081/external/v1/tasks?user_id=1" -H "Authorization: Bearer $TOKEN"
+{"limit":10,"next_cursor":null,"tasks":[{"created_at":"2026-09-08T00:13:43Z","description":"","finished_on":"2031-09-09","id":2,"labels":[{"id":2,"name":"寝る"}],"name":"20260908-test2","status":"work_in_progress","updated_at":"2026-09-08T00:13:43Z"},{"created_at":"2026-09-08T00:03:03Z","description":"20260908-test1","finished_on":"2030-09-09","id":1,"labels":[{"id":1,"name":"遊び"},{"id":2,"name":"寝る"},{"id":3,"name":"食べる"},{"id":5,"name":"旅行"},{"id":7,"name":"仕事"}],"name":"20260908-test11","status":"waiting","updated_at":"2026-09-08T00:03:24Z"}]}
+
+
+# backend.external-tasks-pagination-v2: OFF
+$ curl -s "http://localhost:8081/external/v1/tasks?user_id=1" -H "Authorization: Bearer $TOKEN"
+
+{"page":1,"page_size":10,"tasks":[{"created_at":"2026-09-08T00:13:43Z","description":"","finished_on":"2031-09-09","id":2,"labels":[{"id":2,"name":"寝る"}],"name":"20260908-test2","status":"work_in_progress","updated_at":"2026-09-08T00:13:43Z"},{"created_at":"2026-09-08T00:03:03Z","description":"20260908-test1","finished_on":"2030-09-09","id":1,"labels":[{"id":1,"name":"遊び"},{"id":2,"name":"寝る"},{"id":3,"name":"食べる"},{"id":5,"name":"旅行"},{"id":7,"name":"仕事"}],"name":"20260908-test11","status":"waiting","updated_at":"2026-09-08T00:03:24Z"}],"total":2}
+
+# bffのポーリング経由で反映の確認方法(即時ではない)
+「ポーリングそのもの」を直接ログに残す実装にはなっていない
+Evaluator.BoolValueが呼ばれたその瞬間の評価結果をログに残しているだけ
+「バックグラウンドでポーリングして設定を更新した」という専用ログは存在しない
+
+そのため、確認方法は「評価結果が時間経過で切り替わる様子を、間隔をあけて2回観測する」という間接的な形になる
+
+■確認手順
+- bff.tasks-backend-v2の場合
+
+bffの標準出力で以下の行を探す
+
+{"msg":"feature flag評価","flag":"bff.tasks-backend-v2","user_id":"1","value":false}
+{"msg":"bff.tasks-backend-v2の評価結果によりTaskの実装を振り分け","user_id":1,"use_v2":false,"implementation":"v1(REST)"}
+
+1. admin画面でフラグをONにする前に、ログイン中の画面でタスク一覧を再読み込み(またはcurlで/api/tasksを叩く)して、上記2行のvalue/use_v2がfalseであることを確認
+2. admin画面でONにする
+3. 10〜15秒待つ
+4. もう一度タスク一覧を再読み込みし、今度はvalue/use_v2がtrue、implementationが"v2(gRPC)"に変わっていることを確認
+
+この
+1回目は false
+2回目待った後 は true
+という変化そのものが、ポーリングで反映されたことの証拠になる
+即時反映なら待たなくても切り替わっているはずだが、そうならない(切り替わるまでラグがある)ことを確認する、という形
+
+- frontend.tasks-ts-rewriteの場合
+
+同様に、bff のログで
+{"msg":"feature flag評価","flag":"frontend.tasks-ts-rewrite","user_id":"1","value":...}
+を、ブラウザの再読み込み(/api/meが呼ばれるたび)の前後で見比べる
+
+grepで見やすくする
+
+
+- bffのログを流しながら、該当フラグの行だけ追う
+go run ./cmd/server 2>&1 | grep --line-buffered "feature flag評価\|振り分け"
+
+これを流したまま、admin画面でON→10秒待つ→ブラウザ再読み込み、という操作をすると、リアルタイムでvalueが切り替わる瞬間が見える
+
+補足: より確実に確認したい場合
+タイミングに自信が持てない場合
+admin画面でONにした直後から数秒おきにタスク一覧を再読み込みし続け
+何回目のリクエストで value: true
+に変わったかを数える方法もある
+ポーリング間隔(既定10秒)に近いタイミングで切り替わるはず
+```
+
+
+
+
+##### ②bff.tasks-backend-v2(bffが自分で評価、Reactには非公開)
+
+admin画面 → MySQL feature_flagsテーブル(UPDATE)
+                    │
+                    │ backendが公開する GET /internal/v1/feature-flags/export
+                    │ (中身は①と全く同じ BuildFlagConfigJSON 関数でJSON化 bff, backend自身向けで形状を1箇所に揃えている)
+                    │
+                    ▼
+bff 側の HTTP retriever が定期ポーリング(既定10秒、X-Feature-Flag-Poll-Tokenで認可)
+                    │
+                    ▼
+bff 内部の OpenFeature プロバイダが最新値を保持
+                    │
+                    ▼
+proxy.TaskRoutes.pickClient() が t.Flags.BoolValue
+(ctx, "bff.tasks-backend-v2", false, user_id)
+を呼び、trueならV2(gRPC)クライアント・falseならV1(REST)クライアントを選ぶ
+(この結果はTask一覧/作成/更新/削除の**すべてのリクエストで**都度評価される)
+
+bff は backend のように MySQL へ直接繋がない設計
+(「bffはbackend経由でのみデータを扱う」という既存方針)
+のため、backendが用意したHTTPのエクスポート窓口を経由する
+ここが①との一番の違い
+
+★コード(判定ロジック箇所): bff/internal/proxy/task_route.go#45
+
+
+##### ③frontend.tasks-ts-rewrite(bffが評価、結果だけをReactへ渡す)
+
+②と全く同じ経路でbffがMySQLの値をポーリング済み(同じOpenFeatureプロバイダを共有)
+                    │
+                    ▼
+auth.Handler.Me() が h.Flags.BoolValue
+(ctx, "frontend.tasks-ts-rewrite", false, user_id)
+を呼び、結果を GET /api/me のJSONレスポンスの feature_flags フィールドに含める
+                    │
+                    ▼
+frontendの useAuth() が /api/me を叩いてこの値を取得
+                    │
+                    ▼
+useFeatureFlag("frontend.tasks-ts-rewrite", false) フックが
+React Routerのoutlet contextからこの値を読む
+                    │
+                    ▼
+TaskListSwitch が true なら TaskList.tsx(新/TS)・false なら legacy/TaskList.jsx(旧/JS)を描画
+
+★コード(判定ロジック箇所): frontend/src/features/tasks/TaskListSwitch.tsx#19
+
+ここが最も重要なポイント
+React は自分で Feature Flag provider に問い合わせない
+bff が評価した「結果の値(true/false)」だけを /api/me 経由で受け取るだけ
+これは、Feature Flag provider の接続情報や設定をブラウザに一切露出させないための意図的な設計(BFF集約パターン)
+
+
+まとめ表
+
+┌──────────────────────────────────────┬──────────────┬──────────────────────────────────────────────────────┬──────────────────────────────────────────────┐
+│                フラグ                │ 評価する場所 │              admin変更が届くまでの経路               │           実際に切り替わるロジック           │
+├──────────────────────────────────────┼──────────────┼──────────────────────────────────────────────────────┼──────────────────────────────────────────────┤
+│ backend.external-tasks-pagination-v2 │ backend      │ MySQL直接ポーリング(ラグは~10秒)                     │ 外部API のoffset/cursorページング            │
+├──────────────────────────────────────┼──────────────┼──────────────────────────────────────────────────────┼──────────────────────────────────────────────┤
+│ bff.tasks-backend-v2                 │ bff          │ backendのexportエンドポイントをHTTPポーリング(~10秒) │ bff→backend間のREST v1/gRPC v2どちらを叩くか │
+├──────────────────────────────────────┼──────────────┼──────────────────────────────────────────────────────┼──────────────────────────────────────────────┤
+│ frontend.tasks-ts-rewrite            │ bff          │ 同上(②と共有)                                        │ Reactの新(TS)/旧(JS)コンポーネント表示       │
+└──────────────────────────────────────┴──────────────┴──────────────────────────────────────────────────────┴──────────────────────────────────────────────┘
+
+3つとも「MySQLが正本」という点は同じだが、
+「評価する場所」がfrontend/bff/backend それぞれの責務にきれいに分かれていること
+そして bff は絶対に MySQL へ直接繋がず backend 経由に統一されている
+
+
+
+
+### Strangler Fig(ストラングラー・フィグ)パターン
+
+「巨大な木に絡みつき、内部から古い部分を少しずつ置き換えながら成長する」ことに由来する
+システムを一度に全面刷新せず、新旧を並存させながら段階的に置き換えていく移行手法
+このプロジェクトには意図的に、**2種類・異なるレイヤーのStrangler Fig学習用デモ**を用意している
+
+**1. フロントエンド(コンポーネント単位)** — `frontend.tasks-ts-rewrite`
+
+- 旧実装: `frontend/src/features/tasks/legacy/TaskList.jsx`(JavaScript)
+- 新実装: `frontend/src/features/tasks/TaskList.tsx`(TypeScript)
+- `TaskListSwitch.tsx`がFlagで新旧のどちらを描画するか切り替える
+- **重要な設計原則(統合レビューで修正した経緯あり)**: 旧実装は現役の本番コードという体で作るべきであり、新実装より機能が劣っていてはならない
+  - 当初は旧実装を一覧表示のみに簡略化していたが、これは実務のStrangler Figの前提と矛盾するという指摘を受け、旧実装にも登録・編集・削除のフル機能を実装し直した
+  - 両実装の違いは最終的に「TypeScriptで書かれているかJavaScriptで書かれているか」だけになっている
+
+**2. BFF(ルーティング単位)** — `bff.tasks-backend-v2`
+
+- 旧実装: backendのREST v1(`/internal/v1/tasks`、labelsをタスクごとに個別クエリ取得する意図的なN+1あり)
+- 新実装: backendのgRPC v2(`TaskService`、`Preload`でN+1解消・cursorページング採用)
+- BFFの`proxy/task_route.go`がFlagでどちらへリクエストを転送するか切り替え、レスポンス形状の違い(REST JSON⇔protobuf、offsetページング⇔cursorページング)もBFFが吸収してReactには常に同じ形で返す
+- この「BFFが窓口となり、背後の新旧実装を切り替える」設計は、社内の実例(BFFが窓口として、まだ移行していない機能をレガシーCore APIに委譲する構成)から着想を得ている
+  - 実際の現場では「レガシー全体 vs 新backend全体」のような粗い単位で切り替えることが多いが、ここでは学習のため「同じTask機能の新旧実装」という細かい単位にしている
+
+**両方とも「Release Toggle」であり、恒久的に残すフラグではない**
+新実装のロールアウトが完了し十分な期間問題が無いことを確認したら、フラグ定義・旧実装・切替コンポーネント(`TaskListSwitch.tsx`または`bff/internal/proxy`の分岐)をまとめて削除する運用が前提
+
+なお、外部公開APIの`backend.external-tasks-pagination-v2`は同じFeature Flagの仕組みを使っているが、「レガシーを置き換える」という文脈ではなく「offsetとcursorという2つのページング方式を比較する」ための実装であり、Strangler Fig(移行のための一時的な切り替え)には分類していない
+
+## 前提バージョン(Mac M2〜M5)
+
+| 項目 | バージョン |
+|---|---|
+| macOS | Sonoma以降(Apple Silicon M2〜M5) |
+| Docker Desktop | 最新安定版(Docker Engine 29系 / Docker Compose v5系) |
+| Go | 1.27系(ローカルでの `go test` 実行に使用。コンテナビルドはDockerfile内で完結) |
+| Node.js | 22 LTS以降(frontend/e2eで使用) |
+| pnpm または npm | frontendの依存管理に使用 |
+| PlantUML | 図の再生成が必要な場合のみ(`brew install plantuml`) |
+
+Apple Siliconのため、`docker pull`されるイメージはarm64対応のものを使用すること(mysql:8.0, redis, keycloakの公式イメージはいずれもマルチアーキ対応)
+
+## セットアップ手順
+
+### 1. Docker Desktopを起動する
+
+Launchpadなどから起動し、メニューバーのDockerアイコンが起動完了状態になるまで待つ
+
+```sh
+# Docker version 29.x 系であることを確認
+docker --version
+# v5.x 系であることを確認
+docker compose version
+```
+
+### 2. コンテナ群を起動する
+
+```sh
+cd training-go/bff-gin
+docker compose up -d --wait mysql redis keycloak swagger-ui
+
+# 停止
+## コンテナを止めるだけ(データ・コンテナ自体は残る)
+docker compose stop
+
+# 再起動
+## 停止したコンテナを起動し、healthyになるまで待つ(前回と同じ状態に戻る)
+docker compose up -d --wait mysql redis keycloak swagger-ui
+
+# コンテナごと作り直したい場合
+docker compose down
+## # コンテナは削除されるが、bff-gin-mysql-dataボリュームは残るので MySQL のデータは消えない
+docker compose up -d --wait mysql redis keycloak swagger-ui
+
+
+# コンテナごと作り直したい場合2
+## MySQL のデータ無くなるので注意！！！
+docker compose down -v
+docker compose up -d --wait mysql redis keycloak swagger-ui
+
+# 起動確認
+docker compose ps
+
+```
+
+- `mysql`: パスワードなしのrootのみ(学習用途のため)
+- `redis`: セッションストア
+- `keycloak`: `--import-realm` により `bff/keycloak/realm-export.json` のrealm(`training`)・クライアント(`bff-gin`)・テストユーザーが自動投入される
+- `swagger-ui`: 外部公開API(`backend/openapi/external-api.yaml`)を閲覧・Try it outできる(`http://localhost:18080`)
+
+起動確認:
+
+```sh
+docker compose ps
+# "Imported realm training" 等のログを確認
+docker compose logs keycloak | tail -30
+```
+
+### 3. MySQLへログインして疎通確認する
+
+```sh
+docker compose exec mysql mysql -uroot
+```
+
+```sql
+SHOW DATABASES;
+```
+
+### 4. マイグレーションを実行する
+
+```sh
+cd backend
+# seed も含まれる
+go run ./cmd/migrate up
+```
+
+- `DB_DSN`は未設定でも既定値(`root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true`、上記docker-compose.yamlのmysqlサービスに対応)が使われる
+  - 別のDB接続先を使いたい場合のみ上書きする:
+```sh
+DB_DSN="root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true" go run ./cmd/migrate up
+```
+- マイグレーション適用後、backendを起動してから(`cd backend && go run ./cmd/server`)、
+  `http://localhost:5173`からログインして動作確認する
+
+#### `bff/keycloak/realm-export.json`を変更した場合
+
+Keycloakだけ作り直せばよく、MySQLのデータ(マイグレーション結果)は保持される:
+
+```sh
+docker compose stop keycloak
+docker compose rm -f keycloak
+docker compose up -d --wait keycloak
+```
+
+**なぜこれで済むのか**: `docker-compose.yaml`のkeycloakサービスには永続ボリュームが無く
+(`realm-export.json`の読み取り専用マウントのみ)、realmのデータはコンテナ内部の一時ストレージにしか存在しない
+そのため`-v`を付けなくても、コンテナを作り直すだけで`--import-realm`が再実行され、更新後の`realm-export.json`が再読み込みされる
+mysql/redisサービスには一切触れないので、`bff-gin-mysql-data`ボリューム(マイグレーション結果)はそのまま残る
+
+なお`docker compose restart keycloak`はコンテナを作り直さず単に再起動するだけなので、
+`realm-export.json`の変更は反映されない(`--import-realm`は起動時の一度きりの処理のため)
+必ず`rm`(または`down`)でコンテナ自体を作り直す必要がある
+
+| やりたいこと | コマンド |
+|---|---|
+| Keycloakのrealm設定(クライアント・マッパー等)だけ変更を反映したい | 上記のkeycloakだけを対象にした手順 |
+| MySQLのデータも含めて全部リセットしたい | `docker compose down -v` → 全サービス起動 → マイグレーションやり直し |
+
+
+#### 4.1 ロールバック
+```sh
+cd backend
+# 最新の1ステップ(000009)を巻き戻す
+go run ./cmd/migrate down
+# 000009 を再適用
+go run ./cmd/migrate up
+```
+
+### 5. backendを起動する
+
+**よくあるエラー(コンテナを作り直した直後に発生しやすい)**: 起動時に以下のようなエラーで
+即座に終了する場合、手順4のマイグレーションを実行し忘れている(`docker compose down -v`等で
+MySQLのデータが消えた後、手順4を飛ばして本手順に進んでしまった)可能性が高い
+`cd backend && go run ./cmd/migrate up` を実行してから、backendを起動し直すこと
+
+```
+{"level":"ERROR","msg":"クエリが失敗した","error":"Error 1146 (42S02): Table 'bff_gin_development.feature_flags' doesn't exist"}
+{"level":"ERROR","msg":"外部API用Feature Flagの初期化失敗",...}
+exit status 1
+```
+
+(bffも、backend起動前に`/internal/v1/feature-flags/export`へポーリングを試みて同様に起動失敗することがある
+backend起動後に改めてbffを起動し直せばよい)
+
+```sh
+cd backend
+go run ./cmd/server
+# REST v1:          http://localhost:8090
+# gRPC v2:          localhost:9090
+# 外部公開API(Client Credentials, section 11): http://localhost:8081
+
+
+# `DB_DSN`/`KEYCLOAK_ISSUER`(既定`http://localhost:8082/realms/training`)/`EXPECTED_AUDIENCE`
+# (既定`backend`)は、上記docker-compose.yamlの構成に対応する既定値が入っているため、通常は環境変数の指定なしでそのまま起動できる
+# 別の値を使いたい場合のみ明示的に上書きする
+#
+# 【実機検証で判明】bff-ginクライアントの認可コードフローで発行されるAccess Tokenには、
+# Keycloakの既定動作では`aud`クレームが一切含まれない(client_credentials Grantでは`aud=account`が付くが、認可コードフローでは付かない)
+# そのため`bff/keycloak/realm-export.json`の
+# `bff-gin`/`external-api-client`両クライアントに、固定値`backend`を`aud`として注入する Audience Protocol Mapperを追加している
+#
+# realm-export.jsonを更新した後は、Keycloakが
+# 一度だけ読み込む設定(`--import-realm`)のため `docker compose down -v` でボリュームごと
+# 作り直してから起動し直す必要がある(単なる`docker compose restart`では反映されない)
+
+# 詳細なログ(GORMが発行したSQLを含む)を見たい場合:
+LOG_LEVEL=debug go run ./cmd/server
+
+# 起動に失敗する場合
+## 9090番ポートを使っているプロセスを確認
+lsof -iTCP:9090 -sTCP:LISTEN -P
+lsof -iTCP:8090 -sTCP:LISTEN -P
+lsof -iTCP:8081 -sTCP:LISTEN -P
+
+## 出力されたPIDを停止(<PID>は上記コマンドの出力に置き換える)
+kill <PID>
+kill 87051
+```
+
+#### 5.1. backend(Rust/Scala(http4s)/Scala(Pekko)/Rails)をそれぞれ起動する
+```sh
+# 別ターミナルでそれぞれ起動
+
+## Rust
+### REST:8093 gRPC:9093 外部:8098
+cd backend-rust && cargo run
+
+cd backend-rust
+LOG_LEVEL=debug cargo run
+
+## Scala
+### REST:8094 gRPC:9094 外部:8099
+cd backend-scala-http4s && sbt run
+### # REST:8095 gRPC:9095 外部:8100
+cd backend-scala-pekko && sbt run
+
+## Rails
+### REST:8096
+cd backend-rails && bundle exec puma -C config/puma.rb
+### gRPC:9096(別プロセス)
+cd backend-rails && bundle exec bin/grpc_server
+```
+
+
+### 6. bffを起動する
+
+```sh
+cd bff
+go run ./cmd/server
+# http://localhost:8080
+
+
+# `OIDC_ISSUER_URL`/`OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET`/`OIDC_REDIRECT_URL`/`REDIS_ADDR`/
+# `BACKEND_REST_BASE_URL`/`BACKEND_GRPC_ADDR`/`FRONTEND_BASE_URL`もすべて、上記docker-compose.yaml・
+# realm-export.json・backend/frontendの既定ポートに対応する既定値が入っているため、
+# 通常は環境変数の指定なしでそのまま起動できる
+#
+# 【実機検証で判明】ログイン成功後、frontendが渡す`redirect`クエリは"/tasks"のような相対パスでしかない
+# これをbffが単純に`c.Redirect`すると、ブラウザはbff自身のオリジン(:8080)からの相対パスとして
+# 解釈してしまい、http://localhost:8080/tasks へ遷移して「404 page not found」になる(bffのGin
+# ルーターに/tasksというルートは無いため)
+#
+# そのため`FRONTEND_BASE_URL`(既定`http://localhost:5173`)
+# を相対パスの前に連結し、必ずfrontendのオリジンへ絶対URLでリダイレクトするよう修正した
+#
+# 詳細なログを見たい場合:
+LOG_LEVEL=debug go run ./cmd/server
+```
+
+コード変更後は起動中のプロセスを再起動すること
+(`go run`は起動時にコンパイルするため、プロセスを止めずに再起動を忘れると古いコードのまま動き続ける過去に何度も原因になった典型的なハマりどころ)
+起動中のPIDが分からない場合:
+```sh
+# bffが待ち受けているPIDを確認
+lsof -iTCP:8080 -sTCP:LISTEN -P
+kill <PID>
+kill 87056
+```
+
+### 7. frontendを起動する
+
+```sh
+cd frontend
+npm install # 初回のみ
+npm run dev
+# http://localhost:5173
+```
+
+
+### 7.1 再起動
+
+```sh
+# 1. 起動中のbackend/bff/frontendを一度全部止める(Ctrl+C)
+
+# 2. docker composeは維持でOK(MySQLデータは残っている想定)。念のため状態確認
+docker compose ps
+
+# 3. マイグレーションが最新か確認・適用(未適用ならlabelsシードもここで入る)
+cd backend
+go run ./cmd/migrate up
+
+# 4. 各プロセスを起動(すべて環境変数なしで動く)
+cd backend && go run ./cmd/server
+cd bff && go run ./cmd/server
+cd frontend && npm run dev
+```
+
+
+### admin画面の起動
+
+```sh
+lsof -iTCP:8092 -sTCP:LISTEN -P
+lsof -iTCP:8091 -sTCP:LISTEN -P
+
+# Rails版(:8092)
+cd admin/rails
+# 初回のみ
+bundle install
+bin/rails server -p 8092
+
+# Go + Gin版(:8091)
+cd admin/go
+go run ./cmd/server
+LOG_LEVEL=debug go run ./cmd/server
+```
+
+- どちらも同じMySQLの同じテーブル(`feature_flags`/`feature_flag_audit_logs`)を直接操作する
+  片方で変更すればもう片方の画面をリロードすれば見える(2つは独立した「同じCRUD画面のGo実装/Rails実装比較」)
+- 認証: HTTP Basic Auth(既定`admin`/`password`、環境変数`ADMIN_BASIC_AUTH_USER`/`ADMIN_BASIC_AUTH_PASSWORD`で変更可)
+- テーブル自体はbackendのマイグレーションが正本なので、admin/go・admin/railsとも自分ではテーブルを
+  作成しない(先にbackendの`go run ./cmd/migrate up`を実行しておくこと)
+- 一覧・編集(enabled切替、default_variation切替)・変更履歴(audit log)の3画面
+
+
+
+### 8. ブラウザで動作確認する
+
+1. `http://localhost:5173` を開く
+2. `/api/me` が401 → 自動的に `/login` へ誘導されることを確認
+3. ログイン方式は3通りから選べる(前述の「ローカル(非Keycloak)認証」参照)
+   - `/login`(既定の画面): ローカル(HMAC版)
+     - `local-user@example.com` / `password` でログイン
+   - 画面内の「RSA版で試す」リンク → `/login/rsa`
+     - 同じ資格情報だがRSA署名のJWTが発行される
+   - 画面内の「Keycloakでログイン」ボタン → Keycloakのログイン画面 → `realm-export.json` に含まれるテストユーザーでログイン
+     - 一般ユーザー(general): `general-user` / `password`
+     - 管理者(management): `admin-user` / `password`(ラベル管理・ユーザー管理など管理者権限が必要な操作を試す場合)
+4. タスク一覧・作成・更新・削除の一連の操作を行う
+5. ログアウトする
+Keycloakでログインした場合はKeycloak側のSSOセッションも終了していること(再度保護ページにアクセスして未ログイン扱いになること)を確認
+ローカル認証の場合はRedisのセッション削除のみで完了する(Keycloakへは遷移しない)
+
+#### トラブルシューティング
+
+- **Keycloakのログ**(docker composeのコンテナなので標準出力はdocker側で見られる):
+```sh
+docker compose logs keycloak | tail -50
+# 追従表示(tail -f相当)
+docker compose logs -f keycloak
+```
+- **JITプロビジョニングで401(`user provisioning failed`)になる場合**: Keycloakの認可コードフローで発行されるAccess Tokenに`aud`クレームが含まれているか確認する(前述の「Audience Protocol Mapper」参照)
+  - `bff/keycloak/realm-export.json`を変更した場合は`docker compose down -v` → 再起動でKeycloakのrealm設定を読み込み直す必要がある
+- **Frontend側の調査**: ブラウザのDevTools(F12 / Cmd+Option+I)のNetworkタブでどのリクエストが失敗しているか、Consoleタブでエラーが出ていないかを確認する
+
+## Feature Flagの切り替え方法(MySQL + admin画面、CONTRACT.mdセクション13)
+
+【設計変更】以前は`bff/internal/featureflag/flags.yaml`・`backend/internal/featureflag/flags.yaml`という
+ファイルを直接編集する方式だったが、「実務なら管理画面から即座に切り替えられる方が良い」という指摘を受け、
+**MySQLの`feature_flags`テーブルを正本とし、2つの独立したadmin画面(Go+Gin版/Rails版)から編集する方式**に
+全面的に切り替えた
+両ファイルは「以前の方式の参考」としてコードは残っているが、実際には読まれない
+
+### 反映の仕組み(フル連携)
+
+```
+admin/go または admin/rails(どちらか、または両方)
+   │ 直接MySQLの feature_flags / feature_flag_audit_logs を更新
+   ▼
+backend: MySQLを数秒おきにポーリングして評価用キャッシュを更新(external API用)
+   │
+   │ GET /internal/v1/feature-flags/export (X-Feature-Flag-Poll-Tokenヘッダで認可)
+   ▼
+bff: 上記エンドポイントをHTTP retrieverで10秒おきにポーリングして評価用キャッシュを更新
+   │ (frontend.tasks-ts-rewrite / bff.tasks-backend-v2 の評価に使う)
+```
+
+admin画面でトグルを切り替えると、上記の間隔(数秒〜10秒程度)でbff/backendの実際の挙動(Task一覧のTS/JS切り替え、
+REST v1/gRPC v2ルーティング)に反映される
+**プロセスの再起動は不要**
+
+### 切り替えの可視化(ログ出力)
+
+admin画面での変更が実際にどちらの実装へ反映されたかをログから追跡できるよう、3つの評価ポイント
+すべてでINFOログを出している
+
+- bff(`frontend.tasks-ts-rewrite`・`bff.tasks-backend-v2`の評価): `featureflag.Evaluator.BoolValue`が
+  評価結果(`flag`/`user_id`/`value`)をログに残す
+  - 加えて`bff.tasks-backend-v2`についてはBFF側の実際の
+  振り分け箇所(`proxy.TaskRoutes.pickClient`)でも「v1(REST)」/「v2(gRPC)」のどちらを選んだかをログに残す
+- backend(`backend.external-tasks-pagination-v2`の評価): 同様に`featureflag.Evaluator.BoolValue`と、
+  外部APIの実際の振り分け箇所(`handler/external.TaskHandler.List`)の両方でログを残す
+- frontend: `TaskListSwitch.tsx`が`console.info`で「新実装(TypeScript)を表示」/「旧実装(JavaScript)を表示」を
+  ブラウザのDevToolsコンソールに出す(bffが評価済みの値を`/api/me`経由で受け取った結果を表示するだけであり、
+  frontend自身がFlag providerに問い合わせるわけではない点は前述の「Feature Flag」節の通り)
+
+これらのログ出力自体もテストコードでカバーしている(Go側は`slog`の出力先をバッファに差し替えて内容を
+アサート、frontend側は`vi.spyOn(console, "info")`/`jest.spyOn(console, "info")`で呼び出し引数をアサート)
+
+
+### フラグの意味
+
+- `frontend.tasks-ts-rewrite`: React側でTask一覧の新(TypeScript)/旧(JavaScript)コンポーネントを切り替える(`bff`→`/api/me`経由でReactへ伝搬)
+- `bff.tasks-backend-v2`: BFFがTask系リクエストをbackendのREST v1(N+1あり)/gRPC v2(Preload最適化)のどちらへルーティングするか制御する(Reactには非公開)
+- `backend.external-tasks-pagination-v2`: 外部公開API(次項参照)のoffset/cursorページング切り替え
+- いずれもRelease Toggleであり、100%ロールアウト後はフラグ行・旧実装(v1 REST handler、legacy/TaskList.jsx)を削除する運用が前提
+
+## ユーザー管理(admin/go・admin/rails、CONTRACT.mdセクション17)
+
+参照元(`training`・`training-go/gin`)にはあった「Admin画面からのユーザー新規作成・削除」が bff-gin には未実装だったため追加した機能
+admin/go・admin/railsそれぞれの`/users`画面から利用できる
+(Feature Flag画面と同じBasic Auth配下)
+
+- **Feature Flag管理とは異なる設計**:
+  - admin/go・admin/railsはMySQLへ直接繋がず、backendの`/internal/v1/admin/users`系APIをHTTP経由で叩く
+  - 「最後の管理者を降格・削除できない」という業務ルールをbackend(`service/user.go`)の1箇所にだけ実装し、Go/Ruby両方での重複実装によるズレを防ぐため
+  - (CONTRACT.mdセクション17.1)
+- **作成できるのはローカル認証ユーザーのみ**:
+  - Keycloak経由のユーザーは初回ログイン時のJITプロビジョニングで自動作成されるため、admin画面での事前作成は対象外(セクション17.2)
+  - 作成時にname/email/初期パスワード/roleを指定すると、`users`+`user_passwords`へ同時にINSERTされ、作成したメールアドレス・パスワードでそのまま`/login`(ローカルHMAC)・`/login/rsa`からログイン可能になる
+- 一覧・新規作成・role変更・削除の4操作
+  - 削除・降格とも「最後の管理者(role: management)」にはガードがかかり、backendが422 `{"error":"last_manager_user"}`を返して拒否する
+- 認可:
+  - backend側
+    - 共有シークレットヘッダ`X-Admin-Internal-Token`
+    - 環境変数`ADMIN_INTERNAL_TOKEN`、既定`local-dev-admin-internal-token`
+    - admin/go・admin/rails 側にも同じ値を設定する
+- 新規環境変数:
+  - admin/go・admin/railsとも
+    - `BACKEND_INTERNAL_BASE_URL`(既定`http://localhost:8090`)・`ADMIN_INTERNAL_TOKEN`(既定`local-dev-admin-internal-token`)
+
+## 外部公開API(BFF非経由、Client Credentials Grant)
+
+CONTRACT.mdセクション11で定めた、BFFを経由しないサーバー間連携用の直接API
+
+```sh
+# 1. Client Credentials Grantでトークンを取得
+curl -s -X POST http://localhost:8082/realms/training/protocol/openid-connect/token \
+  -d grant_type=client_credentials \
+  -d client_id=external-api-client \
+  -d client_secret=external-api-client-local-dev-secret
+
+# 2. 取得したaccess_tokenで呼び出す(backendが直接公開する:8081、bff非経由)
+curl -s http://localhost:8081/external/v1/tasks?user_id=1 \
+  -H "Authorization: Bearer <access_token>"
+```
+
+- `backend.external-tasks-pagination-v2`が`false`(既定)の場合: `page`/`page_size`によるoffsetページング
+- `true`の場合: `cursor`/`limit`によるキーセット(cursor)ページング
+  - 深いページでも性能が劣化しない
+- 切り替えはadmin/go(`:8091`)またはadmin/rails(`:8092`)からMySQLの`feature_flags`テーブルを編集する(backendが数秒おきに自動でポーリングするため再起動不要)
+- OpenAPI仕様: `backend/openapi/external-api.yaml`
+  - Swagger UI(`docker compose up -d swagger-ui`後 `http://localhost:18080`)で閲覧・Try it outできる
+- 既知の制約: `user_id`はクライアントが任意に指定できるため、このクライアント資格情報を持つ者は任意ユーザーのタスクを読み取れる
+  - サーバー間の信頼関係を前提にした設計CONTRACT.mdセクション11参照
+
+## Redisのキー設計
+
+| キー | 内容 | TTL |
+|---|---|---|
+| `session:{sessionID}` | `{user_id, auth_mode, access_token, refresh_token, id_token, access_token_exp, refresh_token_exp}` | refresh_tokenの有効期限に追従(ローカル認証はaccess_token_expと同値)<br />リフレッシュ成功の都度更新 |
+| `lock:session:{sessionID}` | 分散ロック用マーカー(値は任意) | 数秒(SETNXで取得、リフレッシュ完了後にDEL) |
+| `oidc_pending:{state}` | ログイン開始時に生成した`{code_verifier, redirect}`(PKCE検証用+元の遷移先) | 5分(`GetDel`でCallback到達時に1回だけ読み出し即削除) |
+
+`lock:session:{sessionID}` は、BFFが複数インスタンスで稼働する場合に同一セッションへの
+同時リフレッシュが競合し、Keycloakのrefresh token rotationにより強制失効するのを防ぐための排他制御
+
+### Redisの中身を実際に確認する方法
+
+docker-compose.yamlのredisサービスはホストの`127.0.0.1:16379`に公開されているため、
+`redis-cli`があればホストから直接繋げる(無ければコンテナ内の`redis-cli`を使う)
+
+```sh
+# ホストにredis-cliがある場合
+redis-cli -h 127.0.0.1 -p 16379
+
+# 無い場合はコンテナ内のredis-cliを使う
+docker compose exec redis redis-cli
+```
+
+接続後、以下のようなコマンドで中身を確認できる
+```sh
+# 全キー一覧
+## 学習用途のためKEYSを使って構わない、本番のRedisでは使わないこと
+KEYS *
+
+# ログイン後にブラウザのCookie(session_id)の値をコピーして中身を見る
+GET session:<session_idの値>
+
+# 残りTTL(秒)を見る
+## マイナスならキーが既に無い/TTL未設定
+TTL session:<session_idの値>
+
+# ログイン処理中(Callback到達前)だけ一時的に存在する
+## ログイン完了後は消えている
+GET oidc_pending:<state>
+
+# 分散ロックが今どのセッションで取得されているか(通常はリフレッシュの一瞬だけ存在)
+KEYS lock:session:*
+```
+
+`GET session:...`で返るJSONの`auth_mode`フィールドを見れば、そのセッションが
+`keycloak`/`local_hmac`/`local_rsa`のどれでログインしたものかが分かる
+
+## UserCredential / UserToken をポートしなかった理由(その後、比較用に部分的に復元)
+
+Rails版にあった `UserCredential`(bcryptパスワード)・`UserToken`(招待/パスワード設定トークン)は、
+当初は認証責務をKeycloakへ全面委譲したことに伴い意図的に移植していなかった
+詳細は[`CONTRACT.md` セクション10](./CONTRACT.md#10-rails資産のうちkeycloak採用により置き換える範囲重要な設計判断)を参照
+
+その後、認証方式の比較学習として「ローカル(非Keycloak)認証」(前述のセクション参照、CONTRACT.mdセクション16)を
+追加したため、`UserCredential`相当のパスワード情報は`user_passwords`テーブルとして部分的に復元されている
+
+ただし`UserToken`(招待/パスワード設定トークン)は復元していない
+登録・パスワード変更画面が無いスコープのため
+Keycloak経由のユーザーについては引き続きKeycloakの管理コンソール/Required Actionsでの招待・パスワード設定が前提
+
+既知の制約: Admin画面でのrole変更はアプリDB(`users.role`)のみを更新し、Keycloak側のrealm roleとは今回のスコープでは同期しない
+
+## テストの実行方法
+
+### Frontend単体テスト
+
+**tscはTypeScriptの標準コンパイラ(CLI)**
+本来の役割は「.ts/.tsxファイルを実際に.jsファイルへ変換(コンパイル)して出力する」こと
+**--noEmitを付けると「型チェックだけ行い、ファイルは一切出力しない」**という動作になる
+
+つまり「実際にビルドはしないが、型エラーが無いかだけをチェックしたい」という時に使うコマンド
+
+frontend は Vite でビルドされているが、Viteの内部(esbuild)は型チェックをせず、型注釈を単純に取り除くだけの高速変換しか行わない
+つまり npm run dev や npm run build が成功しても、実は型エラーが混入していても気付けない
+
+そのため、型エラーを確実に検知するために
+tsc--noEmit
+を独立したチェックとして実行
+「ビルドは通るが型は壊れている」という事故を防ぐための、いわば別枠の健全性チェック
+```sh
+cd frontend
+tsc --noEmit
+```
+
+**Vitest**(本体。`npm run build`/CIで使う想定)
+```sh
+cd frontend
+# 一度だけ実行
+npm run test
+# ファイル変更を監視して再実行
+npm run test:watch
+```
+
+**Jest**(比較学習用の副読本。Vitestと同じ網羅性を目指し、全ファイルをミラーしている)
+```sh
+cd frontend
+npm run test:jest
+```
+
+- テスト対象
+  - Vitest: 13ファイル/Jest: 12ファイル
+  - 件数は変更のたびに増減するため、正確な最新件数は
+    - `npm run test`/`npm run test:jest`の実行結果を参照:
+      - `LoginForm`(ローカル認証3方式のログイン画面)/`TaskForm`/`TaskDeleteButton`/`useFeatureFlag`/`useAuth`/`TaskList`(新実装)/`legacy/TaskList`(旧実装)/`LabelSelect`/`LabelList`/`TaskListSwitch`/`Layout`/`shared/api/client`、および`app/routes`(ルーティング統合テスト、Vitestのみ
+- Vitestのテストは`src/`配下にコンポーネントと同じ場所に置く(`*.test.tsx`/`*.test.jsx`)
+  - Jestのテストは`test-jest/`配下に分離している
+  - **当初は「初期3ファイルだけを意図的に重複させる縮小版」という方針だったが、「変更による不具合の早期検知・影響範囲の把握のため、テストコードは全体的に十分に書いておきたい」という判断により撤回し、全ファイルを1:1でミラーして同期を保つ方針に変更した**(二重メンテのコストより、両フレームワークでの検知漏れが無いことを優先している)
+  - 同ツールの書き味の違い(`vi.fn`⇔`jest.fn`、`vi.mock`⇔`jest.mock`、`vi.mocked`⇔`(fn as jest.Mock)`、globalsの扱い、TS/ESM対応の設定量の違いなど)を比較できる
+- **唯一の例外**: `app/routes.test.tsx`(react-router-domの`createMemoryRouter`を使ったルーティング統合テスト)はJestに移植していない
+  - ViteはESM前提で`vi.resetModules()`+動的importによりテストごとにrouterインスタンスを作り直せるが、JestはCommonJSの`require`キャッシュ全体を再読込する都合上、動的importしたコンポーネントツリーが別インスタンスのReactを掴んでしまい `useContext`がnullになる、あるいは`router.navigate()`がjsdom環境でハングする、という問題が生じたため
+  - Vitest/Jestのモジュールシステムの違いを示す実例としてそのまま残している
+- Vitest側にテストを追加・変更した場合は、`test-jest/`配下の対応するファイルにも同じ観点のケースを追加すること(件数が完全一致するとは限らないが、大きくかけ離れないようにする
+  - 上記`routes.test.tsx`のみ意図的な例外)
+- `LabelSelect.tsx`はjQuery/Select2(CDN読み込み)に依存しjsdom上で動かせないため、`TaskForm`のテストでは`vi.mock`/`jest.mock`でスタブに差し替えている
+
+### Go単体テスト
+```sh
+cd backend && go test ./...
+cd bff && go test ./...
+cd admin/go && go test ./...
+```
+
+### Go結合テスト(実MySQL/Redis/Keycloak使用)
+
+```sh
+docker compose up -d --wait mysql redis keycloak swagger-ui
+cd backend && go test -tags=integration ./...
+# admin/goもDBが必要なテスト(TEST_DB_DSN未設定ならスキップ)を含む
+cd admin/go && TEST_DB_DSN="root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true" go test ./...
+```
+
+### Rails単体テスト(admin/rails)
+
+```sh
+cd admin/rails
+# 初回のみ
+bundle install
+bundle exec rspec
+```
+
+モデルスペック・リクエストスペックに加え、Capybara(`rack_test`ドライバ)によるsystem specを1本含む
+(一覧表示→編集→保存→変更履歴確認、という一連の画面操作を通しで検証する簡易的なE2E)
+
+### Lint
+
+```sh
+golangci-lint run ./...
+```
+
+(backend/bff/admin-goそれぞれのディレクトリで実行、または各`.golangci.yml`を指定
+ただし現時点で `.golangci.yml`があるのはbackendのみで、bff/admin-goには未整備。既知の差分)
+
+### E2E(3種)
+
+```sh
+# Playwright
+cd e2e/playwright && npm install && npx playwright install && npm test
+
+# Cypress
+cd e2e/cypress && npm install && npx cypress run
+
+# Selenium
+cd e2e/selenium && npm install && npm test
+```
+
+いずれも「ログイン→タスク一覧表示→作成→更新→削除→ログアウト」を基本導線とし、
+Feature Flag ON/OFF両方の状態でタスク一覧表示を確認するテストケースを含む
+ログインは3方式(ローカルHMAC版・ローカルRSA版・Keycloak、CONTRACT.mdセクション16)を
+それぞれ検証する
+frontendの`/login`は自動でKeycloakへ遷移するわけではなく、まずローカル認証(HMAC版・
+既定)のフォームが表示される点に注意(過去の実装ではKeycloakへ自動リダイレクトしていたが、
+ローカル認証導入により挙動が変わった)
+実行前に `docker compose up -d --wait` で全サービスを起動しておくこと
+
+## ディレクトリ構成
+
+```
+bff-gin/
+  CONTRACT.md      # 設計の正本
+  backend/         # REST v1 + gRPC v2、private network限定。feature_flagsテーブルの正本(マイグレーション)もここ
+  bff/             # OIDCクライアント・Redisセッション・Feature Flag(HTTP retriever)・プロキシ
+  frontend/        # React(Vite)。features/tasksのみTypeScript
+  admin/
+    go/            # Feature Flag管理画面+ユーザー管理画面(Go + Gin + html/template、Bootstrap)。:8091
+    rails/         # Feature Flag管理画面+ユーザー管理画面(Rails + ERB、Bootstrap)。:8092。goと同じMySQLテーブル・backend APIを操作する比較実装
+  e2e/             # playwright/ cypress/ selenium/
+  docs/            # C4図・ER図・シーケンス図(PlantUMLソース+PNG)。_old/は過去バージョンのバックアップ
+  docker-compose.yaml
+```
+
+### 各言語のアプリケーションログが出力される場所
+
+セクション20.10(実機検証で判明した「言語によってログの有無・形式が異なる」)を踏まえた一覧。
+ファイル出力のものは、実際の相対パスまで明記する。
+
+| 対象 | 出力先 | 形式 |
+|---|---|---|
+| backend(Go) | 標準出力(ターミナル) | JSON(`log/slog`) |
+| bff | 標準出力(ターミナル) | JSON(`log/slog`) |
+| admin/go | 標準出力(ターミナル) | JSON(`log/slog`) |
+| gateway/go | 標準出力(ターミナル) | JSON(`log/slog`) |
+| backend-rust | 標準出力(ターミナル) | key=value形式(`tracing`) |
+| backend-scala-http4s | 標準出力(ターミナル) | logbackのデフォルト形式(設定ファイル無し、DEBUGレベル) |
+| backend-scala-pekko | 標準出力(ターミナル) | logbackのデフォルト形式(設定ファイル無し、DEBUGレベル) |
+| backend-rails | ファイル: `backend-rails/log/development.log`(test実行時は`backend-rails/log/test.log`) | Rails標準ログ形式(REST/外部公開API)。gRPC(`bin/grpc_server`)は独自のkey=value形式で同じファイルへ追記 |
+| admin/rails | ファイル: `admin/rails/log/development.log`(test実行時は`admin/rails/log/test.log`) | Rails標準ログ形式 |
+| frontend-rails/without-bff | ファイル: `frontend-rails/without-bff/log/development.log`(test実行時は`frontend-rails/without-bff/log/test.log`) | Rails標準ログ形式 |
+| frontend-rails/with-bff | ファイル: `frontend-rails/with-bff/log/development.log`(test実行時は`frontend-rails/with-bff/log/test.log`) | Rails標準ログ形式 |
+| bff-rails | ファイル: `bff-rails/log/development.log`(test実行時は`bff-rails/log/test.log`) | Rails標準ログ形式 |
+| gateway/nginx | ファイル: `gateway/nginx/logs/access.log`・`gateway/nginx/logs/error.log` | nginx標準形式 |
+
+いずれもファイル出力のもの(Rails各アプリ・nginx)以外は、ターミナルを閉じる/プロセスを止めるとログも消える(リダイレクトして保存したい場合は`.gitignore`の`*.log`/`nohup.out`パターン参照)。
+
+### backend多言語比較: リクエスト単位のログの精度(2026-09-11時点、CONTRACT.mdセクション20.10・20.11)
+
+REST・外部公開APIは5言語とも当初から正確(外側のHTTPステータスがそのまま実際のステータスのため)。
+gRPCは「外側のHTTPステータスが常に200固定」という性質上、当初はGo・Scala(http4s)以外は
+method+durationのみの粗い記録だったが、現在は5言語全てが実際のステータスコードまで正確に記録する。
+
+| 言語 | 内部REST/外部公開API | gRPC: ログの有無 | gRPC: 実際のステータスコードまで正確か | 実装方法(gRPC) |
+|---|---|---|---|---|
+| Go | ✅ 正確(実HTTPステータス) | ✅ あり | ✅ 正確(`status.Code(err)`) | `grpc.ChainUnaryInterceptor`が`err`を直接受け取る(元々正確) |
+| Rust | ✅ 正確 | ✅ あり | ✅ 正確(`tonic::Status::code()`) | `LoggingTaskGrpcService`デコレータ(tonic生成traitを直接ラップ) |
+| Scala(http4s) | ✅ 正確 | ✅ あり | ✅ 正確(`Status.getCode`) | `io.grpc.ServerInterceptor`(元々正確) |
+| Scala(Pekko) | ✅ 正確 | ✅ あり | ✅ 正確(`io.grpc.Status`) | `LoggingTaskGrpcService`デコレータ(pekko-grpc生成traitを直接ラップ) |
+| Rails | ✅ 正確(Rails標準ログ) | ✅ あり | ✅ 正確(`GRPC::BadStatus#code`) | `GRPC::BadStatus#code`を直接記録(以前は例外クラス名のみ) |
+
+いずれも「ハンドラの型付き戻り値/例外を直接見る」実装方式(HTTP/2トレーラーを直接読み取る実装は、
+自分でハンドラを実装していない汎用ミドルウェア・OpenTelemetry計装等でのみ必要な手段であり、
+このプロジェクトではハンドラを自前で持っているため不要と判断した)。
+
+## 関連ドキュメント
+
+- 設計契約: [`CONTRACT.md`](./CONTRACT.md)
+- C4図・ER図・シーケンス図(PlantUMLソース・PNG): [`docs/`](./docs/)配下
+  (`c4_context_v2` / `c4_container_v2` / `c4_component_v2` / `er_diagram_v2` /
+  `sequence_login_v2` / `sequence_task_create_v2` / `sequence_token_refresh` /
+  `sequence_logout` / `sequence_feature_flag_routing` / `sequence_external_api`)
+- `docs/_old/`は過去バージョンのバックアップ(参照専用、更新しない)
+
+## その他、検討事項など
+
+以下は設計検討時のQ&Aメモ
+①・⑤は検討段階で挙げていた論点だったが、その後
+「ローカル(非Keycloak)認証」(前述のアーキテクチャ詳細セクション、CONTRACT.mdセクション16)として
+実装済みのため、ここでは結論だけ記す
+②③④は今回採用していない選択肢についての一般的な整理であり、
+引き続き検討メモとして残す
+
+① Keycloakなしのログイン画面 → **実装済み**
+`/login`(HMAC版)・`/login/rsa`(RSA版)の2方式
+詳細は前述の「ローカル(非Keycloak)認証」を参照
+
+② 「ブラウザにトークンを返さない」と「ステートレス」は矛盾しないか
+
+良い指摘で、「ステートレス」という言葉が2つの異なる意味で使われていることに起因する、見かけ上の矛盾
+
+- 今回の設計での「ステートレス」の意味: BFFのプロセス自体がメモリ内にセッションを持たない、という意味
+  - セッションの実体(Access/Refresh/ID Token)はRedisという「BFFプロセスの外側」に置き、BFFはただの「Redisへの参照(session_idというCookie)を検証する薄い層」になる
+  - これにより、BFFインスタンスを何台に増やしても(ロードバランサ配下でどのインスタンスがリクエストを受けても)同じRedisを見るので問題なく動く、という水平スケーラビリティのための設計
+- 一般に言う「ステートレス認証」(狭い意味): JWTのような自己完結型トークンをそのままブラウザに持たせ、サーバー側は署名検証だけで済ませ、セッションストアへの問い合わせが一切不要、という意味で使われることが多い
+
+今回の設計は後者の意味では厳密には「ステートレス」ではない
+毎リクエストRedisへの参照が必要のため
+つまり、正確には「ステートレスなBFFプロセス」+「ステートフルな認証システム全体(状態はRedisに存在する)」という組み合わせ
+
+矛盾ではなく、トレードオフの選択である
+- トークンをブラウザに渡す(狭義のステートレス) → XSSでの窃取リスク、失効させたくても自己完結トークンなので即時無効化が難しい(結局ブロックリストという「状態」が必要になりがちで、完全なステートレスは実務では稀)
+- トークンをブラウザに渡さない(BFFパターン) → 安全だが、必ずどこかに「session_id→トークン」の対応表(=状態)を持つ必要がある
+  - 今回はそれをRedisに外出しした
+
+「ブラウザに一切トークンを渡さず、かつ、どこにも状態を持たない」という両立は原理的に不可能
+元のドキュメントの「セッション状態: Redisに...保存、BFFはステートレス」という記述自体、この2つを正しく書き分けている
+
+③ Keycloak以外のGo製OAuth/OIDCライブラリ、Keycloak無しのベストプラクティス
+
+クライアント側(bffの立場): 実は現在のbffのコード(coreos/go-oidc/v3 + golang.org/x/oauth2)は既にKeycloak専用ではない
+OIDC Discoveryの標準仕様に従っているので、OIDC_ISSUER_URLをKeycloak以外(Auth0、Okta、Google、Zitadel等)に向けるだけでそのまま動く
+つまり「Keycloak無しのベストプラクティス」の答えの半分は「クライアント側は今のままでよい」
+
+IdP(サーバー)を自前で用意する場合のGo製選択肢:
+
+┌──────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│             ライブラリ/製品              │                                                                     位置づけ                                                                     │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ory/fosite                               │ OAuth2/OIDCサーバーを自分で組み立てるためのフレームワーク(Ory Hydraの内部エンジン)。プロトコル実装の学習には最適だが本番品質に持っていくのは大変 │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ go-oauth2/oauth2                         │ より軽量なOAuth2サーバー実装ライブラリ。OIDC(id_token)は自分で足す必要がある                                                                     │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Zitadel / Dex                            │ 以前ご説明した通り、Go製の既製IdP(ライブラリではなくアプリケーション)                                                                            │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ golang.org/x/oauth2/google, .../github等 │ OIDCではなく単純な「Googleでログイン」等の素朴なOAuth2連携が目的ならこちら                                                                       │
+└──────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Keycloak無しのベストプラクティス(まとめ): 「フルのOIDC仕様が本当に必要か」を再確認するのが第一歩
+今回のような学習/社内ツールで「ログイン状態を保持できればよい」程度なら、IdPを自作/導入せず、bffが直接ID/パスワードを検証しセッションを発行する(①の比較実装がこれに相当)方が圧倒的にシンプル
+複数クライアント(モバイルアプリ等)への展開やSSOが本当に要件にあるときだけ、Zitadel/Dexのような軽量IdPを検討する、という優先順位が実務的である
+
+④ サイドカー構成での認証パターン
+
+「BFFを1つの集約サービスとして立てる」のではなく、各サービスの前に認証専用のプロキシを1台ずつ(Kubernetesなら同一Pod内に)配置する構成
+
+代表的な技術:
+
+┌───────────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                     技術                      │                                                                                   特徴                                                                                    │
+├───────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ oauth2-proxy                                  │ 最も普及しているOSS。OIDC/OAuth2のAuthorization Code                                                                                                                      │
+│                                               │ Flow・セッションCookie管理・Redisバッキングストア対応まで、今回bffで手書きした処理を設定だけでやってくれる。まさに「既製品のBFF」                                         │
+├───────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Envoy + ext_authz                             │ Envoyサイドカーが外部認可サービスにリクエストを問い合わせてから上流へ通す。Istio等のサービスメッシュでよく使われる                                                        │
+├───────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Istio                                         │ JWT検証をアプリコードに一切書かず、メッシュ(サイドカー)側で宣言的に検証・拒否する。ゼロトラスト思想                                                                       │
+│ RequestAuthentication/AuthorizationPolicy     │                                                                                                                                                                           │
+├───────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Pomerium                                      │ oauth2-proxyより高度なポリシー機能を持つIdentity-Aware Proxy                                                                                                              │
+└───────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+構成イメージ(Kubernetes Pod内):
+Pod:
+  [oauth2-proxyサイドカー] :4180 ← 外部公開
+       │ 認証済みリクエストのみ localhost 経由で転送
+  [本来のbackendコンテナ] :8080 ← Pod外からは直接到達不可
+
+BFF集中型 vs サイドカー型のトレードオフ: BFF集中型(今回の構成)はサービスが1つ(または少数)の場合にシンプル
+サイドカー型は「多数のマイクロサービスそれぞれに同じ認証ロジックを重複させたくない」「サービスメッシュを既に導入していてmTLS等と一緒に認証も乗せたい」場合に真価を発揮する
+今回のプロジェクト規模(フロント1つ・backend1つ)ではBFF集中型で十分ですが、比較学習としてoauth2-proxyをbackendの前に置く構成を別途用意することもできる
+
+⑤ 自前実装のログイン機能を追加する際、backendのJWT検証が複数パターンに対応する必要がある問題
+→ **実装済み**
+`authjwt.Dispatcher`が`iss`クレームでKeycloak/`bff-gin-local-hmac`/`bff-gin-local-rsa`の
+3方式を振り分け、`RequireAuth`/`RequireExternalClientAuth`はこの`Dispatcher`経由で検証する
+詳細は前述の「ローカル(非Keycloak)認証」を参照
+
