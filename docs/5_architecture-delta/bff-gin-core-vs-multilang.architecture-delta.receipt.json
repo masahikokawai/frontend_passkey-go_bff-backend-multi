@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "compare",
+  "type": "architecture",
+  "comparatorVersion": 1,
+  "canonicalVersion": 1,
+  "completeness": "complete",
+  "proofLevel": "authored",
+  "base": {
+    "title": "bff-gin システム構成",
+    "rawSha256": "2f3601692aeb068d1a41167192f565b008fd05a547570eb24b2b2f1fb4249c81",
+    "semanticSha256": "1a631cf62fa5a329415533f4855dc49c33ce40445e29f92b23ce124de4d3c6e8",
+    "bytes": 5296
+  },
+  "head": {
+    "title": "bff-gin システム構成(多言語backend込み)",
+    "rawSha256": "f3385a319321890f36977c6732b895dd2a6d65b78f50084f5d5bf2afdddb0a8c",
+    "semanticSha256": "7db0cfea6ee6aca1197eb84e45403fa50dfb0eac8af072e43a10df8795a43669",
+    "bytes": 8646
+  },
+  "summary": {
+    "components": {
+      "added": 4,
+      "changed": 1,
+      "evidenceChanged": 0,
+      "removed": 0,
+      "moved": 0
+    },
+    "connections": {
+      "added": 4,
+      "changed": 1,
+      "removed": 0,
+      "rerouted": 1
+    },
+    "boundaries": {
+      "added": 0,
+      "changed": 0,
+      "removed": 0,
+      "geometryChanged": 0
+    },
+    "presentationChanged": true,
+    "provenanceChanged": false
+  },
+  "changes": {
+    "components": [
+      {
+        "id": "backend",
+        "baseLabel": "backend",
+        "headLabel": "backend (Go)",
+        "status": "changed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": [
+          "/label"
+        ]
+      },
+      {
+        "id": "backend_rails",
+        "headLabel": "backend (Rails)",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "backend_rust",
+        "headLabel": "backend (Rust)",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "backend_scala_http4s",
+        "headLabel": "backend (Scala/http4s)",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "backend_scala_pekko",
+        "headLabel": "backend (Scala/Pekko)",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      }
+    ],
+    "connections": [
+      {
+        "id": "bff-backend",
+        "base": {
+          "from": "bff",
+          "to": "backend",
+          "label": "REST v1 / gRPC v2"
+        },
+        "head": {
+          "from": "bff",
+          "to": "backend",
+          "label": "task-language切替"
+        },
+        "status": "changed",
+        "classifications": [
+          "geometry",
+          "semantic"
+        ],
+        "changedFields": [
+          "/label",
+          "/labelDy"
+        ]
+      },
+      {
+        "id": "bff-backend_rails",
+        "head": {
+          "from": "bff",
+          "to": "backend_rails",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "bff-backend_rust",
+        "head": {
+          "from": "bff",
+          "to": "backend_rust",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "bff-backend_scala_http4s",
+        "head": {
+          "from": "bff",
+          "to": "backend_scala_http4s",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "bff-backend_scala_pekko",
+        "head": {
+          "from": "bff",
+          "to": "backend_scala_pekko",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "bff-keycloak",
+        "base": {
+          "from": "bff",
+          "to": "keycloak",
+          "label": "OIDC Authorization Code"
+        },
+        "head": {
+          "from": "bff",
+          "to": "keycloak",
+          "label": "OIDC Authorization Code"
+        },
+        "status": "rerouted",
+        "classifications": [
+          "geometry"
+        ],
+        "changedFields": [
+          "/labelDx",
+          "/labelDy"
+        ]
+      }
+    ],
+    "boundaries": []
+  },
+  "identity": {
+    "components": "components[].id",
+    "connections": "connections[].id (required)",
+    "boundaries": "boundaries[].kind + boundaries[].label (derived)"
+  },
+  "view": {
+    "visualPreset": "classic"
+  },
+  "limitations": [
+    "Authored Architecture IR only; no runtime impact, causality, risk, or mergeability is inferred.",
+    "Boundary identity is conservatively derived from kind + label."
+  ],
+  "artifact": {
+    "sha256": "1d87ab79b84eebcdebdb80a4577d30126b4f8f08784a9800f64cc6bc3cd5ddfb",
+    "bytes": 2272041
+  },
+  "validation": {
+    "checksPassed": 28,
+    "checkCount": 28,
+    "baseComposition": "pass",
+    "headComposition": "pass"
+  }
+}

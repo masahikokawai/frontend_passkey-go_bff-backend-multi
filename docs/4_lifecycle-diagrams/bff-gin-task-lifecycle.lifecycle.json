@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "bff-gin Taskライフサイクル",
+    "subtitle": "backend/internal/model/enum.go の TaskStatus に基づく状態遷移",
+    "output": "bff-gin-task-lifecycle.lifecycle.html",
+    "viewBox": [980, 640],
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "typical-progress", "label": "典型的な進行", "focus": ["created", "waiting", "in-progress", "completed"], "note": "作成後、未着手→進行中→完了と進む最も一般的な流れ" },
+      { "id": "rework-and-delete", "label": "差し戻しと削除", "focus": ["completed", "waiting", "in-progress", "deleted"], "note": "順序制約が無いための差し戻しと、どの状態からも可能な物理削除" }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "Taskのステータス" },
+    { "id": "terminal", "label": "削除(物理削除)" }
+  ],
+  "states": [
+    { "id": "created", "type": "start", "label": "作成", "sublabel": "POST /api/tasks", "lane": "main", "col": 0, "step": "01", "tag": "create" },
+    { "id": "waiting", "type": "waiting", "label": "未着手", "sublabel": "waiting (DB値=1、既定)", "lane": "main", "col": 1, "step": "02", "tag": "waiting" },
+    { "id": "in-progress", "type": "active", "label": "進行中", "sublabel": "work_in_progress (DB値=2)", "lane": "main", "col": 2, "step": "03", "tag": "active" },
+    { "id": "completed", "type": "success", "label": "完了", "sublabel": "completed (DB値=3)", "lane": "main", "col": 3, "step": "04", "tag": "done" },
+    { "id": "deleted", "type": "neutral", "label": "削除済み", "sublabel": "DELETE /api/tasks/:id", "lane": "terminal", "col": 1, "tag": "terminal" }
+  ],
+  "transitions": [
+    { "id": "create-to-waiting", "from": "created", "to": "waiting", "variant": "default", "route": "straight" },
+    { "id": "waiting-to-progress", "from": "waiting", "to": "in-progress", "variant": "default", "route": "straight" },
+    { "id": "progress-to-completed", "from": "in-progress", "to": "completed", "variant": "default", "route": "straight" },
+    { "id": "completed-to-waiting", "from": "completed", "to": "waiting", "variant": "dashed", "fromSide": "top", "toSide": "top", "via": [[556, 60], [248, 60]], "label": "差し戻し(順序制約なし、任意の組み合わせが可能)" },
+    { "id": "waiting-to-deleted", "from": "waiting", "to": "deleted", "variant": "security", "route": "drop" },
+    { "id": "progress-to-deleted", "from": "in-progress", "to": "deleted", "variant": "security", "route": "drop" },
+    { "id": "completed-to-deleted", "from": "completed", "to": "deleted", "variant": "security", "route": "drop" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "順序制約の無いenum",
+      "items": [
+        "waiting(1)/work_in_progress(2)/completed(3)のuint8で、backendの更新処理はexisting.Status = statusと直接上書きするのみ",
+        "図中の破線は代表例で、実装上はどの状態からどの状態へも自由に変更できる(作成時も既定値waitingを含む3値から任意に選べる)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "削除は物理削除",
+      "items": [
+        "DELETE /api/tasks/:id はtask_labelsを先に削除してからtasksを削除するハード削除",
+        "論理削除(soft delete)用のカラムは存在せず、削除後は完全にレコードが消える"
+      ]
+    }
+  ]
+}

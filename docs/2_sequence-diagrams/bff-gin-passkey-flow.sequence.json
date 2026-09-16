@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "bff-gin Passkey Registration and Login",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [980, 1040],
+    "views": [
+      { "id": "register", "label": "パスキー登録", "focus": ["browser", "frontend", "bff", "backend", "mysql"], "note": "既存ログイン済みユーザーがWebAuthn認証器を登録する" },
+      { "id": "logout", "label": "ログアウト", "focus": ["frontend", "bff"], "note": "セッションを破棄しCookieを消す" },
+      { "id": "login", "label": "パスキーのみでログイン", "focus": ["browser", "frontend", "bff", "backend", "mysql"], "note": "メールアドレス入力無しでdiscoverable credentialによりログインする" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "WebAuthn" },
+    { "id": "frontend", "type": "frontend", "label": "Frontend", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin" },
+    { "id": "backend", "type": "backend", "label": "Backend", "sublabel": "Go" },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": "webauthn_credentials" }
+  ],
+  "segments": [
+    { "from": 150, "to": 500, "label": "パスキー登録" },
+    { "from": 510, "to": 560, "label": "ログアウト" },
+    { "from": 570, "to": 920, "label": "パスキーのみでログイン" }
+  ],
+  "messages": [
+    { "id": "reg-options-req", "from": "frontend", "to": "bff", "y": 160, "label": "POST /api/account/passkey/register/options", "variant": "default" },
+    { "id": "reg-options-fwd", "from": "bff", "to": "backend", "y": 190, "label": "登録オプション要求", "variant": "default" },
+    { "id": "reg-options-challenge", "from": "backend", "to": "bff", "y": 220, "label": "options(challenge)", "variant": "return" },
+    { "id": "reg-options-back", "from": "bff", "to": "frontend", "y": 250, "label": "options", "variant": "return" },
+    { "id": "reg-create", "from": "frontend", "to": "browser", "y": 280, "label": "navigator.credentials.create()", "variant": "emphasis" },
+    { "id": "reg-attestation", "from": "browser", "to": "frontend", "y": 310, "label": "attestation", "variant": "return" },
+    { "id": "reg-submit", "from": "frontend", "to": "bff", "y": 340, "label": "POST /api/account/passkey/register", "variant": "default" },
+    { "id": "reg-verify", "from": "bff", "to": "backend", "y": 370, "label": "attestation検証依頼", "variant": "security" },
+    { "id": "reg-insert", "from": "backend", "to": "mysql", "y": 400, "label": "INSERT webauthn_credentials", "variant": "default" },
+    { "id": "reg-insert-ok", "from": "mysql", "to": "backend", "y": 430, "label": "ok", "variant": "return" },
+    { "id": "reg-success-backend", "from": "backend", "to": "bff", "y": 460, "label": "登録成功", "variant": "return" },
+    { "id": "reg-success-frontend", "from": "bff", "to": "frontend", "y": 490, "label": "登録成功", "variant": "return" },
+
+    { "id": "logout-req", "from": "frontend", "to": "bff", "y": 520, "label": "POST /api/auth/logout", "variant": "default" },
+    { "id": "logout-done", "from": "bff", "to": "frontend", "y": 550, "label": "セッション破棄・Cookie削除", "variant": "return" },
+
+    { "id": "login-options-req", "from": "frontend", "to": "bff", "y": 580, "label": "GET /api/auth/passkey/login/options(メール不要)", "variant": "default" },
+    { "id": "login-options-fwd", "from": "bff", "to": "backend", "y": 610, "label": "discoverable credentialオプション要求", "variant": "default" },
+    { "id": "login-options-back", "from": "backend", "to": "bff", "y": 640, "label": "options", "variant": "return" },
+    { "id": "login-options-frontend", "from": "bff", "to": "frontend", "y": 670, "label": "options", "variant": "return" },
+    { "id": "login-get", "from": "frontend", "to": "browser", "y": 700, "label": "navigator.credentials.get()", "variant": "emphasis" },
+    { "id": "login-assertion", "from": "browser", "to": "frontend", "y": 730, "label": "assertion", "variant": "return" },
+    { "id": "login-submit", "from": "frontend", "to": "bff", "y": 760, "label": "POST /api/auth/passkey/login", "variant": "default" },
+    { "id": "login-verify", "from": "bff", "to": "backend", "y": 790, "label": "assertion検証依頼", "variant": "security" },
+    { "id": "login-select", "from": "backend", "to": "mysql", "y": 820, "label": "SELECT webauthn_credentials", "variant": "default" },
+    { "id": "login-credential", "from": "mysql", "to": "backend", "y": 850, "label": "credential", "variant": "return" },
+    { "id": "login-jwt", "from": "backend", "to": "bff", "y": 880, "label": "JWT発行(iss=bff-gin-local-hmac)", "variant": "return" },
+    { "id": "login-session", "from": "bff", "to": "frontend", "y": 910, "label": "タスク一覧へ(セッション作成 auth_mode=passkey)", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "frontend", "from": 155, "to": 915 },
+    { "participant": "bff", "from": 158, "to": 495 },
+    { "participant": "bff", "from": 515, "to": 555 },
+    { "participant": "bff", "from": 575, "to": 915 },
+    { "participant": "backend", "from": 185, "to": 465 },
+    { "participant": "backend", "from": 605, "to": 885 },
+    { "participant": "mysql", "from": 395, "to": 435 },
+    { "participant": "mysql", "from": 815, "to": 855 },
+    { "participant": "browser", "from": 275, "to": 315 },
+    { "participant": "browser", "from": 695, "to": 735 }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Discoverable Credential",
+      "items": [
+        "パスキーログインはメールアドレス入力が不要",
+        "ブラウザがそのサイト用に登録済みの認証器を提示する",
+        "登録は既存ログイン済みユーザーへの追加認証手段として行う"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "BFFパターン",
+      "items": [
+        "attestation/assertionの検証はbackendが行いbffは仲介するだけ",
+        "発行されたJWTはbffのセッション化までで完結しBrowserには渡らない",
+        "BrowserはHttpOnly Cookie(session_id)のみを保持する"
+      ]
+    }
+  ]
+}

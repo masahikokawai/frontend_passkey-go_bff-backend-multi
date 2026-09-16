@@ -1,6 +1,6 @@
-# frontend_passkey-go_bff-backend-multi
+# bff-gin
 
-go-gin(サーバーサイドレンダリング + セッションCookie認証)を、
+training-go/gin(サーバーサイドレンダリング + セッションCookie認証)を、
 `frontend(React) / bff(Go) / backend(Go)` の3層構成へ発展させた学習用アプリケーション
 認証はOIDC(Keycloak)に準拠し、**ブラウザにはJWTを一切渡さないBFFパターン**を採用
 
@@ -1714,4 +1714,10 @@ BFF集中型 vs サイドカー型のトレードオフ: BFF集中型(今回の�
 `authjwt.Dispatcher`が`iss`クレームでKeycloak/`bff-gin-local-hmac`/`bff-gin-local-rsa`の
 3方式を振り分け、`RequireAuth`/`RequireExternalClientAuth`はこの`Dispatcher`経由で検証する
 詳細は前述の「ローカル(非Keycloak)認証」を参照
+
+## その他、ドキュメント生成
+https://github.com/tt-a1i/archify
+
+$ npx skills add tt-a1i/archify -g
+
 

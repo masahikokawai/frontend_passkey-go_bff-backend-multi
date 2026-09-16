@@ -1,0 +1,430 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "bff-gin システム構成(多言語backend込み)",
+    "output": "bff-gin-system-with-multilang.architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Task操作の主経路",
+        "focus": [
+          "browser",
+          "bff",
+          "backend",
+          "mysql"
+        ],
+        "note": "ブラウザからbff経由でbackendへ、TaskをMySQLへ読み書きする主経路"
+      },
+      {
+        "id": "auth-flow",
+        "label": "認証・セッション",
+        "focus": [
+          "browser",
+          "bff",
+          "keycloak",
+          "redis"
+        ],
+        "note": "bffがKeycloakとOIDCを行い、セッションはRedisに保存する"
+      },
+      {
+        "id": "multi-lang-switch",
+        "label": "多言語backend切替",
+        "focus": [
+          "bff",
+          "backend",
+          "backend_rust",
+          "backend_scala_http4s",
+          "backend_scala_pekko",
+          "backend_rails"
+        ],
+        "note": "backend.task-languageフラグでbffがGo/Rust/Scala(http4s)/Scala(Pekko)/Railsのどれを呼ぶか切り替える。5実装とも同じMySQLスキーマを読み書きする(既定はGo)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "React SPA",
+      "sublabel": "frontend :5173",
+      "brand": "react",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "bff",
+      "type": "backend",
+      "label": "bff",
+      "sublabel": "Go/Gin :8080",
+      "pos": [
+        270,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "Cookie+CSRF"
+    },
+    {
+      "id": "keycloak",
+      "type": "security",
+      "label": "Keycloak",
+      "sublabel": "OIDC IdP :8082",
+      "pos": [
+        390,
+        120
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": ":16379",
+      "brand": "redis",
+      "pos": [
+        270,
+        480
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "backend",
+      "type": "backend",
+      "label": "backend (Go)",
+      "sublabel": "REST:8090 gRPC:9090",
+      "pos": [
+        510,
+        300
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "backend_external",
+      "type": "backend",
+      "label": "backend 外部公開API",
+      "sublabel": "内部:8097",
+      "pos": [
+        510,
+        480
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL",
+      "sublabel": ":13306",
+      "brand": "mysql",
+      "pos": [
+        750,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "admin",
+      "type": "backend",
+      "label": "Admin UI",
+      "sublabel": "Go:8091 / Rails:8092",
+      "pos": [
+        750,
+        120
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "swagger_ui",
+      "type": "external",
+      "label": "Swagger UI",
+      "sublabel": ":18080",
+      "pos": [
+        750,
+        480
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "backend_rust",
+      "type": "backend",
+      "label": "backend (Rust)",
+      "sublabel": "8093 / 9093 / 外部8098",
+      "pos": [
+        500,
+        20
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "追加構成"
+    },
+    {
+      "id": "backend_scala_http4s",
+      "type": "backend",
+      "label": "backend (Scala/http4s)",
+      "sublabel": "8094 / 9094 / 外部8099",
+      "pos": [
+        670,
+        20
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "追加構成"
+    },
+    {
+      "id": "backend_scala_pekko",
+      "type": "backend",
+      "label": "backend (Scala/Pekko)",
+      "sublabel": "8095 / 9095 / 外部8100",
+      "pos": [
+        850,
+        20
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "追加構成"
+    },
+    {
+      "id": "backend_rails",
+      "type": "backend",
+      "label": "backend (Rails)",
+      "sublabel": "8096 / 9096 / 外部8101",
+      "pos": [
+        1030,
+        20
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "追加構成"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker compose",
+      "wraps": [
+        "keycloak",
+        "redis",
+        "mysql",
+        "swagger_ui"
+      ],
+      "pad": 24
+    },
+    {
+      "kind": "security-group",
+      "label": "private network限定",
+      "wraps": [
+        "backend",
+        "backend_external"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-bff",
+      "from": "browser",
+      "to": "bff",
+      "label": "ログイン・API呼び出し(Cookie+CSRF)",
+      "variant": "emphasis",
+      "labelDy": -26
+    },
+    {
+      "id": "bff-backend",
+      "from": "bff",
+      "to": "backend",
+      "label": "task-language切替",
+      "labelDy": 26
+    },
+    {
+      "id": "bff-keycloak",
+      "from": "bff",
+      "to": "keycloak",
+      "label": "OIDC Authorization Code",
+      "fromSide": "top",
+      "toSide": "left",
+      "labelDy": -6,
+      "labelDx": 60
+    },
+    {
+      "id": "backend-keycloak",
+      "from": "backend",
+      "to": "keycloak",
+      "label": "JWKS検証",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "bff-redis",
+      "from": "bff",
+      "to": "redis",
+      "label": "セッション・分散ロック",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "backend-mysql",
+      "from": "backend",
+      "to": "mysql",
+      "label": "GORM/bob"
+    },
+    {
+      "id": "backend-backend_external",
+      "from": "backend",
+      "to": "backend_external",
+      "label": "同一プロセス、別ポート",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "admin-mysql",
+      "from": "admin",
+      "to": "mysql",
+      "label": "Feature Flag CRUD",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "swagger-backend_external",
+      "from": "swagger_ui",
+      "to": "backend_external",
+      "label": "Try it out"
+    },
+    {
+      "id": "bff-backend_rust",
+      "from": "bff",
+      "to": "backend_rust",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          575,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_scala_http4s",
+      "from": "bff",
+      "to": "backend_scala_http4s",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          750,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_scala_pekko",
+      "from": "bff",
+      "to": "backend_scala_pekko",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          930,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_rails",
+      "from": "bff",
+      "to": "backend_rails",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1100,
+          10
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "コア構成",
+      "items": [
+        "frontend/bff/backend(Go)はネイティブ実行、keycloak/mysql/redis/swagger-uiはdocker compose"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "追加構成(既定オフ、backend.task-languageで切替)",
+      "items": [
+        "backend(Rust/Scala×2/Rails)はいずれも独自マイグレーションを持たず、backendの正本スキーマを共有するMySQLを直接読み書きする",
+        "backend(Rails)のみ3プロセス構成(REST/外部公開API/gRPCが別プロセス)"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "多言語backend比較の切替経路",
+      "items": [
+        "bffがbackend.task-language評価結果に応じて5実装いずれかへルーティングする(既定はGo)"
+      ]
+    }
+  ]
+}
