@@ -1720,30 +1720,4 @@ https://github.com/tt-a1i/archify
 
 $ npx skills add tt-a1i/archify -g
 
-- docs/1_architecture
-アーキテクチャ図:
-README.md に現状 ASCII アートで書かれている全体構成図
-(frontend/bff/backend REST・gRPC/多言語backend(Rust/Scala×2/Rails)/Keycloak/MySQL/Redis/admin/gateway/frontend-rails/bff-rails)を、
-インタラクティブな図として再現できる
-「evidence-backed」機能を使うと、各ノードにSRC nマークが付き、実際のソースファイル・行範囲(例: backend/internal/config/config.go:29)を特定コミットに紐付けて開ける
 
-- docs/2_sequence-diagrams
-シーケンス図:
-「ローカルHMAC/RSA/Keycloakログイン」
-「パスキー登録→ログアウト→パスキーのみでログイン」
-「Task作成時のbff→backend(REST/gRPC)の呼び出し」
-といった、実際にこのセッションで検証したフローを時系列の図
-
-- docs/3_feature-flag-dataflow
-データフロー図:
-Feature Flagの伝播(admin/go・admin/rails→MySQL→backend/bffがポーリング→frontendへ/api/me経由で反映)のような、
-層をまたぐデータの流れを可視化
-
-- docs/4_lifecycle-diagrams
-ライフサイクル図:
-Taskのステータス遷移や、セッション(ログイン→リフレッシュ→ログアウト/失効)の状態遷移を図に
-
-- docs/5_architecture-delta
-Architecture Delta(before/after比較):
-「コア構成のみ」と「多言語backend込みの構成」のような2つのスナップショットを比較し、
-追加・削除・変更・移動・経路変更を機械的な差分レシートとして出力

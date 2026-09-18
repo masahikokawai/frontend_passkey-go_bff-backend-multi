@@ -15,20 +15,20 @@
   },
   "head": {
     "title": "bff-gin システム構成(多言語backend込み)",
-    "rawSha256": "f3385a319321890f36977c6732b895dd2a6d65b78f50084f5d5bf2afdddb0a8c",
-    "semanticSha256": "7db0cfea6ee6aca1197eb84e45403fa50dfb0eac8af072e43a10df8795a43669",
-    "bytes": 8646
+    "rawSha256": "d563cbc04566f17f1c16458e45b7f6abe3275fb4770d8212fd3dbf8c0ec18e15",
+    "semanticSha256": "1441a1adb039c6951fe29dc78b2b88276c5a7390c168a9c892efd9239e00fb42",
+    "bytes": 9811
   },
   "summary": {
     "components": {
-      "added": 4,
+      "added": 6,
       "changed": 1,
       "evidenceChanged": 0,
       "removed": 0,
       "moved": 0
     },
     "connections": {
-      "added": 4,
+      "added": 6,
       "changed": 1,
       "removed": 0,
       "rerouted": 1
@@ -57,8 +57,17 @@
         ]
       },
       {
+        "id": "backend_js",
+        "headLabel": "JS",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
         "id": "backend_rails",
-        "headLabel": "backend (Rails)",
+        "headLabel": "Rails",
         "status": "added",
         "classifications": [
           "semantic"
@@ -67,7 +76,7 @@
       },
       {
         "id": "backend_rust",
-        "headLabel": "backend (Rust)",
+        "headLabel": "Rust",
         "status": "added",
         "classifications": [
           "semantic"
@@ -76,7 +85,7 @@
       },
       {
         "id": "backend_scala_http4s",
-        "headLabel": "backend (Scala/http4s)",
+        "headLabel": "Scala/http4s",
         "status": "added",
         "classifications": [
           "semantic"
@@ -85,7 +94,16 @@
       },
       {
         "id": "backend_scala_pekko",
-        "headLabel": "backend (Scala/Pekko)",
+        "headLabel": "Scala/Pekko",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "backend_ts",
+        "headLabel": "TS",
         "status": "added",
         "classifications": [
           "semantic"
@@ -115,6 +133,19 @@
           "/label",
           "/labelDy"
         ]
+      },
+      {
+        "id": "bff-backend_js",
+        "head": {
+          "from": "bff",
+          "to": "backend_js",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
       },
       {
         "id": "bff-backend_rails",
@@ -169,6 +200,19 @@
         "changedFields": []
       },
       {
+        "id": "bff-backend_ts",
+        "head": {
+          "from": "bff",
+          "to": "backend_ts",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
         "id": "bff-keycloak",
         "base": {
           "from": "bff",
@@ -205,8 +249,8 @@
     "Boundary identity is conservatively derived from kind + label."
   ],
   "artifact": {
-    "sha256": "1d87ab79b84eebcdebdb80a4577d30126b4f8f08784a9800f64cc6bc3cd5ddfb",
-    "bytes": 2272041
+    "sha256": "286a8e57ff2e784830003563dd32d4eb7a442076f988381ceae217cdf2f0c25d",
+    "bytes": 2282676
   },
   "validation": {
     "checksPassed": 28,

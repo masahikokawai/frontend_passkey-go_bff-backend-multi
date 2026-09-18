@@ -37,9 +37,11 @@
           "backend_rust",
           "backend_scala_http4s",
           "backend_scala_pekko",
-          "backend_rails"
+          "backend_rails",
+          "backend_js",
+          "backend_ts"
         ],
-        "note": "backend.task-languageフラグでbffがGo/Rust/Scala(http4s)/Scala(Pekko)/Railsのどれを呼ぶか切り替える。5実装とも同じMySQLスキーマを読み書きする(既定はGo)"
+        "note": "backend.task-languageフラグでbffがGo/Rust/Scala(http4s)/Scala(Pekko)/Rails/JavaScript/TypeScriptのどれを呼ぶか切り替える。7実装とも同じMySQLスキーマを読み書きする(既定はGo)"
       }
     ]
   },
@@ -177,14 +179,14 @@
     {
       "id": "backend_rust",
       "type": "backend",
-      "label": "backend (Rust)",
-      "sublabel": "8093 / 9093 / 外部8098",
+      "label": "Rust",
+      "sublabel": "8093/9093/8098",
       "pos": [
         500,
         20
       ],
       "size": [
-        150,
+        120,
         64
       ],
       "tag": "追加構成"
@@ -192,14 +194,14 @@
     {
       "id": "backend_scala_http4s",
       "type": "backend",
-      "label": "backend (Scala/http4s)",
-      "sublabel": "8094 / 9094 / 外部8099",
+      "label": "Scala/http4s",
+      "sublabel": "8094/9094/8099",
       "pos": [
-        670,
+        630,
         20
       ],
       "size": [
-        160,
+        130,
         64
       ],
       "tag": "追加構成"
@@ -207,14 +209,14 @@
     {
       "id": "backend_scala_pekko",
       "type": "backend",
-      "label": "backend (Scala/Pekko)",
-      "sublabel": "8095 / 9095 / 外部8100",
+      "label": "Scala/Pekko",
+      "sublabel": "8095/9095/8100",
       "pos": [
-        850,
+        770,
         20
       ],
       "size": [
-        160,
+        130,
         64
       ],
       "tag": "追加構成"
@@ -222,14 +224,44 @@
     {
       "id": "backend_rails",
       "type": "backend",
-      "label": "backend (Rails)",
-      "sublabel": "8096 / 9096 / 外部8101",
+      "label": "Rails",
+      "sublabel": "8096/9096/8101",
+      "pos": [
+        910,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "追加構成"
+    },
+    {
+      "id": "backend_js",
+      "type": "backend",
+      "label": "JS",
+      "sublabel": "8103/9097/8107",
       "pos": [
         1030,
         20
       ],
       "size": [
-        140,
+        110,
+        64
+      ],
+      "tag": "追加構成"
+    },
+    {
+      "id": "backend_ts",
+      "type": "backend",
+      "label": "TS",
+      "sublabel": "8104/9098/8108",
+      "pos": [
+        1150,
+        20
+      ],
+      "size": [
+        120,
         64
       ],
       "tag": "追加構成"
@@ -343,7 +375,7 @@
           10
         ],
         [
-          575,
+          560,
           10
         ]
       ]
@@ -361,7 +393,7 @@
           10
         ],
         [
-          750,
+          695,
           10
         ]
       ]
@@ -379,7 +411,7 @@
           10
         ],
         [
-          930,
+          835,
           10
         ]
       ]
@@ -397,7 +429,43 @@
           10
         ],
         [
-          1100,
+          965,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_js",
+      "from": "bff",
+      "to": "backend_js",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1085,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_ts",
+      "from": "bff",
+      "to": "backend_ts",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1210,
           10
         ]
       ]
@@ -415,15 +483,16 @@
       "dot": "amber",
       "title": "追加構成(既定オフ、backend.task-languageで切替)",
       "items": [
-        "backend(Rust/Scala×2/Rails)はいずれも独自マイグレーションを持たず、backendの正本スキーマを共有するMySQLを直接読み書きする",
-        "backend(Rails)のみ3プロセス構成(REST/外部公開API/gRPCが別プロセス)"
+        "backend(Rust/Scala×2/Rails/JS/TS)はいずれも独自マイグレーションを持たず、backendの正本スキーマを共有するMySQLを直接読み書きする",
+        "backend(Rails)のみ3プロセス構成(REST/外部公開API/gRPCが別プロセス)",
+        "backend(TS)はbackend(JS)の構造をそのまま型付けした移植(ロジックは同一)"
       ]
     },
     {
       "dot": "violet",
       "title": "多言語backend比較の切替経路",
       "items": [
-        "bffがbackend.task-language評価結果に応じて5実装いずれかへルーティングする(既定はGo)"
+        "bffがbackend.task-language評価結果に応じて7実装いずれかへルーティングする(既定はGo)"
       ]
     }
   ]
