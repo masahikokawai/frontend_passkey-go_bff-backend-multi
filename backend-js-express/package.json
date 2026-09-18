@@ -1,0 +1,21 @@
+{
+  "name": "backend-js-express",
+  "version": "1.0.0",
+  "private": true,
+  "description": "bff-gin: Task CRUD backendのJavaScript実装(CONTRACT.mdセクション20の多言語backend比較の1つ)",
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.11.3",
+    "@grpc/proto-loader": "^0.7.13",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.3"
+  }
+}

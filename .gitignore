@@ -1,6 +1,14 @@
 # このリポジトリはGo/Rust/Scala/Ruby(Rails)/Node(React)が混在するため、
 # 各言語エコシステムの標準的な生成物・依存パッケージ・macOS/エディタ固有ファイルを
 # まとめてここで無視する(サブディレクトリごとの.gitignoreと併用可能)
+#
+# 特定のファイルが実際にどのルールで無視されるか(あるいはされないか)を確認する場合:
+#   git check-ignore -v <ファイルパス>
+# 「無視されるはずなのにgit statusに出てくる」場合は、このファイルの書き方より先に
+# 「.gitignoreを追加する前に既にgit管理下に入っている(トラッキング済み)」ケースを疑うこと
+# その場合は無視ルールを直しても効果が無く、以下でトラッキングから外す必要がある(ファイル自体は消えない)
+#   git rm -r --cached <ファイルまたはディレクトリ>
+#   git commit -m "追跡から除外"
 
 # --- macOS ---
 .DS_Store
@@ -58,9 +66,6 @@ nohup.out
 # direnv(.envrc)を使ってこのリポジトリの環境変数を管理する場合のローカルキャッシュ
 .direnv/
 
-*.pid
-
-
 # --- Go(backend/・bff/・admin/go/・gateway/go/・gateway/nginx/sidecar/) ---
 # バイナリ名はディレクトリ名と揃えている慣習があるため、代表的なものだけでなく
 # パターンでも拾う
@@ -70,6 +75,8 @@ nohup.out
 /backend/backend
 /bff/bff
 /admin/go/admin-go
+/gateway/go/gateway-go
+/gateway/nginx/sidecar/gateway-nginx-sidecar
 
 # --- Rust(backend-rust/) ---
 /backend-rust/target/
@@ -135,6 +142,3 @@ gateway/nginx/logs/*
 *.local.txt
 /memo/
 /notes/
-
-# AI agent
-opencode.json*
