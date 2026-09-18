@@ -43,6 +43,7 @@
       },
       "defaultClientScopes": [
         "openid",
+        "basic",
         "profile",
         "email",
         "roles"
@@ -82,6 +83,7 @@
       },
       "defaultClientScopes": [
         "openid",
+        "basic",
         "profile",
         "email",
         "roles"
@@ -123,6 +125,7 @@
       },
       "defaultClientScopes": [
         "openid",
+        "basic",
         "profile",
         "email",
         "roles"

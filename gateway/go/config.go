@@ -36,6 +36,8 @@ type Config struct {
 	ScalaHTTP4sExternalBaseURL string
 	ScalaPekkoExternalBaseURL  string
 	RailsExternalBaseURL       string
+	JSExternalBaseURL          string
+	TSExternalBaseURL          string
 
 	// LogLevel は "debug"/"info"/"warn"/"error"
 	LogLevel string
@@ -65,6 +67,8 @@ func Load() Config {
 		ScalaHTTP4sExternalBaseURL: getEnv("GATEWAY_SCALA_HTTP4S_EXTERNAL_BASE_URL", "http://localhost:8099"),
 		ScalaPekkoExternalBaseURL:  getEnv("GATEWAY_SCALA_PEKKO_EXTERNAL_BASE_URL", "http://localhost:8100"),
 		RailsExternalBaseURL:       getEnv("GATEWAY_RAILS_EXTERNAL_BASE_URL", "http://localhost:8101"),
+		JSExternalBaseURL:          getEnv("GATEWAY_JS_EXTERNAL_BASE_URL", "http://localhost:8107"),
+		TSExternalBaseURL:          getEnv("GATEWAY_TS_EXTERNAL_BASE_URL", "http://localhost:8108"),
 		LogLevel:                   getEnv("LOG_LEVEL", "info"),
 		AllowedOrigin:              getEnv("GATEWAY_ALLOWED_ORIGIN", "http://localhost:18080"),
 	}

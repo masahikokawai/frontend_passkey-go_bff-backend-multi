@@ -108,6 +108,22 @@ func main() {
 	}
 	defer closeRailsGRPC()
 
+	jsClientV1 := proxy.NewTaskClientV1(cfg.JSRESTBaseURL)
+	jsClientV2, closeJSGRPC, err := proxy.NewTaskClientV2(cfg.JSGRPCAddr)
+	if err != nil {
+		logger.Error("backend-js-express v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeJSGRPC()
+
+	tsClientV1 := proxy.NewTaskClientV1(cfg.TSRESTBaseURL)
+	tsClientV2, closeTSGRPC, err := proxy.NewTaskClientV2(cfg.TSGRPCAddr)
+	if err != nil {
+		logger.Error("backend-js-ts-express v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeTSGRPC()
+
 	labelClient := proxy.NewLabelClientV1(cfg.BackendRESTBaseURL)
 	provisionClient := proxy.NewUserProvisionClient(cfg.BackendRESTBaseURL)
 
@@ -161,6 +177,10 @@ func main() {
 			"scala-pekko:grpc":  scalaPekkoClientV2,
 			"rails:rest":        railsClientV1,
 			"rails:grpc":        railsClientV2,
+			"javascript:rest":   jsClientV1,
+			"javascript:grpc":   jsClientV2,
+			"typescript:rest":   tsClientV1,
+			"typescript:grpc":   tsClientV2,
 		},
 		Flags:     flagEvaluator,
 		Refresher: refresher,

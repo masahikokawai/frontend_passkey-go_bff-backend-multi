@@ -53,7 +53,7 @@ MySQL 8.0
 - **v1 (REST)**: N+1 クエリの実装「旧」
 - **v2 (gRPC)**: `Preload` で N+1 を解消し、cursor ページングの実装「新」
 - backend が `backend.task-protocol` フラグで v1/v2 を切り替える
-  - さらに `backend.task-language` フラグで Go/Rust/Scala(http4s)/Scala(Pekko)/Rails の5言語実装を切り替えられる(多言語比較、後述)
+  - さらに `backend.task-language` フラグで Go/Rust/Scala(http4s)/Scala(Pekko)/Rails/JavaScript/TypeScript の7言語実装を切り替えられる(多言語比較、後述)
 - frontendは`features/tasks/`のみTypeScript化
   - `frontend.tasks-ts-rewrite` フラグで新旧コンポーネントを切り替える
 - 認証はKeycloak(OIDC)だけでない
@@ -344,7 +344,7 @@ MySQLの`feature_flags`テーブルが正本で、admin/go・admin/rails(管理�
 | `frontend.task-create-ux` | bff | 同上 | Task登録UXのinline/modal/page切り替え(3値) |
 | `bff.tasks-backend-v2` | bff | 渡さない(BFF内部限定) | 非推奨 `backend.task-protocol`に統合済み(履歴保持のため画面には残置) |
 | `backend.task-protocol` | backend | 該当なし | bffがbackendへのリクエストをREST/gRPCどちらで送るか |
-| `backend.task-language` | backend | 該当なし | Task CRUDの実装言語(go/rust/scala-http4s/scala-pekko/rails)切り替え |
+| `backend.task-language` | backend | 該当なし | Task CRUDの実装言語(go/rust/scala-http4s/scala-pekko/rails/javascript/typescript)切り替え |
 | `backend.external-tasks-pagination-v2` | backend | 該当なし(外部APIクライアント向け) | 外部公開APIのoffset/cursorページング切り替え |
 | `backend.external-tasks-orm` | backend | 該当なし | 外部公開APIのTask一覧取得のORM実装(gorm/bob)切り替え |
 | `frontend-rails.oidc-gem` | frontend-rails/without-bff | 該当なし | 使用するOIDC gem(omniauth-openid-connect/openid_connect)切り替え |
@@ -397,7 +397,7 @@ admin画面での変更が実際にどちらの実装へ反映されたかを確
 | macOS | Sonoma以降(Apple Silicon M2〜M5) |
 | Docker Desktop | 最新安定版(Docker Engine 29系 / Docker Compose v5系) |
 | Go | 1.27系(ローカルでの`go test`実行に使用 コンテナビルドはDockerfile内で完結) |
-| Node.js | 22 LTS以降(frontend/e2eで使用) |
+| Node.js | 22 LTS以降(frontend/e2e/backend-js-express/backend-js-ts-expressで使用) |
 | pnpm または npm | frontendの依存管理に使用 |
 | PlantUML | 図の再生成が必要な場合のみ(`brew install plantuml`) |
 
@@ -417,7 +417,7 @@ docker compose version   # v5.x系であること
 ### 2. コンテナ群を起動する
 
 ```sh
-cd frontend_passkey-go_bff-backend-multi
+cd training-go/bff-gin
 docker compose up -d --wait mysql redis keycloak swagger-ui
 
 # 起動確認
@@ -488,9 +488,9 @@ go run ./cmd/server
 
 起動に失敗する場合は、マイグレーション未適用(手順4を先に実行する)か、対象ポート(8090/9090/8097)が別プロセスに使われていないかを確認する(`lsof -iTCP:<port> -sTCP:LISTEN -P`)
 
-#### 5.1 多言語backend(Rust/Scala×2/Rails)を起動する(追加構成)
+#### 5.1 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript)を起動する(追加構成)
 
-Task CRUD(内部REST/gRPC)をGo以外の4言語でも実装している
+Task CRUD(内部REST/gRPC)をGo以外の6言語でも実装している
 `backend.task-language`フラグで切り替える際に必要
 
 ```sh
@@ -509,10 +509,16 @@ bundle install   # 初回のみ
 bundle exec puma -C config/puma.rb            # REST :8096
 bundle exec bin/grpc_server                     # gRPC :9096(別プロセス)
 bundle exec puma -C config/puma_external.rb    # 外部公開API :8101(こちらも別プロセス)
+
+# JavaScript(REST:8103 gRPC:9097 外部:8107)
+cd backend-js-express && npm install && npm start
+
+# TypeScript(REST:8104 gRPC:9098 外部:8108)
+cd backend-js-ts-express && npm install && npm start
 ```
 
-Rust/Scala×2/Railsはいずれも独自のマイグレーションを持たない
-スキーマの正本は`backend/migrations`のみで、他4言語は同じMySQL(`bff_gin_development`)を読み書きするだけ
+Rust/Scala×2/Rails/JavaScript/TypeScriptはいずれも独自のマイグレーションを持たない
+スキーマの正本は`backend/migrations`のみで、他6言語は同じMySQL(`bff_gin_development`)を読み書きするだけ
 Railsだけ`GRPC::RpcServer`のブロッキングイベントループがPumaと同居できないため3プロセス構成になる
 
 ### 6. bffを起動する
@@ -842,19 +848,20 @@ curl -sI http://localhost:8080/api/me | grep -iE "cache-control|x-content-type|x
 - `[SECURITY]` 自分がログインしていない他ユーザーのタスクIDを直接指定してGET/PATCH/DELETEしても404になる(IDOR対策
   存在しないID、例: `999999`で確認できる)
 
-#### backend多言語比較(Go / Rust / Scala×2 / Rails)
+#### backend多言語比較(Go / Rust / Scala×2 / Rails / JavaScript / TypeScript)
 
-Architecture Delta(コア構成→多言語backend込み構成の差分レシート): [`docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html`](docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html)(コンポーネント追加4・変更1、接続追加4・変更1・経路変更1)
+Architecture Delta(コア構成→多言語backend込み構成の差分レシート、Rust/Scala×2/Rails/JavaScript/TypeScriptの6言語分): [`docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html`](docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html)(コンポーネント追加6・変更1、接続追加6・変更1・経路変更1)
 多言語backend込みの単体アーキテクチャ図: [`docs/5_architecture-delta/bff-gin-system-with-multilang.architecture.html`](docs/5_architecture-delta/bff-gin-system-with-multilang.architecture.html)
 
-Task CRUD(内部REST/gRPC)を5言語で実装
+Task CRUD(内部REST/gRPC)を7言語で実装
 `backend.task-language` / `backend.task-protocol`で切り替え
+JavaScript(:8103/:9097/:8107)・TypeScript(:8104/:9098/:8108)は型の有無だけを変数にした一対の実装で、backend-js-ts-expressはbackend-js-expressの構造をそのまま型付けした移植
 
-前提: Goのbackendが起動済みでマイグレーションが適用済みであること
-他4言語は同じMySQLを読み書きするだけで、独自のマイグレーションは持たない
+前提: Goのbackendが起動済みでマイグレーション`000016`まで適用済みであること
+他6言語は同じMySQLを読み書きするだけで、独自のマイグレーションは持たない
 
 ```sh
-# backend.task-languageをgo→rust→scala-http4s→scala-pekko→railsの順に切り替える例
+# backend.task-languageをgo→rust→scala-http4s→scala-pekko→rails→javascript→typescriptの順に切り替える例
 docker compose exec mysql mysql -uroot bff_gin_development -e \
   "UPDATE feature_flags SET default_variation='rust' WHERE flag_key='backend.task-language';"
 # admin/go(http://localhost:8091)のFeature Flag編集画面から変更しても同じ
@@ -865,10 +872,13 @@ docker compose exec mysql mysql -uroot bff_gin_development -e \
   詳細は[各種ログの出力先](#各種ログの出力先)参照)の両方で確認できる
   各言語は互いに重複しないポートを専有しているため、対象言語プロセスが起動していなければ接続自体が失敗する(他の言語が代わりに答えることはない)
 - `backend.task-language`を切り替え、そのつどfrontend(http://localhost:5173)からタスク一覧・作成・更新・削除を実際に操作し、どの言語を選んでも同じ形状で動くことを確認する(反映まで最大10秒ほどのポーリング待ちがある)
-- `backend.task-protocol`をrest⇄grpcに切り替えても、5言語いずれでも同様に動く(最低限Go以外の1〜2言語で両プロトコルを確認すれば十分)
+- `backend.task-protocol`をrest⇄grpcに切り替えても、7言語いずれでも同様に動く(最低限Go以外の1〜2言語で両プロトコルを確認すれば十分)
 - `[SECURITY]` 他人のタスクIDを指定した削除で、Scala(http4s)・Scala(Pekko)ともラベル関連付けだけが消えてしまわないこと(所有者チェック前にラベル関連を無条件削除するIDOR類似脆弱性の回帰確認
   存在しないtask idや他ユーザーのtask idでDELETEを試し、404になり自分のタスクのラベルも消えていないことを確認する)
-- `[SECURITY]` 期限(`finished_on`)を「今日の日付」に設定してタスクを作成すると、5言語のどのbackendでも一貫して受理される(「過去日付」判定は全言語UTC基準に統一されている
+- `[SECURITY]` 7言語全てのタスク削除処理が、tasksとtask_labelsの両方の削除を1つのDBトランザクションで包んでいる(Go: `db.Transaction(...)`/GORM、Rust: `pool.begin()`→両方のDELETE→`tx.commit()`/sqlx、Scala(http4s): `.transact(xa)`/doobie、Scala(Pekko): `.transactionally`/Slick、Rails: `has_many :task_labels, dependent: :destroy`によりActiveRecordが自動でトランザクション化、JavaScript/TypeScript: `beginTransaction`/`commit`/`rollback`を明示使用)
+  ラベル付きタスクを削除した後、`SELECT * FROM task_labels WHERE task_id = <削除したタスクのid>;`が0件になることで確認できる(`task_labels`に外部キー制約が無いため、トランザクション無しだと孤立行が残り得る)
+  Rustはこの回帰テスト`delete_task_removes_task_labels_rows_known_bug_in_rust`(`backend-rust/tests/integration_test.rs`)を持つ
+- `[SECURITY]` 期限(`finished_on`)を「今日の日付」に設定してタスクを作成すると、7言語のどのbackendでも一貫して受理される(「過去日付」判定は全言語UTC基準に統一されている
   日本時間の夜遅く〜深夜にかけて確認する価値がある)
 - 確認後、`backend.task-language`を`go`・`backend.task-protocol`を`rest`に戻す(既定値)
 
@@ -1005,6 +1015,8 @@ bff-gin/
  backend-scala-http4s/ # Task CRUD Scala(http4s)実装(追加構成) REST:8094 gRPC:9094 外部:8099
  backend-scala-pekko/ # Task CRUD Scala(Pekko)実装(追加構成) REST:8095 gRPC:9095 外部:8100
  backend-rails/ # Task CRUD Rails実装(追加構成) REST:8096 外部:8101 gRPC:9096(3プロセス)
+ backend-js-express/ # Task CRUD JavaScript実装(追加構成) REST:8103 gRPC:9097 外部:8107
+ backend-js-ts-express/ # Task CRUD TypeScript実装(追加構成、backend-js-expressの型付き移植) REST:8104 gRPC:9098 外部:8108
   bff/                     # OIDCクライアント・Redisセッション・Feature Flag(HTTP retriever)・プロキシ(Go)
  bff-rails/ # bffのRails版(追加構成) :8102
  frontend/ # React(Vite) features/tasksのみTypeScript
@@ -1034,6 +1046,8 @@ bff-gin/
 | admin/go | 標準出力(ターミナル) | JSON(`log/slog`) |
 | gateway/go | 標準出力(ターミナル) | JSON(`log/slog`) |
 | backend-rust | 標準出力(ターミナル) | key=value形式(`tracing`) |
+| backend-js-express | 標準出力(ターミナル) | key=value形式 |
+| backend-js-ts-express | 標準出力(ターミナル) | key=value形式(backend-js-expressと同一形式) |
 | backend-scala-http4s | 標準出力(ターミナル) | logbackのデフォルト形式(設定ファイル無し、DEBUGレベル) |
 | backend-scala-pekko | 標準出力(ターミナル) | logbackのデフォルト形式(設定ファイル無し、DEBUGレベル) |
 | backend-rails | ファイル: `backend-rails/log/development.log`(test実行時は`log/test.log`) | Rails標準ログ形式(REST/外部公開API) gRPC(`bin/grpc_server`)は独自のkey=value形式で同じファイルへ追記 |
@@ -1047,8 +1061,8 @@ bff-gin/
 
 ### backend多言語比較: リクエスト単位のログの精度(CONTRACT.mdセクション20.10・20.11)
 
-REST・外部公開APIは5言語とも当初から正確(外側のHTTPステータスがそのまま実際のステータスのため)
-gRPCは「外側のHTTPステータスが常に200固定」という性質上難しかったが、現在は5言語全てが実際のステータスコードまで正確に記録する
+REST・外部公開APIは7言語とも正確(外側のHTTPステータスがそのまま実際のステータスのため)
+gRPCは「外側のHTTPステータスが常に200固定」という性質上工夫が必要だが、7言語全てが実際のステータスコードまで正確に記録する
 
 | 言語 | 内部REST/外部公開API | gRPC: ログの有無 | gRPC: 実際のステータスコードまで正確か | 実装方法(gRPC) |
 |---|---|---|---|---|
@@ -1057,6 +1071,8 @@ gRPCは「外側のHTTPステータスが常に200固定」という性質上難
 | Scala(http4s) | ✅ 正確 | ✅ あり | ✅ 正確(`Status.getCode`) | `io.grpc.ServerInterceptor` |
 | Scala(Pekko) | ✅ 正確 | ✅ あり | ✅ 正確(`io.grpc.Status`) | `LoggingTaskGrpcService`デコレータ(pekko-grpc生成traitを直接ラップ) |
 | Rails | ✅ 正確(Rails標準ログ) | ✅ あり | ✅ 正確(`GRPC::BadStatus#code`) | `GRPC::BadStatus#code`を直接記録 |
+| JavaScript | ✅ 正確 | ✅ あり | ✅ 正確(`err.code`をハンドラから直接受け取る) | `withLogging`デコレータ(gRPCハンドラを直接ラップ) |
+| TypeScript | ✅ 正確 | ✅ あり | ✅ 正確(`err.code`をハンドラから直接受け取る) | `withLogging`デコレータ(backend-js-expressと同一パターン) |
 
 いずれも「ハンドラの型付き戻り値/例外を直接見る」実装方式(HTTP/2トレーラーを直接読み取る実装は、自分でハンドラを実装していない汎用ミドルウェア・OpenTelemetry計装等でのみ必要な手段であり、このプロジェクトではハンドラを自前で持っているため不要と判断した)
 Scala(Pekko)には既知の制約があり、REST/外部公開APIでルートに一切マッチしない404相当のパスは`status=rejected`と表示される(実際のステータスコードではない)

@@ -55,8 +55,11 @@ cargo run
 
 - `cargo build` / `cargo build --tests`: 通ることを確認済み
 - `cargo test`: 単体テスト38件、すべてpass(DB接続不要、後述)
-- `cargo test -- --ignored`: DBに実接続する結合テスト9件、docker-compose上のMySQLに
-  対して実際にすべてpassすることを確認済み(後述)
+- `cargo test -- --ignored --test-threads=1`: DBに実接続する結合テスト10件、docker-compose上のMySQLに
+  対して実際にすべてpassすることを確認済み(後述)。`--test-threads=1`を付けずデフォルトの並列実行にすると、
+  各テストが個別に`db::connect`でコネクションプールを開くため、DB混雑により無関係な理由で
+  一時的に失敗することがある(既知の環境要因、テストロジック自体の欠陥ではない)。確認時は
+  `--test-threads=1`を付けて直列実行することを推奨する
 - `cargo run`でREST(:8093)・gRPC(:9093)を実際に起動し、ローカルHMAC発行の実JWTを使って
   `curl`でTask一覧取得・作成・削除がGo実装と同じJSON形状で動くことを確認済み
 - `cargo run --example grpc_smoke`で、同じくgRPC側のListTasks/CreateTask/DeleteTaskが

@@ -675,3 +675,100 @@ async fn create_task_with_duplicate_label_id_dedupes_cleanly() {
     sqlx::query("DELETE FROM tasks WHERE id = ?").bind(task_id).execute(&pool).await.unwrap();
     cleanup_user(&pool, user_id).await;
 }
+
+// 【回帰確認・既知バグ・未修正】backend-js-express/backend-js-ts-express実装時の実機検証で発覚:
+// src/db.rs の delete_task は `DELETE FROM tasks WHERE id = ? AND user_id = ?` のみを実行し、
+// task_labels を削除しない。task_labels(migrations/000004)には外部キー制約が無いため、
+// タスク削除後もラベル関連付けの行がDBに孤立して残り続けるが、DELETEのHTTPレスポンス自体は
+// 204で成功して見えるため、API経由のブラックボックステストだけでは気付けない
+// backend(Go)・backend-js-express・backend-js-ts-expressは同じ削除操作で task_labels → tasks の順に削除する
+// よう実装済みで、この孤立行問題は起きない
+// このテストは現状のRust実装に対しては意図的に失敗する(orphaned_countが0にならない)
+// src/db.rs の delete_task で task_labels を先に削除するよう修正すれば通るようになる
+#[tokio::test]
+#[ignore]
+async fn delete_task_removes_task_labels_rows_known_bug_in_rust() {
+    let pool = db::connect(&test_dsn()).await.expect("MySQLへ接続できませんでした");
+    let suffix = unique_suffix();
+    let user_id = create_test_user(
+        &pool,
+        &format!("integration-orphanlabel-{}", suffix),
+        &format!("integration-orphanlabel-{}@example.com", suffix),
+    )
+    .await;
+
+    // 既存の共有labels行(create_task_with_duplicate_label_id_dedupes_cleanlyテスト等も
+    // 使う「先頭のlabel」)を使い回すと、並列実行時に同じlabel_idへのtask_labels挿入が
+    // 競合し、他テスト側で意図しない500(内部エラー)を誘発することが実機検証で判明した
+    // このテスト専用の一意な名前のlabelを作成し、他テストと競合しないようにする
+    let label_name = format!("integration-orphanlabel-{}", suffix);
+    let label_insert = sqlx::query("INSERT INTO labels (name, created_at, updated_at) VALUES (?, NOW(), NOW())")
+        .bind(&label_name)
+        .execute(&pool)
+        .await
+        .expect("テスト専用labelの作成に失敗");
+    let label_id: u64 = label_insert.last_insert_id();
+
+    let state = Arc::new(AppState { pool: pool.clone(), dispatcher: test_dispatcher() });
+    let token = make_hmac_token(&user_id.to_string());
+    let auth_header = format!("Bearer {}", token);
+    let app = || rest::router(state.clone());
+
+    // ラベル付きタスクを作成
+    let create_body = json!({
+        "name": "orphan-label-test",
+        "status": "waiting",
+        "finished_on": "2030-01-01",
+        "label_ids": [label_id]
+    });
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/internal/v1/tasks")
+                .header("content-type", "application/json")
+                .header("authorization", &auth_header)
+                .body(Body::from(create_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let created = json_body(resp).await;
+    let task_id = created["id"].as_u64().expect("作成したタスクにidが無い");
+
+    // 削除
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/internal/v1/tasks/{}", task_id))
+                .header("authorization", &auth_header)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let delete_status = resp.status();
+
+    // 孤立行の件数を先に取得しておく(assertより前に評価し、下の後片付けを必ず実行させるため)
+    let orphaned_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM task_labels WHERE task_id = ?")
+        .bind(task_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+    // 後片付け: task_labelsに外部キー制約が無くtasks側の削除だけでは消えないため明示的に削除する
+    // (このテストが失敗する場合でも、共有の開発用DBに孤立行を残さないようにする)
+    // cleanup_user と同様に、後片付けは最善努力(エラーを無視)で行う
+    // (並列実行時のDB混雑等で一時的に失敗しても、後続の削除が必ず実行されるようにするため)
+    let _ = sqlx::query("DELETE FROM task_labels WHERE task_id = ?").bind(task_id).execute(&pool).await;
+    let _ = sqlx::query("DELETE FROM labels WHERE id = ?").bind(label_id).execute(&pool).await;
+    cleanup_user(&pool, user_id).await;
+
+    assert_eq!(delete_status, StatusCode::NO_CONTENT, "タスク削除自体のHTTPレスポンスは成功するはず");
+    assert_eq!(
+        orphaned_count,
+        0,
+        "task_labelsに孤立行が残っている(既知バグ: backend-rustのdelete_taskはtask_labelsを削除しない。backend(Go)/backend-js-express/backend-js-ts-expressは修正済み)"
+    );
+}

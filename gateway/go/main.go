@@ -31,6 +31,8 @@ func main() {
 			"scala-http4s": cfg.ScalaHTTP4sExternalBaseURL,
 			"scala-pekko":  cfg.ScalaPekkoExternalBaseURL,
 			"rails":        cfg.RailsExternalBaseURL,
+			"javascript":   cfg.JSExternalBaseURL,
+			"typescript":   cfg.TSExternalBaseURL,
 		},
 		ResolveLanguage: func() string { return resolver.Resolve(ctx) },
 		Logger:          logger,

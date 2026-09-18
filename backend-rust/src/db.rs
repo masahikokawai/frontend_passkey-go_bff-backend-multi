@@ -249,13 +249,30 @@ pub async fn update_task(
     Ok(true)
 }
 
+/// tasksとtask_labelsの削除を1つのトランザクションで包む
+/// task_labelsには外部キー制約が無い(migrations/000004)ため、トランザクション無しで
+/// 個別にDELETEすると、両文の間でプロセスが落ちた場合にtask_labelsの孤立行が残り得る
+/// backend(Go)のdb.Transaction・Scala(http4s)の.transact・Scala(Pekko)の.transactionally・
+/// Rails(dependent: :destroy)・JS/TS(beginTransaction/commit)と同じ設計に揃える
 pub async fn delete_task(pool: &MySqlPool, id: u64, user_id: u64) -> Result<bool, sqlx::Error> {
+    let mut tx = pool.begin().await?;
     let result = sqlx::query("DELETE FROM tasks WHERE id = ? AND user_id = ?")
         .bind(id)
         .bind(user_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
-    Ok(result.rows_affected() > 0)
+
+    if result.rows_affected() == 0 {
+        tx.rollback().await?;
+        return Ok(false);
+    }
+
+    sqlx::query("DELETE FROM task_labels WHERE task_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(true)
 }
 
 async fn replace_labels(

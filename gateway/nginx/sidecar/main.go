@@ -27,6 +27,8 @@ func main() {
 		"scala-http4s": cfg.ScalaHTTP4sExternalBaseURL,
 		"scala-pekko":  cfg.ScalaPekkoExternalBaseURL,
 		"rails":        cfg.RailsExternalBaseURL,
+		"javascript":   cfg.JSExternalBaseURL,
+		"typescript":   cfg.TSExternalBaseURL,
 	}
 
 	logger.Info("nginx製ゲートウェイのサイドカーを起動します",
@@ -125,6 +127,8 @@ type sidecarConfig struct {
 	ScalaHTTP4sExternalBaseURL string
 	ScalaPekkoExternalBaseURL  string
 	RailsExternalBaseURL       string
+	JSExternalBaseURL          string
+	TSExternalBaseURL          string
 	UpstreamConfPath           string
 	NginxPrefixDir             string
 }
@@ -143,6 +147,8 @@ func loadConfig() sidecarConfig {
 		ScalaHTTP4sExternalBaseURL: getEnv("GATEWAY_SCALA_HTTP4S_EXTERNAL_BASE_URL", "http://localhost:8099"),
 		ScalaPekkoExternalBaseURL:  getEnv("GATEWAY_SCALA_PEKKO_EXTERNAL_BASE_URL", "http://localhost:8100"),
 		RailsExternalBaseURL:       getEnv("GATEWAY_RAILS_EXTERNAL_BASE_URL", "http://localhost:8101"),
+		JSExternalBaseURL:          getEnv("GATEWAY_JS_EXTERNAL_BASE_URL", "http://localhost:8107"),
+		TSExternalBaseURL:          getEnv("GATEWAY_TS_EXTERNAL_BASE_URL", "http://localhost:8108"),
 		UpstreamConfPath:           getEnv("UPSTREAM_CONF_PATH", "../upstream.conf"),
 		NginxPrefixDir:             getEnv("NGINX_PREFIX_DIR", ".."),
 	}

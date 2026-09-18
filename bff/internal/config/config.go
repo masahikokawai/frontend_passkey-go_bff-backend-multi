@@ -65,6 +65,10 @@ type Config struct {
 	ScalaPekkoGRPCAddr     string
 	RailsRESTBaseURL       string
 	RailsGRPCAddr          string
+	JSRESTBaseURL          string
+	JSGRPCAddr             string
+	TSRESTBaseURL          string
+	TSGRPCAddr             string
 
 	// FeatureFlagFilePath はGO Feature Flagのフラグ定義YAMLのパス(旧方式、参考用
 	// 実際にはFeatureFlagExportURLが使われる。internal/featureflag/flags.yaml参照)
@@ -155,6 +159,10 @@ func Load() (*Config, error) {
 		ScalaPekkoGRPCAddr:     getEnv("BACKEND_SCALA_PEKKO_GRPC_ADDR", "localhost:9095"),
 		RailsRESTBaseURL:       getEnv("BACKEND_RAILS_REST_BASE_URL", "http://localhost:8096"),
 		RailsGRPCAddr:          getEnv("BACKEND_RAILS_GRPC_ADDR", "localhost:9096"),
+		JSRESTBaseURL:          getEnv("BACKEND_JS_REST_BASE_URL", "http://localhost:8103"),
+		JSGRPCAddr:             getEnv("BACKEND_JS_GRPC_ADDR", "localhost:9097"),
+		TSRESTBaseURL:          getEnv("BACKEND_TS_REST_BASE_URL", "http://localhost:8104"),
+		TSGRPCAddr:             getEnv("BACKEND_TS_GRPC_ADDR", "localhost:9098"),
 		FeatureFlagFilePath:    getEnv("FEATURE_FLAG_FILE_PATH", "internal/featureflag/flags.yaml"),
 		FeatureFlagExportURL: getEnv("FEATURE_FLAG_EXPORT_URL",
 			getEnv("BACKEND_REST_BASE_URL", "http://localhost:8090")+"/internal/v1/feature-flags/export"),
