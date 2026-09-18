@@ -1,6 +1,6 @@
-# bff-gin Verification Checklist
+# frontend_passkey-go_bff-backend-multi Verification Checklist
 
-環境構築後の動作確認チェックリスト(bff-gin 検証ランブックの内容を Markdown 化したもの)
+環境構築後の動作確認チェックリスト(frontend_passkey-go_bff-backend-multi 検証ランブックの内容を Markdown 化したもの)
 
 - 上から順に進めるのを推奨するが、セクション単位で行き来してもよい
 - `[SECURITY]` はセキュリティ回帰確認の項目

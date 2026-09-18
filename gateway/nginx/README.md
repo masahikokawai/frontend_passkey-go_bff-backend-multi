@@ -19,7 +19,7 @@ cd gateway/nginx/sidecar && go mod download
 ## 実行
 
 ```sh
-# training-go/bff-gin ルートで
+# frontend_passkey-go_bff-backend-multi/ ルートで
 docker compose up -d --wait mysql redis keycloak swagger-ui
 cd backend && go run ./cmd/migrate up && go run ./cmd/server &   # REST:8090 gRPC:9090 外部API:8097
 

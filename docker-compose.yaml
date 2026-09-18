@@ -1,4 +1,4 @@
-# training-go/bff-gin ローカル開発用
+# frontend_passkey-go_bff-backend-multi ローカル開発用
 # Production構成ではない
 #
 # 【重要な設計判断】backend/bffはこのcompose.yamlではコンテナ化せず、README記載の通り`go run ./cmd/server` でホストマシン上に直接起動する前提にしている

@@ -23,7 +23,7 @@ sbt compile
 ## 起動
 
 ```sh
-# training-go/bff-gin ルートで
+# frontend_passkey-go_bff-backend-multi/ ルートで
 docker compose up -d --wait mysql redis keycloak
 
 cd backend-scala-http4s

@@ -31,7 +31,7 @@ bundle exec grpc_tools_ruby_protoc --ruby_out=lib/gen --grpc_out=lib/gen -I prot
 起動する**(後述「Go実装との比較所感」参照)。
 
 ```sh
-# training-go/bff-gin ルートで
+# frontend_passkey-go_bff-backend-multi/ ルートで
 docker compose up -d --wait mysql redis keycloak swagger-ui
 cd backend && go run ./cmd/migrate up  # tasks/labels/task_labels/usersのスキーマはこちらが正本
 

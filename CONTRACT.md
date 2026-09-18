@@ -1,4 +1,4 @@
-# bff-gin 実装契約(この会話で確定した設計の正本)
+# frontend_passkey-go_bff-backend-multi 実装契約(この会話で確定した設計の正本)
 
 このファイルは frontend / bff / backend を並列実装する複数のサブエージェント間で
 矛盾が起きないようにするための単一の正本(Single Source of Truth)

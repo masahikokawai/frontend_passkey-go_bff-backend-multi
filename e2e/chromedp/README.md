@@ -16,7 +16,7 @@ Chromeがインストール済みであること(既定のパスから自動検�
 ## 実行
 
 ```sh
-# training-go/bff-gin ルートで
+# frontend_passkey-go_bff-backend-multi/ ルートで
 docker compose up -d --wait mysql redis keycloak swagger-ui
 cd backend && go run ./cmd/migrate up && go run ./cmd/server &
 cd bff && go run ./cmd/server &

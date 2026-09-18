@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: training-go/bff-gin 外部公開API
+  title: frontend_passkey-go_bff-backend-multi 外部公開API
   version: "1.0.0"
   description: |
     BFF(ブラウザ向けセッション認証)を経由しない、サーバー間連携用の直接API

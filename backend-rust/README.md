@@ -28,7 +28,7 @@ DBへ接続していない状態でも`cargo build`が通ることを確認済�
 ## 実行
 
 ```sh
-# training-go/bff-gin ルートで
+# frontend_passkey-go_bff-backend-multi/ ルートで
 docker compose up -d --wait mysql keycloak
 
 cd backend-rust
