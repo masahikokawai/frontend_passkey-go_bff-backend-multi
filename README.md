@@ -417,7 +417,7 @@ docker compose version   # v5.x系であること
 ### 2. コンテナ群を起動する
 
 ```sh
-cd training-go/bff-gin
+cd frontend_passkey-go_bff-backend-multi
 docker compose up -d --wait mysql redis keycloak swagger-ui
 
 # 起動確認
@@ -468,7 +468,9 @@ docker compose exec mysql mysql -uroot -e "SHOW DATABASES;"
 
 ```sh
 cd backend
-go run ./cmd/migrate up   # seedも含まれる
+
+# seedも含まれる
+go run ./cmd/migrate up
 ```
 
 - `DB_DSN`は未設定でも既定値(`root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true`)が使われる
@@ -481,6 +483,9 @@ go run ./cmd/migrate up   # seedも含まれる
 cd backend
 go run ./cmd/server
 # REST v1: http://localhost:8090 / gRPC v2: localhost:9090 / 外部公開API(内部アドレス): http://localhost:8097
+
+# 詳細なログ(GORMが発行したSQLを含む)を見たい場合:
+LOG_LEVEL=debug go run ./cmd/server
 ```
 
 `DB_DSN`/`KEYCLOAK_ISSUER`/`EXPECTED_AUDIENCE`等はdocker-compose.yamlの構成に対応する既定値が入っているため、通常は環境変数の指定なしでそのまま起動できる
@@ -505,10 +510,14 @@ cd backend-scala-pekko && sbt run
 
 # Rails(REST:8096 / 外部:8101 / gRPC:9096、3プロセス構成)
 cd backend-rails
-bundle install   # 初回のみ
-bundle exec puma -C config/puma.rb            # REST :8096
-bundle exec bin/grpc_server                     # gRPC :9096(別プロセス)
-bundle exec puma -C config/puma_external.rb    # 外部公開API :8101(こちらも別プロセス)
+# 初回のみ
+bundle install
+# REST :8096
+bundle exec puma -C config/puma.rb
+# gRPC :9096(別プロセス)
+bundle exec bin/grpc_server
+# 外部公開API :8101(こちらも別プロセス)
+bundle exec puma -C config/puma_external.rb
 
 # JavaScript(REST:8103 gRPC:9097 外部:8107)
 cd backend-js-express && npm install && npm start
@@ -536,7 +545,8 @@ go run ./cmd/server
 
 ```sh
 cd frontend
-npm install   # 初回のみ
+# 初回のみ
+npm install
 npm run dev
 # http://localhost:5173
 ```
@@ -546,7 +556,8 @@ npm run dev
 ```sh
 # Rails版(:8092)
 cd admin/rails
-bundle install   # 初回のみ
+# 初回のみ
+bundle install
 bin/rails server -p 8092
 
 # Go+Gin版(:8091)
@@ -577,7 +588,8 @@ cd gateway/nginx
 ```sh
 # frontend-rails/without-bff(:5174、bffを使わずRails自身がKeycloakと直接OIDCを行う)
 cd frontend-rails/without-bff
-bundle install   # 初回のみ
+# 初回のみ
+bundle install
 bin/rails server -p 5174
 
 # bff-rails(:8102)+ frontend-rails/with-bff(:5175、React+bffと同じ役割分担をRailsで再現)
