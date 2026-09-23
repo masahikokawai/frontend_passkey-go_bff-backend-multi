@@ -4,6 +4,7 @@ const db = require('../db');
 const errors = require('../error');
 const { authenticate } = require('./authenticate');
 const { validateTaskInput, todayUtcIso, statusToString, statusFromString } = require('../model');
+const { logDebug } = require('../logging');
 
 function wrap(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
@@ -54,6 +55,7 @@ function list(state) {
     const labelIds = parseLabelIds(q.label_ids);
     const limit = q.limit !== undefined ? parseInt(q.limit, 10) : 20;
     const offset = q.offset !== undefined ? parseInt(q.offset, 10) : 0;
+    logDebug('list_tasks', { user_id: userId, limit, offset });
 
     const { tasks, total } = await db.listTasksOffset(
       state.pool,

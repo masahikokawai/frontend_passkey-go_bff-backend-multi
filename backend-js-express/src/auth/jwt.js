@@ -7,6 +7,7 @@
 
 const jwt = require('jsonwebtoken');
 const crypto = require('node:crypto');
+const { logDebug } = require('../logging');
 
 const LOCAL_HMAC_ISSUER = 'bff-gin-local-hmac';
 const LOCAL_RSA_ISSUER = 'bff-gin-local-rsa';
@@ -89,6 +90,7 @@ class JwksVerifier {
       }
     }
     this.keys = next;
+    logDebug('jwks refreshed', { issuer: this.issuer, keys_cached: next.size });
   }
 
   async verify(token) {
@@ -103,6 +105,7 @@ class JwksVerifier {
 
     let key = this.keys.get(kid);
     if (!key) {
+      logDebug('jwks cache miss, refreshing', { kid, issuer: this.issuer, jwks_url: this.jwksUrl });
       await this.refresh();
       key = this.keys.get(kid);
       if (!key) throw new VerifyError(`kid=${kid} に対応する公開鍵が見つからない`);

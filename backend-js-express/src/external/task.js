@@ -6,6 +6,7 @@ const cursorMod = require('./cursor');
 const { authenticate } = require('./authenticate');
 const { statusToString } = require('../model');
 const { mysqlDatetimeToRfc3339, isoToMysqlDatetime } = require('../time');
+const { logDebug } = require('../logging');
 
 function wrap(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
@@ -49,6 +50,7 @@ function list(state) {
 async function listV1(state, userId, q, res) {
   const page = q.page && Number(q.page) >= 1 ? Number(q.page) : 1;
   const pageSize = q.page_size && Number(q.page_size) >= 1 ? Number(q.page_size) : 10;
+  logDebug('list_tasks_external', { user_id: userId, page, page_size: pageSize });
 
   const { tasks, total } = await db.listTasksOffsetExternal(state.pool, userId, page, pageSize);
   res.json({ tasks: tasks.map(taskToJson), page, page_size: pageSize, total });
@@ -56,6 +58,7 @@ async function listV1(state, userId, q, res) {
 
 async function listV2(state, userId, q, res) {
   const limit = q.limit && Number(q.limit) >= 1 ? Number(q.limit) : 10;
+  logDebug('list_tasks_external', { user_id: userId, cursor: q.cursor || null, limit });
 
   let after = null;
   if (q.cursor) {
