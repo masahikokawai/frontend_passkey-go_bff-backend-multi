@@ -353,7 +353,12 @@ backend.task-language / backend.task-protocol で切り替え_
   ```
   - note: Express+`@grpc/grpc-js`+mysql2構成
     REST/外部公開API/gRPCとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化まで確認済み
-    ログはkey=value形式でmethod/path/status/duration_ms相当を出す
+    ログはkey=value形式でmethod/path/status/duration_ms相当を出す、`LOG_LEVEL`(既定`info`)対応(2026-09-23追加)
+- [ ] `[JAVASCRIPT]` `LOG_LEVEL=debug`で起動すると、認証で解決したuser_id/auth_mode/issuer・JWKSキャッシュの再取得イベント・REST/外部APIのページング引数の詳細ログが追加で出る
+  ```sh
+  LOG_LEVEL=debug HTTP_ADDR=:8103 GRPC_ADDR=:9097 EXTERNAL_HTTP_ADDR=:8107 node src/main.js
+  ```
+  - expect: `level=debug msg="resolved user" user_id=1 auth_mode="local_hmac" ...`のような行が追加で出て、既定(未設定)では出ないことを確認する
 - [ ] `[TYPESCRIPT]` 追加構成: TypeScript backendを起動する(REST :8104 / gRPC :9098 / 外部公開API :8108)
   ```sh
   cd backend-js-ts-express
@@ -361,7 +366,11 @@ backend.task-language / backend.task-protocol で切り替え_
   npm start
   ```
   - note: backend-js-expressの構造をそのまま型付けした移植で、ロジックは完全に同一(型の有無だけを比較変数にした一対の実装)
-    `tsc --noEmit`(strict)0エラー、テスト全パス、REST/gRPC/外部公開API実機確認済み
+    `tsc --noEmit`(strict)0エラー、テスト全パス、REST/gRPC/外部公開API実機確認済み、`LOG_LEVEL`(既定`info`)対応(2026-09-23追加、backend-js-expressと同一実装パターン)
+- [ ] `[TYPESCRIPT]` `LOG_LEVEL=debug`で起動すると、JavaScript版と同じ詳細ログが追加で出る
+  ```sh
+  LOG_LEVEL=debug HTTP_ADDR=:8104 GRPC_ADDR=:9098 EXTERNAL_HTTP_ADDR=:8108 npx tsx src/main.ts
+  ```
 - [ ] `[CPP]` 追加構成: C++ backendを起動する(REST :8105 / gRPC :9099 / 外部公開API :8109)
   ```sh
   cd backend-cpp
@@ -373,6 +382,11 @@ backend.task-language / backend.task-protocol で切り替え_
     同期DBアクセスは`asio::thread_pool`+`asio::co_spawn`でHTTP用の`io_context`から隔離している
     REST/外部公開API/gRPCとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化まで確認済み
     アーキテクチャ選定(検討した3案・選定理由・薄れる学習効果)は`backend-cpp/README.md`参照
+- [ ] `[CPP]` `LOG_LEVEL=debug`で起動すると、既定(`info`)の1行サマリに加え認証・JWKS再取得・ページングパラメータの詳細行が追加で出る(2026-09-23追加。25.7時点は「C++は実装当初からREST/外部公開APIにもログがある」と誤って記載されていたが、実際にはgRPCのみでREST/外部公開APIにはリクエスト単位のログが無かった。今回REST/外部公開API向けのINFOログと`LOG_LEVEL`を追加して是正、CONTRACT.mdセクション25.9参照)
+  ```sh
+  LOG_LEVEL=debug HTTP_ADDR=8105 GRPC_ADDR=9099 EXTERNAL_HTTP_ADDR=8109 DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development ./build/backend_cpp_server
+  ```
+  - expect: `rest debug: ...`・`external debug: ...`・`auth debug: jwks refresh ...`行が追加で出て、`LOG_LEVEL`未設定(既定`info`)ではこれらが一切出ないことを比較して確認する。既定・debug問わず、`rest method=... path=... status=... duration_ms=...` / `external method=... path=... status=... duration_ms=...`の1行サマリは常に出ることも確認する
 - [ ] `[C]` 追加構成: C backendを起動する(REST :8106 / gRPC :9100 / 外部公開API :8110)
   ```sh
   cd backend-c
@@ -386,6 +400,11 @@ backend.task-language / backend.task-protocol で切り替え_
     外部公開APIはClient Credentials Grant(Keycloak発行、`azp`一致)のみ受け付け、ローカルHMAC/RSA発行のJWTは正しく署名されていても拒否される
     Feature Flag(`backend.external-tasks-pagination-v2`)は`mysql_conn_get()`(スレッドローカル接続)を再利用した専用ポーリングスレッドが10秒間隔で評価し、offset(v1)/cursor(v2)ページングを切り替える
     アーキテクチャ選定・メモリ管理のバッド/グッドプラクティス・結合テストの詳細は`backend-c/README.md`参照
+- [ ] `[C]` `LOG_LEVEL=debug`で起動すると、既定(`info`)の1行サマリに加え認証・JWKS再取得の詳細行が追加で出る
+  ```sh
+  LOG_LEVEL=debug HTTP_ADDR=8106 GRPC_ADDR=9100 EXTERNAL_HTTP_ADDR=8110 DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development ./build/backend_c_server
+  ```
+  - expect: `rest debug: ...`・`external debug: ...`・`auth debug: jwks refresh ...`行が追加で出て、`LOG_LEVEL`未設定(既定`info`)ではこれらが一切出ないことを比較して確認する
 - [ ] `[JAVA]` 追加構成: Java backendを起動する(REST :8111 / gRPC :9101 / 外部公開API :8112)
   ```sh
   cd backend-java
@@ -398,6 +417,11 @@ backend.task-language / backend.task-protocol で切り替え_
     Virtual Threads(JDK21+)で並行処理の安全性を自動化(JDBC呼び出し側に特別な記述は不要)
     REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
     アーキテクチャ選定(Spring Bootを選ばなかった理由含む)は`backend-java/README.md`参照
+- [ ] `[JAVA]` `LOG_LEVEL=debug`で起動すると、`UserResolver`(user_id解決の詳細)・`JwksVerifier`(JWKS再取得イベント)のDEBUGログが追加で出る
+  ```sh
+  LOG_LEVEL=debug HTTP_ADDR=8111 GRPC_ADDR=9101 EXTERNAL_HTTP_ADDR=8112 ./gradlew run
+  ```
+  - note: `slf4j-simple`がプロセス内で最初に`Logger`を取得する前にシステムプロパティを設定する必要があるため、`Main`クラスの静的初期化子で環境変数を読む実装になっている
 - [ ] `[KOTLIN]` 追加構成: Kotlin backendを起動する(REST :8113 / gRPC :9102 / 外部公開API :8114)
   ```sh
   cd backend-kotlin
@@ -409,6 +433,11 @@ backend.task-language / backend.task-protocol で切り替え_
     `withContext(Dispatchers.IO)`への明示的な切り替えで並行処理の安全性を型システムと明示的なディスパッチャ選択で保証(Javaの自動化との意図的な対比)
     REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
     アーキテクチャ選定(Ktorを選んだ理由・Javaとの並行処理モデルの対比)は`backend-kotlin/README.md`参照
+- [ ] `[KOTLIN]` `LOG_LEVEL=debug`で起動すると、`UserResolver`が解決した`user_id`・issuer、`JwksVerifier`のkidキャッシュヒット/ミス・JWKS再取得の詳細ログが追加で出る
+  ```sh
+  LOG_LEVEL=debug HTTP_ADDR=8113 GRPC_ADDR=9102 EXTERNAL_HTTP_ADDR=8114 ./gradlew run
+  ```
+  - note: ロギングバックエンドは`logback-classic`(`logback.xml`の`<root level="${LOG_LEVEL:-INFO}">`が実行時に環境変数を読む)。`slf4j-simple`はクラスロード時に静的確定するため実行時のレベル切り替えに使えないと判明し切り替えた経緯がある(既知の落とし穴)
 - [ ] `[PYTHON]` 追加構成: Python backendを起動する(REST :8115 / gRPC :9103 / 外部公開API :8116)
   ```sh
   cd backend-python
@@ -420,6 +449,11 @@ backend.task-language / backend.task-protocol で切り替え_
     ドライバ自体が非同期ネイティブなため、C++の手動`asio::thread_pool`隔離やKotlinの`Dispatchers.IO`のような明示的な隔離が不要
     REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
     アーキテクチャ選定(GIL・後付けの非同期という歴史的経緯、C++/Kotlinとの3段階比較)は`backend-python/README.md`参照
+- [ ] `[PYTHON]` `LOG_LEVEL=debug`で起動すると、解決した`user_id`・JWKS再取得イベント・REST/外部APIで解析したページングパラメータの詳細ログが追加で出る
+  ```sh
+  LOG_LEVEL=debug HTTP_ADDR=8115 GRPC_ADDR=9103 EXTERNAL_HTTP_ADDR=8116 python -m app.main
+  ```
+  - expect: `resolved user_id=1 via local issuer=...`のようなDEBUG行が追加で出て、既定(`info`)では出ないことを確認する
 - [ ] `[ELIXIR]` 追加構成: Elixir backendを起動する(REST :8117 / gRPC :9104 / 外部公開API :8118)
   ```sh
   cd backend-elixir
@@ -432,6 +466,11 @@ backend.task-language / backend.task-protocol で切り替え_
     BEAMのプリエンプティブなスケジューラ(reduction counting)により、CPU律速の暴走リクエストが他のリクエストを飢餓状態にすることを言語・VMレベルで防げる(14言語中唯一)
     REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
     アーキテクチャ選定(Phoenixを選ばなかった理由・Ecto採用の経緯・BEAMスケジューラの詳細)は`backend-elixir/README.md`参照
+- [ ] `[ELIXIR]` `LOG_LEVEL=debug`で起動すると、認証で解決した`user_id`・JWKSキャッシュの再取得イベント等の詳細な`Logger.debug`行が追加で出る(Ectoが発行するSQLクエリのdebugログも同時に見えるようになる)
+  ```sh
+  LOG_LEVEL=debug DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development HTTP_ADDR=8117 GRPC_ADDR=9104 EXTERNAL_HTTP_ADDR=8118 mix run --no-halt
+  ```
+  - note: `Application.start/2`が起動時に`Logger.configure(level: ...)`でランタイムのログレベルを変更するため、再ビルド無しで有効・無効を切り替えられる
 - [ ] `[HASKELL]` 追加構成: Haskell backendを起動する(REST :8119 / gRPC :9105 / 外部公開API :8120)
   ```sh
   cd backend-haskell
@@ -444,6 +483,11 @@ backend.task-language / backend.task-protocol で切り替え_
     `IO`モナドはHaskell言語仕様そのものであり、backend-scala-http4sの`cats-effect`との概念的な重複・違いをREADME.mdとソースコード双方に相互参照コメントとして記載
     REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
     アーキテクチャ選定(Servant/STM/grapesyの選定理由)は`backend-haskell/README.md`参照
+- [ ] `[HASKELL]` `LOG_LEVEL=debug`で起動すると、認証で解決した`user_id`・RESTのクエリパラメータ・JWKSキャッシュの再取得タイミング等の詳細な`[debug] <文脈>: <メッセージ>`形式の行が追加で出る
+  ```sh
+  LOG_LEVEL=debug DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development HTTP_ADDR=8119 GRPC_ADDR=9105 EXTERNAL_HTTP_ADDR=8120 cabal run exe:backend-haskell-server
+  ```
+  - expect: `[debug] auth: resolved user_id=...`のような行が追加で出て、既定(`info`)ではこれらが出ないことを確認する(`BackendHaskell.Logging.logDebug`)
 - [ ] `[SECURITY]` 14言語全てのdelete処理が、tasksとtask_labelsの両方の削除を1つのDBトランザクションで包んでいる
   - note: Go(`db.Transaction(...)`、GORM)・Rust(`pool.begin()`→両方のDELETE→`tx.commit()`、sqlx)・Scala(http4s)(`.transact(xa)`、doobie)・Scala(Pekko)(`.transactionally`、Slick)・Rails(`has_many :task_labels, dependent: :destroy`によりActiveRecordが`destroy`を自動的にトランザクション化)・JavaScript/TypeScript(`beginTransaction`/`commit`/`rollback`を明示使用)・C++/C(`mysql_autocommit(0)`→両方のDELETE→`mysql_commit()`/失敗時`mysql_rollback()`を明示使用)・Java/Kotlin(JDBCの`Connection.setAutoCommit(false)`→両方のDELETE→`commit()`/失敗時`rollback()`を明示使用、Kotlinは`withContext(Dispatchers.IO)`内で実行)・Python(`aiomysql`の`conn.begin()`→両方のDELETE→`commit()`/失敗時`rollback()`を明示使用)・Elixir(`Ecto.Multi`で両方のDELETEを合成し`Repo.transaction()`で実行)・Haskell(`mysql-haskell`の`withTransaction`で両方のDELETEを包む)
     ラベル付きタスクを削除した後、`SELECT * FROM task_labels WHERE task_id = <削除したタスクのid>;`が0件になることを確認する(`task_labels`に外部キー制約が無いため、トランザクション無しだと孤立行が残り得る)
@@ -486,13 +530,13 @@ backend.task-language / backend.task-protocol で切り替え_
   # INFO http.rest -- method=GET path=/internal/v1/tasks status=200 duration_ms=3
   # method=listTasks status=OK duration_ms=3
 
-  # C/C++/JavaScript/TypeScript/Rust同様、key=value形式(LOG_LEVEL対応: C/Java/Kotlin/Python/Elixir/Haskell)
+  # C/C++/JavaScript/TypeScript/Rust同様、key=value形式(LOG_LEVEL対応: C/C++/Java/Kotlin/Python/Elixir/Haskell)
   # rest method=GET path=/internal/v1/tasks status=200 duration_ms=3
   # external method=GET path=/external/v1/tasks status=401 duration_ms=1
   # grpc method=... status=... duration_ms=...
   ```
   - note: gRPCの実際の成否(ステータスコード)まで14言語全てが正確に記録できる(CONTRACT.mdセクション20.10・20.11)
-    C/Java/Kotlin/Python/Elixir/Haskellは`LOG_LEVEL`環境変数(debug/info/warn/error、既定info、backend(Go)/bff/gatewayと同じ命名)に対応し、debugで認証解決・JWKS再取得等の詳細行が追加される
+    C++/C/Java/Kotlin/Python/Elixir/Haskellは`LOG_LEVEL`環境変数(debug/info/warn/error、既定info、backend(Go)/bff/gatewayと同じ命名)に対応し、debugで認証解決・JWKS再取得等の詳細行が追加される
     実装方式は「ハンドラの型付き戻り値/例外を直接見る」で統一(HTTP/2トレーラーを直接覗く実装は、自分でハンドラを実装していない汎用ミドルウェア向けの手段であり不要)
     既知の制約: Scala(Pekko)はREST/外部公開APIでルートに一切マッチしない404相当のパスを`status=rejected`と表示する(実際のステータスコードではない)
 - [ ] MySQLで backend.task-language を go→rust→scala-http4s→scala-pekko→rails→javascript→typescript→cpp→c→java→kotlin→python→elixir→haskell の順に切り替え、そのつどfrontend(http://localhost:5173)からタスク一覧・作成・更新・削除を実際に操作し、同じ形状で動くことを確認する
@@ -613,7 +657,7 @@ _backend / bff / frontend、Feature Flag切り替えログを含む_
   - note: 外部公開APIは`internal/handler/external/router.go`のrequestLogger、gRPCは`internal/grpcserver/server.go`のloggingUnaryInterceptorが担う
     gRPCは実際のgRPCステータス(`status.Code(err)`)まで記録する(grpc-goの`ChainUnaryInterceptor`が結果を直接渡す)
 - [ ] 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)のうち、Go以外の13言語は14言語×REST/外部公開API/gRPCの42パターン全てにログが揃っている
-  - note: 形式は言語ごとに異なる(Go=JSON・Rails=標準Railsログ+gRPCのみ独自形式・Rust/Scala×2/JS/TS/C++=key=value形式・C/Java/Kotlin/Python/Elixir/Haskell=key=value形式、`LOG_LEVEL`環境変数対応)
+  - note: 形式は言語ごとに異なる(Go=JSON・Rails=標準Railsログ+gRPCのみ独自形式・Rust/Scala×2/JS/TS=key=value形式・C++/C/Java/Kotlin/Python/Elixir/Haskell=key=value形式、`LOG_LEVEL`環境変数対応)
     gRPCの実際の成否(ステータスコード)まで14言語全てが正確に記録できる(いずれも「ハンドラの型付き戻り値/例外を直接見る」実装方式に統一、詳細はCONTRACT.mdセクション20.10・20.11)
     詳細は「backend多言語比較」セクション参照
 - [ ] ブラウザの開発者ツール(コンソール)に、タスク一覧の新旧切り替えログ(console.info)が出ている
@@ -782,3 +826,6 @@ _JS 3種(Playwright/Cypress/Selenium)+ Go 3種(chromedp/go-rod/playwright-go)、
   続けて外部公開API(Client Credentials Grant、offset/cursorページング)とFeature Flagポーリング(`backend.external-tasks-pagination-v2`)も実装し、gatewayの接続先設定を実際に機能する状態に更新、9言語すべてが外部公開API実装済みに
   続けてJava/Kotlin/Python/Elixir/Haskellの5言語を追加(migration 000019)、内部REST/gRPC/JWT/JWKS認証・外部公開API・Feature Flagポーリング・bff/gateway/migrationへの配線を実装し、14言語すべてが完全に同等の機能を持つ構成に
   続けてC/Java/Kotlin/Python/Elixir/Haskellの6言語にREST/外部公開APIのリクエスト単位ログと`LOG_LEVEL`環境変数対応を追加し、14言語すべてでREST/外部公開API/gRPCのリクエスト単位ログが揃う構成に → 11. backend多言語比較
+- **2026-09-23**: C/Java/Kotlin/Python/Elixir/Haskellの各起動項目に`LOG_LEVEL=debug`での起動・期待されるDEBUG行の具体例を追記(既存はGo・Rustのみ具体的な確認手順があり、この6言語は「対応している」という記述のみでチェック可能な項目になっていなかった) → 11. backend多言語比較
+- **2026-09-23**: JavaScript/TypeScriptに`LOG_LEVEL`環境変数対応(認証解決/JWKS再取得/ページング引数のDEBUGログ)を新規追加。あわせてC++の実装を再確認したところ、実際にはgRPCのみでREST/外部公開APIにリクエスト単位のログが無いことが判明(それまで「実装当初から3種類全てにログがある」と誤って記載されていた)。C++にもREST/外部公開API向けのINFOログと`LOG_LEVEL`を実装して是正し、名実ともに14言語×3種類=42パターン全てにログが揃う状態になった(詳細はCONTRACT.mdセクション25.9)。JavaScript/TypeScript/C++とも既存単体テスト全件pass・実機でLOG_LEVEL未設定/debugの挙動差を確認済み → 11. backend多言語比較
+- **2026-09-23**: JavaScript/TypeScript(21件)・C++(15件)・C(33件)の単体テストケース数が他言語(Java 57・Kotlin 53・Python 54)より明らかに少なかったため、欠落していたテストカテゴリ(HMAC/ローカル認証Dispatcher・JWKS検証・外部公開API専用認証・RESTエラーコードマッピング)を追加。JavaScript/TypeScript 21→45件、C++ 15→47件、C 33→54件に拡張し、既存分含め全件pass・回帰無しを確認(詳細はCONTRACT.mdセクション25.10、PJ直下README.mdの「多言語backendの単体テスト・結合テスト」節参照) → 11. backend多言語比較

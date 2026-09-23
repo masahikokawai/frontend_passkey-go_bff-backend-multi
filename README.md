@@ -685,6 +685,32 @@ cd backend && go test -tags=integration ./...
 cd admin/go && TEST_DB_DSN="root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true" go test ./...
 ```
 
+#### 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)の単体テスト・結合テスト
+
+いずれも「単体テスト(DB不要)」と「結合テスト(docker-compose上の実MySQL/Keycloakが必要)」を分離する設計を踏襲している
+結合テストを実行する前に`docker compose up -d --wait mysql redis keycloak swagger-ui`(frontend_passkey-go_bff-backend-multi 直下)を実行しておくこと
+詳細な内訳(各テストファイルが何を検証するか)は各`backend-<言語>/README.md`の「単体テスト」「結合テスト」節を参照
+
+| 言語 | 単体テスト | 結合テスト(実DB必須) |
+|---|---|---|
+| Rust | `cd backend-rust && cargo test` | `cargo test -- --ignored --test-threads=1`(直列実行推奨) |
+| Scala(http4s) | `cd backend-scala-http4s && sbt test` | `TEST_DB_DSN="root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true" sbt test`(同じ`sbt test`にDB接続テストが同梱、`TEST_DB_DSN`未設定時は`assume`で自動スキップ) |
+| Scala(Pekko) | `cd backend-scala-pekko && sbt test` | 同上(`TEST_DB_DSN`環境変数でopt-in) |
+| Rails | `cd backend-rails && RAILS_ENV=test bundle exec rspec` | 単体/結合の区別なし、常に実DB(専用テストDB`backend_rails_test`が必要、初回のみ`docker compose exec mysql mysql -uroot -e "CREATE DATABASE IF NOT EXISTS backend_rails_test;"`) |
+| JavaScript | `cd backend-js-express && npm test`(45件) | 無し(単体テストのみ、DB不要) |
+| TypeScript | `cd backend-js-ts-express && npm test`(45件) | 無し(単体テストのみ、DB不要。`npm run typecheck`で`tsc --noEmit`も可) |
+| C++ | `cd backend-cpp && ctest`(`cmake --build build`後、47件・6スイート) | `DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development ./build/backend_cpp_repository_integration_tests`(他に`_grpc_integration_tests`・`_feature_flag_poller_tests`・`_external_integration_tests`の計4本、`ctest`には未登録) |
+| C | `cd backend-c && ctest`(`cmake --build build`後、54件・6スイート) | `DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development ./build/backend_c_integration_tests`(他に`_grpc_integration_tests`等、`ctest`には未登録) |
+| Java | `cd backend-java && ./gradlew test` | `./gradlew integrationTest`(Gradleの別source set) |
+| Kotlin | `cd backend-kotlin && ./gradlew test` | `./gradlew integrationTest`(Gradleの別source set) |
+| Python | `cd backend-python && pytest` | `pytest -m integration`(`@pytest.mark.integration`、既定では自動除外) |
+| Elixir | `cd backend-elixir && mix test`(55件) | `DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development mix test --only integration`(28件) |
+| Haskell | `cd backend-haskell && cabal test test:backend-haskell-unit`(62件) | `cabal test test:backend-haskell-integration --test-show-details=direct`(27件) |
+
+**2026-09-23追記**: JavaScript/TypeScript(21件→45件)・C++(15件→47件)・C(33件→54件)は、他言語と比べて単体テストの件数が明らかに少なかったため追加した
+追加したのは、他言語(Java/Kotlin/Python等)が持つ「HMAC/ローカル認証のDispatcherルーティング」「JWKS検証(kid不一致時の再取得・issuer/audience/algの妥当性)」「外部公開API専用認証(azp検証)」「RESTエラーコードマッピング」の4カテゴリで、JS/TSはこの3つが、C++/Cは後半2つが単体テストとして丸ごと欠落していた
+詳細はCONTRACT.mdセクション25.10参照
+
 #### Rails単体テスト(admin/rails)
 
 ```sh
@@ -1111,9 +1137,9 @@ frontend_passkey-go_bff-backend-multi/
 | admin/go | 標準出力(ターミナル) | JSON(`log/slog`) |
 | gateway/go | 標準出力(ターミナル) | JSON(`log/slog`) |
 | backend-rust | 標準出力(ターミナル) | key=value形式(`tracing`) |
-| backend-js-express | 標準出力(ターミナル) | key=value形式 |
-| backend-js-ts-express | 標準出力(ターミナル) | key=value形式(backend-js-expressと同一形式) |
-| backend-cpp | 標準出力(ターミナル) | key=value形式(REST/外部API/gRPCとも実際のステータスコードを記録) |
+| backend-js-express | 標準出力(ターミナル) | key=value形式、`LOG_LEVEL`(既定`info`)対応 |
+| backend-js-ts-express | 標準出力(ターミナル) | key=value形式(backend-js-expressと同一形式)、`LOG_LEVEL`(既定`info`)対応 |
+| backend-cpp | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`common::LogInfo`経由、REST/外部APIは`Router::Dispatch`に集約)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
 | backend-c | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`printf`)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
 | backend-java | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`log.info`経由)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
 | backend-kotlin | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`log.info`経由)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
@@ -1135,7 +1161,7 @@ frontend_passkey-go_bff-backend-multi/
 ### backend多言語比較: リクエスト単位のログの精度(CONTRACT.mdセクション20.10・20.11・25.7、5言語構成時点の記録+9言語追加分)
 
 REST・外部公開API・gRPCとも、14言語全てがリクエスト単位のログを持ち、実際のステータスコードまで正確に記録する(gRPCは「外側のHTTPステータスが常に200固定」という性質上、ハンドラの型付き戻り値/例外を直接見る実装が必要になる)
-C/Java/Kotlin/Python/Elixir/Haskellの6言語は`LOG_LEVEL`環境変数(既定`info`)にも対応しており、`debug`指定時は認証成功後のuser_id・クエリパラメータ・JWKSキャッシュ更新等の詳細ログも追加で出力される
+JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskellの9言語は`LOG_LEVEL`環境変数(既定`info`)にも対応しており、`debug`指定時は認証成功後のuser_id・クエリパラメータ・JWKSキャッシュ更新等の詳細ログも追加で出力される(JavaScript/TypeScript/C++は2026-09-23追加。詳細は`CONTRACT.md`セクション25.9・`backend-cpp/README.md`「ログについて」参照)
 
 | 言語 | 内部REST/外部公開API | gRPC: ログの有無 | gRPC: 実際のステータスコードまで正確か | 実装方法(gRPC) |
 |---|---|---|---|---|

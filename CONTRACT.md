@@ -15,7 +15,7 @@
 ## 1. 全体構成
 
 ```
-training-go/bff-gin/
+frontend_passkey-go_bff-backend-multi/
   backend/   # Go, 内部APIのみ提供。private network限定。REST v1 + gRPC v2
   bff/       # Go(Gin), ブラウザに公開する唯一の窓口。OIDC/Keycloakクライアント、Redisセッション、Feature Flag評価
   frontend/  # React (Vite)。Task機能のみTypeScript化、他はJS
@@ -237,7 +237,7 @@ GET /external/v1/tasks?user_id={id}&cursor={token}&limit={n}    # v2: cursorペ�
 
 - PlantUMLソース: `3_go-application/1_output/` に配置(既存ファイルは更新せず、新規ファイルとして追加 or 明確な指示がある場合のみ更新)
 - PNG出力先: `~/Downloads/`
-- README: `training-go/bff-gin/README.md` にMac M2〜M5向けの詳細構築手順、Feature Flag/Redis/E2Eの説明を記載
+- README: `frontend_passkey-go_bff-backend-multi/README.md` にMac M2〜M5向けの詳細構築手順、Feature Flag/Redis/E2Eの説明を記載
 
 ## 5.1 backend v1 REST JSON形状(bffフォークが定義、backendフォークはこれに合わせて実装する)
 
@@ -1618,7 +1618,9 @@ gatewayの`Targets`マップ(`gateway/go/config.go`・`gateway/nginx/sidecar/mai
 ### 25.7 REST/外部公開APIのリクエスト単位ログ+`LOG_LEVEL`追加(2026-09-21)
 
 セクション20.10・20.11で5言語(Go/Rust/Scala(http4s)/Scala(Pekko)/Rails)についてはREST/外部公開API/gRPCの3種類全てにログを揃え、うちgRPCの実際のステータスコードまで正確に記録できる状態にしていた
-JavaScript/TypeScript/C++は実装当初からREST/外部公開API/gRPCの3種類全てにログを持たせていたが、**C/Java/Kotlin/Python/Elixir/Haskellの6言語は実装当初、gRPCのみログがありREST/外部公開APIにログが無い**状態だった(ユーザーによる手動検証で発覚、20.10と同じ種類の見落とし)
+JavaScript/TypeScriptは実装当初からREST/外部公開API/gRPCの3種類全てにログを持たせていた
+【本節作成時点の誤記・25.9で訂正】当時本節では「C++も実装当初から3種類全てにログを持たせていた」と記載していたが、これは誤りだった。実際にはC++もgRPCのみ実装当初からログがあり、REST/外部公開APIにはリクエスト単位のログが無い状態だった(2026-09-23の追加監査で判明、25.9で対応)
+**C/Java/Kotlin/Python/Elixir/Haskellの6言語は実装当初、gRPCのみログがありREST/外部公開APIにログが無い**状態だった(ユーザーによる手動検証で発覚、20.10と同じ種類の見落とし)
 
 対応: 6言語それぞれに、既存のgRPCログ(`grpc method=... status=... duration_ms=...`)と同じkey=value形式で、REST/外部公開API向けのリクエスト単位ログ(`rest method=... path=... status=... duration_ms=...` / `external method=... path=... status=... duration_ms=...`)を追加した
 実装方式はいずれも「実際に送信される最終的なレスポンスステータスをそのまま記録する」(ハンドラの型付き戻り値を直接見る、20.11で確立した原則)方式に統一している(C: `src/http/handler.c`, Java: Javalinの`before`/`after`フックで`ctx.status()`, Kotlin: Ktorの`ApplicationCallPipeline.Monitoring`で`call.response.status()`, Python: FastAPIミドルウェアで`response.status_code`, Elixir: `register_before_send`で`conn.status`, Haskell: WAIミドルウェアで実レスポンスステータス)
@@ -1638,9 +1640,9 @@ Kotlinはこの過程で`slf4j-simple`がプロセス起動後の動的なログ
 | Scala(http4s) | `backend-scala-http4s/` | 8094 | 9094 | 8099 | ✅/✅/✅ | logbackデフォルトでdebug相当 |
 | Scala(Pekko) | `backend-scala-pekko/` | 8095 | 9095 | 8100 | ✅/✅/✅ | logbackデフォルトでdebug相当 |
 | Rails | `backend-rails/` | 8096 | 9096 | 8101 | ✅/✅/✅ | Rails標準ログ(development既定debug) |
-| JavaScript | `backend-js-express/` | 8103 | 9097 | 8107 | ✅/✅/✅ | - |
-| TypeScript | `backend-js-ts-express/` | 8104 | 9098 | 8108 | ✅/✅/✅ | - |
-| C++ | `backend-cpp/` | 8105 | 9099 | 8109 | ✅/✅/✅ | - |
+| JavaScript | `backend-js-express/` | 8103 | 9097 | 8107 | ✅/✅/✅ | ✅(25.9で追加) |
+| TypeScript | `backend-js-ts-express/` | 8104 | 9098 | 8108 | ✅/✅/✅ | ✅(25.9で追加) |
+| C++ | `backend-cpp/` | 8105 | 9099 | 8109 | ✅/✅/✅(25.9で訂正、当初はgRPCのみ) | ✅(25.9で追加) |
 | C | `backend-c/` | 8106 | 9100 | 8110 | ✅/✅/✅ | ✅(25.7で追加) |
 | Java | `backend-java/` | 8111 | 9101 | 8112 | ✅/✅/✅ | ✅(25.7で追加) |
 | Kotlin | `backend-kotlin/` | 8113 | 9102 | 8114 | ✅/✅/✅ | ✅(25.7で追加) |
@@ -1649,3 +1651,38 @@ Kotlinはこの過程で`slf4j-simple`がプロセス起動後の動的なログ
 | Haskell | `backend-haskell/` | 8119 | 9105 | 8120 | ✅/✅/✅ | ✅(25.7で追加) |
 
 この表が現時点の正本。以降さらに言語やログ機能を追加した場合は、この節(セクション25)を直接更新するか、セクション20.10/20.11と同じ形式で新しいラウンドとして追記すること
+
+### 25.9 C++のREST/外部公開APIログ+`LOG_LEVEL`追加、および25.7の誤記訂正(2026-09-23)
+
+25.7(2026-09-21)は「JavaScript/TypeScript/C++は実装当初からREST/外部公開API/gRPCの3種類全てにログを持たせていた」と記載していたが、C++についてはこれが誤りだったと本ラウンドで判明した(LOG_LEVEL追加作業の一環でC++の実装を再確認したところ発覚)。実際には backend-cpp は `grpc method=... status=... duration_ms=...`(`src/grpc/task_grpc_service.cpp`のLogRpc)のみが存在し、REST v1(`src/http/router.cpp`)・外部公開API(`src/external/external_handler.cpp`)にはリクエスト単位のログが実装当初から存在しなかった(C/Java/Kotlin/Python/Elixir/Haskellの6言語で25.7以前に見つかったのと同種の見落とし)
+
+対応: C++にも他13言語と同じ設計原則で以下を追加した
+- REST/外部公開API向けのリクエスト単位ログ(`rest method=<METHOD> path=<PATH> status=<実際のHTTPステータス> duration_ms=<経過ms>` / `external method=... path=... status=... duration_ms=...`)。実装は`Router::Dispatch`(`src/http/router.cpp`)に集約し、内部REST用・外部公開API用の2つの`Router`インスタンスへ`main.cpp`が渡す`log_module`("rest"/"external")で先頭語のみ出し分ける(1箇所の実装でルート追加時の書き漏れを防ぐ、backend-pythonのミドルウェアと同じ狙い)。ログに使うステータスはハンドラが実際に返した`HttpResponse::status`をそのまま記録する(`invalid_id`(400)・`not_found`(404)を含む全終了経路をカバー)方式で、20.11で確立した「ハンドラの型付き戻り値/例外を直接見る」原則と同じ
+- `LOG_LEVEL`環境変数(`debug`/`info`/`warn`/`error`、既定`info`、backend(Go)/bff/gateway/backend-c等と同じ命名規則)。第三者ロギングライブラリは使わず、`src/common/logging.hpp`/`logging.cpp`(`LogModuleInit`/`LogInfo`/`LogDebug`)というbackend-cの`log.h`/`log_debugf`のC++版にあたる最小実装。`debug`指定時、認証で解決した`user_id`(`src/application/user_resolver.cpp`)・JWKSキャッシュの再取得イベント(`src/auth/jwt.cpp`)・REST/外部公開APIで解析したページングパラメータ(`src/application/task_handler.cpp`・`src/external/external_handler.cpp`)の詳細ログが追加される。gRPCの既存ログ(LogRpc)は変更していない
+
+実機確認: REST(200/401/404)・外部公開API(200/401)の複数パターンで、`rest method=GET path=/internal/v1/tasks status=200 duration_ms=13`・`external method=GET path=/external/v1/tasks status=200 duration_ms=19`のように実際のステータスコードがログに記録されることを確認。`LOG_LEVEL`未設定(既定`info`)ではDEBUG行が一切出ず、`LOG_LEVEL=debug`では`auth debug: resolved user_id=45 via local issuer=bff-gin-local-hmac`等のDEBUG行が追加で出ることも確認済み。`cmake --build`は新規warning無しで成功、`ctest`は全件pass
+
+同じ2026-09-23の対応の一環として、JavaScript/TypeScript(`backend-js-express`/`backend-js-ts-express`)にも`LOG_LEVEL`環境変数を追加した(既存のkey=value形式のリクエストログ基盤に`logDebug`関数を追加する形、追加の依存ライブラリ無し)。`debug`指定時、認証で解決した`user_id`/`auth_mode`/`issuer`、JWKSキャッシュの再取得イベント(kid不一致時)、REST/外部公開APIで解析したページング引数の詳細ログが追加される。両言語とも既存の単体テスト(21件ずつ、この後25.10でさらに45件ずつへ拡張)が全件pass、実機で`LOG_LEVEL`未設定時にDEBUG行が出ないこと・`LOG_LEVEL=debug`時に出ることを確認済み
+
+**最終結果**: 14言語×3種類(REST/外部公開API/gRPC)=42パターン全てにリクエスト単位のログが揃っている状態が、25.7時点の記載の誤りを含めて名実ともに正しくなった。`LOG_LEVEL`環境変数対応は Rust(既存)・JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell(この2ラウンドで追加)の10言語
+
+### 25.10 JavaScript/TypeScript/C++/Cの単体テストケース不足を解消(2026-09-23)
+
+**発端**: ユーザーが各言語の単体テスト実施結果(件数)を確認した際、JavaScript/TypeScript(21件)・C++(15件)・C(33件)が、他言語(Java 57・Kotlin 53・Python 54)と比べて明らかに少ないことを指摘した。この4言語で欠落しているテストカテゴリを調査した結果、このプロジェクトが各言語で揃えている6カテゴリ(HMAC/ローカル認証Dispatcher・JWKS検証・外部公開API専用認証・タスクバリデーション・外部クエリ解析・RESTエラーコードマッピング)のうち、JavaScript/TypeScriptはHMAC/Dispatcher・JWKS検証・外部公開API専用認証の3カテゴリが、C++/CはREST外部公開API専用認証・RESTエラーコードマッピングの2カテゴリが、単体テストとして丸ごと欠落していたことが判明した(C++はさらに外部クエリ解析も結合テストのみで単体テストが無かった)
+
+**対応**: Java(`HmacAndDispatcherTest`・`JwksVerifierTest`・`ExternalAuthTest`・`RestErrorMapperTest`)・C(`external_query_test.c`)を「正本」として、欠落カテゴリを同じ挙動を検証する単体テストとして追加した
+
+| 言語 | 追加したテストファイル | 追加件数 | 旧→新 |
+|---|---|---|---|
+| JavaScript | `tests/hmac_and_dispatcher.test.js`(10)・`tests/jwks_verifier.test.js`(7)・`tests/external_auth.test.js`(7)、支援用`tests/support/test_token_helper.js`・`tests/support/mock_jwks_server.js` | +24 | 21→45 |
+| TypeScript | 上記の型付き移植(同ファイル名の`.ts`版) | +24 | 21→45 |
+| C++ | `tests/external_query_test.cpp`(16)・`tests/external_auth_test.cpp`(7)・`tests/rest_error_mapper_test.cpp`(9) | +32 | 15→47 |
+| C | `tests/external_auth_test.c`(7)・`tests/rest_error_mapper_test.c`(14) | +21 | 33→54 |
+
+**テスタビリティのためのリファクタ(挙動は無変更)**:
+- `backend-cpp/src/external/external_handler.cpp`: `Router::Dispatch`経由でしか呼べなかったクエリ解析・外部認証ロジックを、同じ実装のまま名前付き純粋関数(`ParseQueryParams`・`ParseUserId`・`ParseOffsetPaging`・`ParseCursorPaging`・`UseCursorPaging`・`RequireExternalClientAuth`)へ切り出し、`external_handler.hpp`に宣言を追加。本番コードは切り出した関数を呼ぶだけで挙動は一切変わらない
+- `backend-c/tests/test_token_helper.c`/`.h`: 既存の`make_rsa_token_with_azp`と対になる`make_hmac_token_with_azp`を追加。既存呼び出し元(`jwt_test.c`・`jwks_test.c`)への影響無し
+
+**判明した既知の差異(修正不要、記録のみ)**: C++の`AppErrorKind`には`user_not_provisioned`(403)相当の専用種別が無く、JWT無効・JWT有効だがユーザー未登録のいずれも`kUnauthorized`(401)に丸められる(`src/application/user_resolver.cpp`)。Rust/JS等の他言語は403を返すため、ワイヤー契約上は既知の差異だが、これを揃えるには挙動変更(スコープ外)が必要なため対応は見送り、テストは実際の挙動(401)を検証する形にした
+
+**検証**: 4言語(パッケージ)とも`cmake --build`/`npm test`/`ctest`等で新規増分含め全件pass、既存分の回帰無しを確認済み(JS/TS: `npm test` 45/45、C++: `ctest` 6/6スイート・47件、C: `ctest` 6/6スイート・54件、いずれもユーザーへの報告前に独立して再現・確認済み)
