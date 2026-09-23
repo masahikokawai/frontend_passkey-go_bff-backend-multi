@@ -3,6 +3,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import type { JwtClaims } from '../types';
+import { logDebug } from '../logging';
 
 export const LOCAL_HMAC_ISSUER = 'bff-gin-local-hmac';
 export const LOCAL_RSA_ISSUER = 'bff-gin-local-rsa';
@@ -89,6 +90,7 @@ export class JwksVerifier implements Verifier {
       }
     }
     this.keys = next;
+    logDebug('jwks refreshed', { issuer: this.issuer, keys_cached: next.size });
   }
 
   async verify(token: string): Promise<JwtClaims> {
@@ -103,6 +105,7 @@ export class JwksVerifier implements Verifier {
 
     let key = this.keys.get(kid);
     if (!key) {
+      logDebug('jwks cache miss, refreshing', { kid, issuer: this.issuer, jwks_url: this.jwksUrl });
       await this.refresh();
       key = this.keys.get(kid);
       if (!key) throw new VerifyError(`kid=${kid} に対応する公開鍵が見つからない`);

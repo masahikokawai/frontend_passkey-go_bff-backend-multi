@@ -6,6 +6,7 @@ import * as errors from '../error';
 import { authenticate } from './authenticate';
 import { validateTaskInput, todayUtcIso, statusToString, statusFromString } from '../model';
 import type { AppState, Task, TaskInput } from '../types';
+import { logDebug } from '../logging';
 
 function wrap(fn: (req: Request, res: Response) => Promise<void>): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -57,6 +58,7 @@ export function list(state: AppState) {
     const labelIds = parseLabelIds(q.label_ids);
     const limit = q.limit !== undefined ? parseInt(q.limit, 10) : 20;
     const offset = q.offset !== undefined ? parseInt(q.offset, 10) : 0;
+    logDebug('list_tasks', { user_id: userId, limit, offset });
 
     const { tasks, total } = await db.listTasksOffset(
       state.pool,

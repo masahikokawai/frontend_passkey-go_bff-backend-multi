@@ -72,6 +72,35 @@ gateway(:8081)・bff-rails(:8102)と衝突しない値を選んでいる。
 無し(意図的に無くしている)。`src/`配下の各ファイルはbackend-js-expressの対応するファイルと1:1で対応し、
 型注釈以外のロジック上の差分が生じていないことをレビューで確認している。
 
+## ログについて
+
+backend-js-expressと同じLOG_LEVEL対応(ロジックの型付き移植のみで、挙動差は無い)。
+
+`LOG_LEVEL`環境変数("debug"/"info"/"warn"/"error"、既定`info`、backend(Go)/bff/gateway(Go)と同じ規約)
+でログの詳細度を切り替えられる。`src/logging.ts`が起動時(importで最初に評価された時)に一度だけ
+`process.env.LOG_LEVEL`を読み、数値化したレベルと`shouldLog(level)`を保持する単純な実装で、
+追加の依存ライブラリ(winston/pino等)は入れていない
+
+- **リクエスト単位のログ(INFO、既定で常に出る)**: 内部REST v1・外部公開APIは既存の`requestLogger()`
+  (`src/logging.ts`)、gRPCは既存の`withLogging()`(`src/grpc/task.ts`)がそれぞれ
+  `request method=... path=... status=... duration_ms=...`/`grpc request method=... status=... duration_ms=...`
+  を1行出す。今回のLOG_LEVEL対応で出力形式は一切変えていない
+- **DEBUG時のみ出る追加ログ**: `LOG_LEVEL=debug`で起動すると、新設の`logDebug(message, fields)`
+  (`src/logging.ts`)経由で以下が出る
+  - 認証で解決した`user_id`とどの経路(ローカルHMAC/ローカルRSA/Keycloak)で認証されたか:
+    `resolveUserId`(`src/auth/index.ts`)が`resolved user user_id=1 auth_mode="local_hmac" issuer="bff-gin-local-hmac"`
+    のように出す
+  - JWKSのkidキャッシュミスによる再取得: `JwksVerifier`(`src/auth/jwt.ts`)が
+    `jwks cache miss, refreshing kid=... issuer=... jwks_url=...`/`jwks refreshed issuer=... keys_cached=...`を出す
+  - REST/外部APIで解析したページングパラメータ: `rest/task.ts`の`list()`が
+    `list_tasks user_id=... limit=... offset=...`、`external/task.ts`が
+    `list_tasks_external user_id=... page=... page_size=...`(offset方式)または
+    `list_tasks_external user_id=... cursor=... limit=...`(cursor方式)を出す
+- **実機確認**: `LOG_LEVEL`未設定(既定`info`)・`LOG_LEVEL=debug`それぞれで`tsx src/main.ts`を実際に起動し、
+  実際に署名したローカルHMAC JWT/KeycloakのClient Credentials Grantトークンで`curl`したところ、
+  既定ではDEBUG行が一切出ずINFOの要約行のみ、`LOG_LEVEL=debug`では上記のDEBUG行が実際に追加で
+  出ることを確認済み
+
 ## backend-rustとの既知の相違点
 
 backend-js-expressと同じ。`deleteTask`で`task_labels`も同一トランザクションで削除する(Goの修正済みの挙動に

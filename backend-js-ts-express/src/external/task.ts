@@ -8,6 +8,7 @@ import { authenticate } from './authenticate';
 import { statusToString } from '../model';
 import { mysqlDatetimeToRfc3339, isoToMysqlDatetime } from '../time';
 import type { ExternalState, Task } from '../types';
+import { logDebug } from '../logging';
 
 function wrap(fn: (req: Request, res: Response) => Promise<void>): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -58,6 +59,7 @@ async function listV1(
 ): Promise<void> {
   const page = q.page && Number(q.page) >= 1 ? Number(q.page) : 1;
   const pageSize = q.page_size && Number(q.page_size) >= 1 ? Number(q.page_size) : 10;
+  logDebug('list_tasks_external', { user_id: userId, page, page_size: pageSize });
 
   const { tasks, total } = await db.listTasksOffsetExternal(state.pool, userId, page, pageSize);
   res.json({ tasks: tasks.map(taskToJson), page, page_size: pageSize, total });
@@ -70,6 +72,7 @@ async function listV2(
   res: Response,
 ): Promise<void> {
   const limit = q.limit && Number(q.limit) >= 1 ? Number(q.limit) : 10;
+  logDebug('list_tasks_external', { user_id: userId, cursor: q.cursor || null, limit });
 
   let after: { createdAt: string; id: number } | null = null;
   if (q.cursor) {
