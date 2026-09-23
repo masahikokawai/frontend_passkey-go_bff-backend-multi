@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Task作成(詳細版): bff -> backend (REST v1 / gRPC v2)",
+    "output": "bff-gin-task-create.detailed.sequence.html",
+    "viewBox": [1000, 560],
+    "column_fit": "spread",
+    "quality_profile": "standard",
+    "views": [
+      { "id": "rest-v1", "label": "REST (v1)", "focus": ["browser", "bff", "backend_rest", "mysql"], "note": "旧実装、N+1クエリが残る" },
+      { "id": "grpc-v2", "label": "gRPC (v2)", "focus": ["browser", "bff", "backend_grpc", "mysql"], "note": "Preloadで最適化した新実装" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin, Feature Flag振り分け" },
+    { "id": "backend_rest", "type": "backend", "label": "backend REST v1", "sublabel": "N+1あり、旧実装" },
+    { "id": "backend_grpc", "type": "backend", "label": "backend gRPC v2", "sublabel": "Preload、新実装" },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": "tasks / task_labels" }
+  ],
+  "messages": [
+    { "id": "rest-request", "from": "browser", "to": "bff", "y": 165, "label": "POST /api/tasks (Cookie + X-CSRF-Token)", "variant": "default" },
+    { "id": "rest-route", "from": "bff", "to": "backend_rest", "y": 193, "label": "backend.task-protocol=rest で振り分け", "variant": "emphasis" },
+    { "id": "rest-write", "from": "backend_rest", "to": "mysql", "y": 221, "label": "検証 + INSERT tasks/task_labels", "variant": "default" },
+    { "id": "rest-rows", "from": "mysql", "to": "backend_rest", "y": 249, "label": "rows", "variant": "return" },
+    { "id": "rest-response", "from": "backend_rest", "to": "bff", "y": 277, "label": "201 Created (N+1でラベル取得)", "variant": "return" },
+    { "id": "rest-final", "from": "bff", "to": "browser", "y": 305, "label": "201 Created \"タスクを作成しました\"", "variant": "return" },
+    { "id": "grpc-request", "from": "browser", "to": "bff", "y": 333, "label": "POST /api/tasks (Cookie + X-CSRF-Token)", "variant": "default" },
+    { "id": "grpc-route", "from": "bff", "to": "backend_grpc", "y": 361, "label": "backend.task-protocol=grpc で振り分け、CreateTask RPC", "variant": "emphasis" },
+    { "id": "grpc-write", "from": "backend_grpc", "to": "mysql", "y": 389, "label": "検証 + Preloadで書き込み", "variant": "default" },
+    { "id": "grpc-rows", "from": "mysql", "to": "backend_grpc", "y": 417, "label": "rows", "variant": "return" },
+    { "id": "grpc-response", "from": "backend_grpc", "to": "bff", "y": 445, "label": "CreateTaskResponse", "variant": "return" },
+    { "id": "grpc-final", "from": "bff", "to": "browser", "y": 473, "label": "201 Created \"タスクを作成しました\"", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "bff", "from": 160, "to": 309, "type": "backend" },
+    { "participant": "backend_rest", "from": 188, "to": 281, "type": "backend" },
+    { "participant": "mysql", "from": 216, "to": 253, "type": "database" },
+    { "participant": "bff", "from": 328, "to": 477, "type": "backend" },
+    { "participant": "backend_grpc", "from": 356, "to": 449, "type": "backend" },
+    { "participant": "mysql", "from": 384, "to": 421, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Feature Flagルーティングとバリデーション",
+      "items": [
+        "backend.task-protocolで振り分け、レスポンス形状は同一",
+        "タスク名20文字以内、finished_onは過去日付を拒否"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "新旧実装の違い",
+      "items": [
+        "v1(REST)はN+1クエリが残る旧実装、v2(gRPC)はPreloadで解消",
+        "両方とも同じMySQLスキーマ(tasks/task_labels)を共有"
+      ]
+    }
+  ]
+}

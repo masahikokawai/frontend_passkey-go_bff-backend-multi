@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Feature Flag伝播(概要版)",
+    "output": "bff-gin-feature-flag-propagation.overview.dataflow.html",
+    "viewBox": [900, 560],
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "propagation-path", "label": "伝播経路", "focus": ["admin_go", "mysql", "backend", "bff", "browser"], "note": "admin画面の変更がMySQLを経てbackend・bffのポーリングで反映される主経路" }
+    ]
+  },
+  "stages": [
+    { "label": "管理" },
+    { "label": "正本" },
+    { "label": "評価" },
+    { "label": "配信" }
+  ],
+  "nodes": [
+    { "id": "admin_go", "type": "backend", "label": "admin", "sublabel": "Go/Rails", "stage": 0, "row": 1 },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": "feature_flags", "stage": 1, "row": 1, "tag": "正本" },
+    { "id": "backend", "type": "backend", "label": "backend", "sublabel": "MySQL retriever", "stage": 2, "row": 0 },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "HTTP retriever", "stage": 2, "row": 2 },
+    { "id": "browser", "type": "frontend", "label": "Browser", "sublabel": "useFeatureFlag", "stage": 3, "row": 2 }
+  ],
+  "flows": [
+    { "id": "admin-write", "from": "admin_go", "to": "mysql", "label": "UPDATE feature_flags", "classification": "管理操作", "variant": "default", "labelAt": [208, 314] },
+    { "id": "backend-poll", "from": "mysql", "to": "backend", "label": "定期ポーリング(10秒間隔)", "classification": "正本の読み出し", "variant": "emphasis", "labelAt": [423, 200] },
+    { "id": "bff-poll", "from": "backend", "to": "bff", "label": "feature-flags/exportをポーリング(10秒間隔)", "classification": "HTTP retrieverポーリング", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelAt": [610, 245] },
+    { "id": "bff-browser", "from": "bff", "to": "browser", "label": "GET /api/me(一部のみ公開)", "classification": "frontend向けのみ公開", "variant": "emphasis", "labelAt": [638, 428] }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "反映は即時ではない",
+      "items": [
+        "backend・bffともポーリング間隔は固定10秒",
+        "そのため反映まで最大10秒程度のラグが生じる"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "bff-gin Feature Flag Propagation(詳細版・全8フラグ)",
+    "output": "bff-gin-feature-flag-propagation.detailed.dataflow.html",
+    "viewBox": [
+      980,
+      620
+    ],
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "propagation-path",
+        "label": "伝播経路",
+        "focus": [
+          "admin_go",
+          "admin_rails",
+          "mysql",
+          "backend",
+          "bff",
+          "browser"
+        ],
+        "note": "admin画面の変更がMySQLを経てbackend・bffのポーリングで反映される経路"
+      },
+      {
+        "id": "browser-boundary",
+        "label": "ブラウザ境界",
+        "focus": [
+          "bff",
+          "browser",
+          "external"
+        ],
+        "note": "bffが評価する8種のうちブラウザへ届くのは2種のみ、他はbackend自身が別経路で評価する"
+      },
+      {
+        "id": "frontend-rails-boundary",
+        "label": "frontend-railsの独立経路",
+        "focus": [
+          "mysql",
+          "frontend_rails"
+        ],
+        "note": "frontend-rails.oidc-gemはbff・backendを一切経由せずfrontend-rails自身がMySQLを直接ポーリングする"
+      }
+    ]
+  },
+  "stages": [
+    {
+      "label": "管理"
+    },
+    {
+      "label": "正本"
+    },
+    {
+      "label": "評価・ポーリング"
+    },
+    {
+      "label": "配信"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "admin_go",
+      "type": "backend",
+      "label": "admin/go",
+      "sublabel": ":8091",
+      "stage": 0,
+      "row": 0
+    },
+    {
+      "id": "admin_rails",
+      "type": "backend",
+      "label": "admin/rails",
+      "sublabel": ":8092",
+      "stage": 0,
+      "row": 3
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL",
+      "sublabel": "feature_flags",
+      "stage": 1,
+      "row": 1,
+      "tag": "正本"
+    },
+    {
+      "id": "backend",
+      "type": "backend",
+      "label": "backend",
+      "sublabel": "MySQL retriever",
+      "stage": 2,
+      "row": 0
+    },
+    {
+      "id": "bff",
+      "type": "backend",
+      "label": "bff",
+      "sublabel": "HTTP retriever",
+      "stage": 2,
+      "row": 2
+    },
+    {
+      "id": "frontend_rails",
+      "type": "backend",
+      "label": "frontend-rails",
+      "sublabel": "Ruby、自前retriever",
+      "stage": 2,
+      "row": 3
+    },
+    {
+      "id": "external",
+      "type": "external",
+      "label": "外部公開API等",
+      "sublabel": "bff非経由",
+      "stage": 3,
+      "row": 0,
+      "tag": "backendが直接評価"
+    },
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "Browser",
+      "sublabel": "useFeatureFlag",
+      "stage": 3,
+      "row": 2
+    }
+  ],
+  "flows": [
+    {
+      "id": "admin-go-write",
+      "from": "admin_go",
+      "to": "mysql",
+      "label": "UPDATE feature_flags",
+      "classification": "管理操作",
+      "variant": "default",
+      "labelAt": [
+        230,
+        314
+      ]
+    },
+    {
+      "id": "admin-rails-write",
+      "from": "admin_rails",
+      "to": "mysql",
+      "label": "UPDATE feature_flags(同上)",
+      "classification": "管理操作",
+      "variant": "default",
+      "labelAt": [
+        230,
+        470
+      ]
+    },
+    {
+      "id": "backend-poll",
+      "from": "mysql",
+      "to": "backend",
+      "label": "定期ポーリング(10秒間隔)",
+      "classification": "正本の読み出し",
+      "variant": "emphasis",
+      "labelAt": [
+        460,
+        200
+      ]
+    },
+    {
+      "id": "bff-poll",
+      "from": "backend",
+      "to": "bff",
+      "label": "feature-flags/exportをポーリング(10秒間隔)",
+      "classification": "HTTP retrieverポーリング",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        700,
+        230
+      ]
+    },
+    {
+      "id": "frontend-rails-poll",
+      "from": "mysql",
+      "to": "frontend_rails",
+      "label": "MySQLを直接ポーリング(bff・backend非経由)",
+      "classification": "独立retriever",
+      "variant": "dashed",
+      "labelAt": [
+        460,
+        542
+      ]
+    },
+    {
+      "id": "backend-external",
+      "from": "backend",
+      "to": "external",
+      "label": "backend自身が評価(bff非経由)",
+      "classification": "別経路",
+      "variant": "dashed",
+      "labelAt": [
+        720,
+        200
+      ]
+    },
+    {
+      "id": "bff-browser",
+      "from": "bff",
+      "to": "browser",
+      "label": "GET /api/me(2フラグのみ公開)",
+      "classification": "frontend向けのみ公開",
+      "variant": "emphasis",
+      "labelAt": [
+        720,
+        340
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "正本と反映ラグ",
+      "items": [
+        "admin/go・admin/railsは同じfeature_flagsテーブルを直接操作、変更はaudit_logsにも記録される",
+        "backend・bffともポーリング間隔は固定10秒、frontend-railsは独自retrieverで別間隔ポーリング"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "全8フラグと評価サイトの対応",
+      "items": [
+        "Browserへ: frontend.tasks-ts-rewrite / frontend.task-create-ux(bff経由)",
+        "bff内部限定: bff.tasks-backend-v2(非推奨) / backend.task-protocol",
+        "backend自身が評価: backend.task-language / external-tasks-pagination-v2 / external-tasks-orm、frontend-rails自身: frontend-rails.oidc-gem"
+      ]
+    }
+  ]
+}

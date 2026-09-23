@@ -1,0 +1,377 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "bff-gin システム構成(多言語backend込み・概要版)",
+    "output": "bff-gin-system-with-multilang.overview.architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Task操作の主経路",
+        "focus": [
+          "browser",
+          "bff",
+          "backend",
+          "mysql"
+        ],
+        "note": "ブラウザからbff経由でbackendへ、TaskをMySQLへ読み書きする主経路"
+      },
+      {
+        "id": "multi-lang-switch",
+        "label": "多言語backend切替(代表3言語)",
+        "focus": [
+          "bff",
+          "backend",
+          "backend_rust",
+          "backend_python",
+          "backend_haskell"
+        ],
+        "note": "backend.task-languageフラグでbffが呼び出す実装を切り替える。ここでは並行処理モデルの異なる3言語(Rust/Python/Haskell)のみ代表として示す"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "React SPA",
+      "sublabel": "frontend :5173",
+      "brand": "react",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "bff",
+      "type": "backend",
+      "label": "bff",
+      "sublabel": "Go/Gin :8080",
+      "pos": [
+        270,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "Cookie+CSRF"
+    },
+    {
+      "id": "keycloak",
+      "type": "security",
+      "label": "Keycloak",
+      "sublabel": "OIDC IdP :8082",
+      "pos": [
+        390,
+        120
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": ":16379",
+      "brand": "redis",
+      "pos": [
+        270,
+        480
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "backend",
+      "type": "backend",
+      "label": "backend (Go)",
+      "sublabel": "REST:8090 gRPC:9090",
+      "pos": [
+        510,
+        300
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "backend_external",
+      "type": "backend",
+      "label": "backend 外部公開API",
+      "sublabel": "内部:8097",
+      "pos": [
+        510,
+        480
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL",
+      "sublabel": ":13306",
+      "brand": "mysql",
+      "pos": [
+        750,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "admin",
+      "type": "backend",
+      "label": "Admin UI",
+      "sublabel": "Go:8091 / Rails:8092",
+      "pos": [
+        750,
+        120
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "swagger_ui",
+      "type": "external",
+      "label": "Swagger UI",
+      "sublabel": ":18080",
+      "pos": [
+        750,
+        480
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "backend_rust",
+      "type": "backend",
+      "label": "Rust",
+      "sublabel": "8093/9093/8098",
+      "pos": [
+        560,
+        20
+      ],
+      "size": [
+        120,
+        64
+      ],
+      "tag": "追加構成(代表)"
+    },
+    {
+      "id": "backend_python",
+      "type": "backend",
+      "label": "Python",
+      "sublabel": "8115/9103/8116",
+      "pos": [
+        700,
+        20
+      ],
+      "size": [
+        120,
+        64
+      ],
+      "tag": "追加構成(代表)"
+    },
+    {
+      "id": "backend_haskell",
+      "type": "backend",
+      "label": "Haskell",
+      "sublabel": "8119/9105/8120",
+      "pos": [
+        840,
+        20
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "追加構成(代表)"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker compose",
+      "wraps": [
+        "keycloak",
+        "redis",
+        "mysql",
+        "swagger_ui"
+      ],
+      "pad": 24
+    },
+    {
+      "kind": "security-group",
+      "label": "private network限定",
+      "wraps": [
+        "backend",
+        "backend_external"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-bff",
+      "from": "browser",
+      "to": "bff",
+      "label": "ログイン・API呼び出し(Cookie+CSRF)",
+      "variant": "emphasis",
+      "labelDy": -26
+    },
+    {
+      "id": "bff-backend",
+      "from": "bff",
+      "to": "backend",
+      "label": "task-language切替",
+      "labelDy": 26
+    },
+    {
+      "id": "bff-keycloak",
+      "from": "bff",
+      "to": "keycloak",
+      "label": "OIDC Authorization Code",
+      "fromSide": "top",
+      "toSide": "left",
+      "labelDy": -6,
+      "labelDx": 60
+    },
+    {
+      "id": "backend-keycloak",
+      "from": "backend",
+      "to": "keycloak",
+      "label": "JWKS検証",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "bff-redis",
+      "from": "bff",
+      "to": "redis",
+      "label": "セッション・分散ロック",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "backend-mysql",
+      "from": "backend",
+      "to": "mysql",
+      "label": "GORM/bob"
+    },
+    {
+      "id": "backend-backend_external",
+      "from": "backend",
+      "to": "backend_external",
+      "label": "同一プロセス、別ポート",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "admin-mysql",
+      "from": "admin",
+      "to": "mysql",
+      "label": "Feature Flag CRUD",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "swagger-backend_external",
+      "from": "swagger_ui",
+      "to": "backend_external",
+      "label": "Try it out"
+    },
+    {
+      "id": "bff-backend_rust",
+      "from": "bff",
+      "to": "backend_rust",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          620,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_python",
+      "from": "bff",
+      "to": "backend_python",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          760,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_haskell",
+      "from": "bff",
+      "to": "backend_haskell",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          905,
+          10
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "コア構成",
+      "items": [
+        "frontend/bff/backend(Go)はネイティブ実行、keycloak/mysql/redis/swagger-uiはdocker compose"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "多言語backend比較(全14言語のうち代表3言語)",
+      "items": [
+        "実際には14言語を切替可能。ここでは代表としてRust/Python/Haskellのみ示す"
+      ]
+    }
+  ]
+}

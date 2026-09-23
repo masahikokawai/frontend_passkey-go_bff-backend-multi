@@ -1,0 +1,768 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "bff-gin システム構成(多言語backend込み・全14言語・超詳細版)",
+    "output": "bff-gin-system-with-multilang.ultra.architecture.html",
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Task操作の主経路",
+        "focus": [
+          "browser",
+          "bff",
+          "backend",
+          "mysql"
+        ],
+        "note": "ブラウザからbff経由でbackendへ、TaskをMySQLへ読み書きする主経路"
+      },
+      {
+        "id": "auth-flow",
+        "label": "認証・セッション",
+        "focus": [
+          "browser",
+          "bff",
+          "keycloak",
+          "redis"
+        ],
+        "note": "bffがKeycloakとOIDCを行い、セッションはRedisに保存する"
+      },
+      {
+        "id": "multi-lang-switch",
+        "label": "多言語backend切替(全14言語)",
+        "focus": [
+          "bff",
+          "backend",
+          "backend_rust",
+          "backend_scala_http4s",
+          "backend_scala_pekko",
+          "backend_rails",
+          "backend_js",
+          "backend_ts",
+          "backend_cpp",
+          "backend_c",
+          "backend_java",
+          "backend_kotlin",
+          "backend_python",
+          "backend_elixir",
+          "backend_haskell"
+        ],
+        "note": "backend.task-languageフラグでbffが呼び出す実装を切り替える。14実装とも同じMySQLスキーマを読み書きする(既定はGo)"
+      },
+      {
+        "id": "concurrency-models",
+        "label": "並行処理モデルの比較",
+        "focus": [
+          "backend",
+          "backend_rust",
+          "backend_scala_http4s",
+          "backend_scala_pekko",
+          "backend_rails",
+          "backend_js",
+          "backend_ts",
+          "backend_cpp",
+          "backend_c",
+          "backend_java",
+          "backend_kotlin",
+          "backend_python",
+          "backend_elixir",
+          "backend_haskell"
+        ],
+        "note": "同じMySQLスキーマに対し、言語ごとに全く異なる並行処理モデル(スレッドプール/イベントループ/アクター/STM等)でアクセスする"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "React SPA",
+      "sublabel": "frontend :5173",
+      "brand": "react",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "bff",
+      "type": "backend",
+      "label": "bff",
+      "sublabel": "Go/Gin :8080",
+      "pos": [
+        270,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "Cookie+CSRF"
+    },
+    {
+      "id": "keycloak",
+      "type": "security",
+      "label": "Keycloak",
+      "sublabel": "OIDC IdP :8082",
+      "pos": [
+        390,
+        120
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": ":16379",
+      "brand": "redis",
+      "pos": [
+        270,
+        480
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "backend",
+      "type": "backend",
+      "label": "backend (Go)",
+      "sublabel": "REST:8090 gRPC:9090",
+      "pos": [
+        510,
+        300
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "goroutine(自動並行)"
+    },
+    {
+      "id": "backend_external",
+      "type": "backend",
+      "label": "backend 外部公開API",
+      "sublabel": "内部:8097",
+      "pos": [
+        510,
+        480
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL",
+      "sublabel": ":13306",
+      "brand": "mysql",
+      "pos": [
+        750,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "admin",
+      "type": "backend",
+      "label": "Admin UI",
+      "sublabel": "Go:8091 / Rails:8092",
+      "pos": [
+        750,
+        120
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "swagger_ui",
+      "type": "external",
+      "label": "Swagger UI",
+      "sublabel": ":18080",
+      "pos": [
+        750,
+        480
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "backend_rust",
+      "type": "backend",
+      "label": "Rust",
+      "sublabel": "8093/9093/8098",
+      "pos": [
+        500,
+        20
+      ],
+      "size": [
+        120,
+        64
+      ],
+      "tag": "async+所有権(Tokio)"
+    },
+    {
+      "id": "backend_scala_http4s",
+      "type": "backend",
+      "label": "Scala/http4s",
+      "sublabel": "8094/9094/8099",
+      "pos": [
+        630,
+        20
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "IOモナド(cats-effect)"
+    },
+    {
+      "id": "backend_scala_pekko",
+      "type": "backend",
+      "label": "Scala/Pekko",
+      "sublabel": "8095/9095/8100",
+      "pos": [
+        770,
+        20
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "Actor(JVMスレッドプール)"
+    },
+    {
+      "id": "backend_rails",
+      "type": "backend",
+      "label": "Rails",
+      "sublabel": "8096/9096/8101",
+      "pos": [
+        910,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "スレッドプール(Puma)"
+    },
+    {
+      "id": "backend_js",
+      "type": "backend",
+      "label": "JS",
+      "sublabel": "8103/9097/8107",
+      "pos": [
+        1030,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "イベントループ"
+    },
+    {
+      "id": "backend_ts",
+      "type": "backend",
+      "label": "TS",
+      "sublabel": "8104/9098/8108",
+      "pos": [
+        1150,
+        20
+      ],
+      "size": [
+        120,
+        64
+      ],
+      "tag": "イベントループ"
+    },
+    {
+      "id": "backend_cpp",
+      "type": "backend",
+      "label": "C++",
+      "sublabel": "8105/9099/8109",
+      "pos": [
+        1290,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "スレッドプール手動隔離(asio)"
+    },
+    {
+      "id": "backend_c",
+      "type": "backend",
+      "label": "C",
+      "sublabel": "8106/9100/8110",
+      "pos": [
+        1420,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "スレッドプール手動隔離"
+    },
+    {
+      "id": "backend_java",
+      "type": "backend",
+      "label": "Java",
+      "sublabel": "8111/9101/8112",
+      "pos": [
+        1550,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "Virtual Threads(自動)"
+    },
+    {
+      "id": "backend_kotlin",
+      "type": "backend",
+      "label": "Kotlin",
+      "sublabel": "8113/9102/8114",
+      "pos": [
+        1680,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "Dispatchers.IO(明示)"
+    },
+    {
+      "id": "backend_python",
+      "type": "backend",
+      "label": "Python",
+      "sublabel": "8115/9103/8116",
+      "pos": [
+        1810,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "asyncio(ドライバネイティブ)"
+    },
+    {
+      "id": "backend_elixir",
+      "type": "backend",
+      "label": "Elixir",
+      "sublabel": "8117/9104/8118",
+      "pos": [
+        1940,
+        20
+      ],
+      "size": [
+        110,
+        64
+      ],
+      "tag": "BEAM(プリエンプティブ)"
+    },
+    {
+      "id": "backend_haskell",
+      "type": "backend",
+      "label": "Haskell",
+      "sublabel": "8119/9105/8120",
+      "pos": [
+        2070,
+        20
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "STM(TVar)"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker compose",
+      "wraps": [
+        "keycloak",
+        "redis",
+        "mysql",
+        "swagger_ui"
+      ],
+      "pad": 24
+    },
+    {
+      "kind": "security-group",
+      "label": "private network限定",
+      "wraps": [
+        "backend",
+        "backend_external"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-bff",
+      "from": "browser",
+      "to": "bff",
+      "label": "ログイン・API呼び出し(Cookie+CSRF)",
+      "variant": "emphasis",
+      "labelDy": -26
+    },
+    {
+      "id": "bff-backend",
+      "from": "bff",
+      "to": "backend",
+      "label": "task-language切替",
+      "labelDy": 26
+    },
+    {
+      "id": "bff-keycloak",
+      "from": "bff",
+      "to": "keycloak",
+      "label": "OIDC Authorization Code",
+      "fromSide": "top",
+      "toSide": "left",
+      "labelDy": -6,
+      "labelDx": 60
+    },
+    {
+      "id": "backend-keycloak",
+      "from": "backend",
+      "to": "keycloak",
+      "label": "JWKS検証",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "bff-redis",
+      "from": "bff",
+      "to": "redis",
+      "label": "セッション・分散ロック",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "backend-mysql",
+      "from": "backend",
+      "to": "mysql",
+      "label": "GORM/bob"
+    },
+    {
+      "id": "backend-backend_external",
+      "from": "backend",
+      "to": "backend_external",
+      "label": "同一プロセス、別ポート",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "admin-mysql",
+      "from": "admin",
+      "to": "mysql",
+      "label": "Feature Flag CRUD",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "swagger-backend_external",
+      "from": "swagger_ui",
+      "to": "backend_external",
+      "label": "Try it out"
+    },
+    {
+      "id": "bff-backend_rust",
+      "from": "bff",
+      "to": "backend_rust",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          560.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_scala_http4s",
+      "from": "bff",
+      "to": "backend_scala_http4s",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          695.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_scala_pekko",
+      "from": "bff",
+      "to": "backend_scala_pekko",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          835.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_rails",
+      "from": "bff",
+      "to": "backend_rails",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          965.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_js",
+      "from": "bff",
+      "to": "backend_js",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1085.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_ts",
+      "from": "bff",
+      "to": "backend_ts",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1210.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_cpp",
+      "from": "bff",
+      "to": "backend_cpp",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1345.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_c",
+      "from": "bff",
+      "to": "backend_c",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1475.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_java",
+      "from": "bff",
+      "to": "backend_java",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1605.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_kotlin",
+      "from": "bff",
+      "to": "backend_kotlin",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1735.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_python",
+      "from": "bff",
+      "to": "backend_python",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1865.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_elixir",
+      "from": "bff",
+      "to": "backend_elixir",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          1995.0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "bff-backend_haskell",
+      "from": "bff",
+      "to": "backend_haskell",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          345,
+          10
+        ],
+        [
+          2135.0,
+          10
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "コア構成",
+      "items": [
+        "frontend/bff/backend(Go)はネイティブ実行、keycloak/mysql/redis/swagger-uiはdocker compose"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "追加構成(既定オフ、backend.task-languageで切替)",
+      "items": [
+        "backend(Rust/Scala×2/Rails/JS/TS/C++/C/Java/Kotlin/Python/Elixir/Haskell)はいずれも独自マイグレーションを持たず、backendの正本スキーマを共有するMySQLを直接読み書きする",
+        "backend(Rails)のみ3プロセス構成(REST/外部公開API/gRPCが別プロセス)",
+        "backend(TS)はbackend(JS)の構造をそのまま型付けした移植(ロジックは同一)"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "多言語backend比較の切替経路(全14言語)",
+      "items": [
+        "bffがbackend.task-language評価結果に応じて14実装いずれかへルーティングする(既定はGo)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "並行処理モデルは14通り全て異なる",
+      "items": [
+        "自動並行(Go/Java Virtual Threads)、所有権ベース(Rust)、IOモナド(Scala/http4s)、Actor(Scala/Pekko)、明示的ディスパッチ(Kotlin)がJVM/ネイティブ系",
+        "シングルスレッドイベントループ(JS/TS)、asyncio(Python)、BEAM(Elixir)がインタプリタ/VM系",
+        "スレッドプール手動隔離(C/C++)、STM(Haskell)は低レベル制御・純粋関数型という両極を代表する"
+      ]
+    }
+  ]
+}

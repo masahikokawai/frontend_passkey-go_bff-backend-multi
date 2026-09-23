@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "ログイン3方式とログアウト(詳細版)",
+    "output": "bff-gin-login-flows.detailed.sequence.html",
+    "quality_profile": "standard",
+    "column_fit": "spread",
+    "viewBox": [900, 920],
+    "views": [
+      { "id": "local-hmac", "label": "ローカルHMAC", "focus": ["browser", "bff", "backend", "redis"], "note": "既定のログイン方式、bffが共有シークレットでJWTに自己署名する" },
+      { "id": "local-rsa", "label": "ローカルRSA", "focus": ["browser", "bff", "backend", "redis"], "note": "bff自身の秘密鍵で署名し、backendはJWKSで公開鍵を取得して検証する" },
+      { "id": "keycloak-login", "label": "Keycloak(OIDC)", "focus": ["browser", "bff", "keycloak", "backend", "redis"], "note": "認可コード+PKCEでKeycloakへ委譲し、JITプロビジョニングを経てセッションを確立する" },
+      { "id": "logout", "label": "ログアウト", "focus": ["browser", "bff", "redis", "keycloak"], "note": "auth_modeがkeycloakの場合のみ、RP-Initiated LogoutでKeycloak側のセッションも切る" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "frontend", "label": "Browser", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin :8080" },
+    { "id": "keycloak", "type": "security", "label": "Keycloak", "sublabel": "OIDC IdP :8082" },
+    { "id": "backend", "type": "backend", "label": "backend", "sublabel": "Go、MySQLの正本 :8090" },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "セッションストア :16379" }
+  ],
+  "segments": [
+    { "from": 150, "to": 314, "label": "ローカルHMAC" },
+    { "from": 314, "to": 482, "label": "ローカルRSA" },
+    { "from": 482, "to": 762, "label": "Keycloak(OIDC)" },
+    { "from": 762, "to": 846, "label": "ログアウト" }
+  ],
+  "messages": [
+    { "id": "hmac-login", "from": "browser", "to": "bff", "y": 160, "label": "POST /api/auth/login(email/password)", "variant": "emphasis" },
+    { "id": "hmac-verify", "from": "bff", "to": "backend", "y": 188, "label": "POST /internal/v1/auth/verify-local-password", "variant": "default", "note": "bffはMySQLに直接アクセスせず、パスワード照合をbackendへ委譲する方針" },
+    { "id": "hmac-verify-ok", "from": "backend", "to": "bff", "y": 216, "label": "user_passwords照合 → OK(user_id/name/roles)", "variant": "return" },
+    { "id": "hmac-session", "from": "bff", "to": "redis", "y": 244, "label": "session:{id}を保存(auth_mode=local_hmac、HS256 JWT)", "variant": "default" },
+    { "id": "hmac-cookie", "from": "bff", "to": "browser", "y": 272, "label": "Set-Cookie: session_id(HttpOnly)+CSRFトークン", "variant": "return" },
+    { "id": "hmac-verify-fail", "from": "backend", "to": "bff", "y": 300, "label": "(異常系)invalid_credentials → 401", "variant": "security", "note": "誤ったパスワードの場合、hmac-verify-okの代わりにこれが返りセッションは作られない" },
+
+    { "id": "rsa-login", "from": "browser", "to": "bff", "y": 328, "label": "POST /api/auth/login/rsa(email/password)", "variant": "emphasis" },
+    { "id": "rsa-verify", "from": "bff", "to": "backend", "y": 356, "label": "POST /internal/v1/auth/verify-local-password", "variant": "default", "note": "HMAC版と同じ内部エンドポイントを使う" },
+    { "id": "rsa-verify-ok", "from": "backend", "to": "bff", "y": 384, "label": "user_passwords照合 → OK(user_id/name/roles)", "variant": "return" },
+    { "id": "rsa-session", "from": "bff", "to": "redis", "y": 412, "label": "session:{id}を保存(auth_mode=local_rsa、RS256 JWT)", "variant": "default", "note": "bffが起動時に生成した自分専用の秘密鍵で署名する(対称鍵ではなく非対称鍵)" },
+    { "id": "rsa-cookie", "from": "bff", "to": "browser", "y": 440, "label": "Set-Cookie: session_id(HttpOnly)+CSRFトークン", "variant": "return" },
+    { "id": "rsa-jwks-req", "from": "backend", "to": "bff", "y": 468, "label": "GET /.well-known/jwks.json", "variant": "dashed", "note": "後続のTask API呼び出し時にbackendがRS256署名を検証するため公開鍵を取得する" },
+
+    { "id": "kc-login", "from": "browser", "to": "bff", "y": 496, "label": "GET /api/auth/login/keycloak?redirect=/tasks", "variant": "emphasis" },
+    { "id": "kc-authurl", "from": "bff", "to": "browser", "y": 524, "label": "302 → Keycloak認可エンドポイント(PKCE S256、state付き)", "variant": "return" },
+    { "id": "kc-form", "from": "browser", "to": "keycloak", "y": 552, "label": "Keycloakのログイン画面で認証", "variant": "emphasis" },
+    { "id": "kc-code", "from": "keycloak", "to": "browser", "y": 580, "label": "302 → /api/auth/callback?code=&state=", "variant": "return" },
+    { "id": "kc-callback", "from": "browser", "to": "bff", "y": 608, "label": "GET /api/auth/callback?code=&state=", "variant": "default" },
+    { "id": "kc-exchange", "from": "bff", "to": "keycloak", "y": 636, "label": "トークン交換(code + PKCE verifier)", "variant": "default" },
+    { "id": "kc-tokens", "from": "keycloak", "to": "bff", "y": 664, "label": "access/refresh/id_token(aud=backend)", "variant": "return", "note": "oidc-audience-mapperによりaud=backendが注入済み" },
+    { "id": "kc-provision", "from": "bff", "to": "backend", "y": 692, "label": "POST /internal/v1/users/provision(Bearer access_token)", "variant": "default", "note": "backendはbody値ではなくJWTクレームから身元を自分で解決する" },
+    { "id": "kc-provisioned", "from": "backend", "to": "bff", "y": 720, "label": "user_id/role(JITプロビジョニング完了)", "variant": "return" },
+    { "id": "kc-session", "from": "bff", "to": "redis", "y": 748, "label": "session:{id}を保存(auth_mode=keycloak、access/refresh/id_token)", "variant": "default" },
+
+    { "id": "logout-req", "from": "browser", "to": "bff", "y": 776, "label": "POST /api/auth/logout", "variant": "emphasis" },
+    { "id": "logout-session", "from": "bff", "to": "redis", "y": 804, "label": "session:{id}を削除", "variant": "default" },
+    { "id": "logout-rp", "from": "bff", "to": "keycloak", "y": 832, "label": "RP-Initiated Logout(id_token_hint付き)", "variant": "dashed", "note": "auth_mode=keycloakのときのみ実施。ローカルHMAC/RSAはRedis削除のみで完了" }
+  ],
+  "activations": [
+    { "participant": "bff", "from": 160, "to": 836, "type": "backend" },
+    { "participant": "backend", "from": 183, "to": 696, "type": "backend" },
+    { "participant": "keycloak", "from": 547, "to": 584, "type": "security" },
+    { "participant": "keycloak", "from": 631, "to": 668, "type": "security" },
+    { "participant": "keycloak", "from": 827, "to": 836, "type": "security" },
+    { "participant": "redis", "from": 239, "to": 249, "type": "database" },
+    { "participant": "redis", "from": 407, "to": 417, "type": "database" },
+    { "participant": "redis", "from": 743, "to": 753, "type": "database" },
+    { "participant": "redis", "from": 799, "to": 809, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "BFFパターンと3方式の違い",
+      "items": [
+        "ブラウザが持つのはHttpOnly Cookie+CSRFトークンのみ、JWTは一切渡らない",
+        "HMAC=共有シークレット、RSA=bff自身の鍵、Keycloak=認可コード+PKCE+JITプロビジョニング"
+      ]
+    }
+  ]
+}

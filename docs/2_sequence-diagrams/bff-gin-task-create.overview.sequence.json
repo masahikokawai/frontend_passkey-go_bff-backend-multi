@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Task作成(概要版): browser -> bff -> backend -> MySQL",
+    "output": "bff-gin-task-create.overview.sequence.html",
+    "viewBox": [860, 480],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "happy-path", "label": "作成の主経路", "focus": ["browser", "bff", "backend", "mysql"], "note": "ブラウザからbff経由でbackendへ、TaskをMySQLへ書き込む主経路" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin" },
+    { "id": "backend", "type": "backend", "label": "backend", "sublabel": "REST/gRPC(14言語切替可)" },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": "tasks / task_labels" }
+  ],
+  "messages": [
+    { "id": "request", "from": "browser", "to": "bff", "y": 170, "label": "POST /api/tasks (Cookie + X-CSRF-Token)", "variant": "default" },
+    { "id": "route", "from": "bff", "to": "backend", "y": 210, "label": "REST v1 または gRPC v2 へ振り分け", "variant": "emphasis" },
+    { "id": "write", "from": "backend", "to": "mysql", "y": 250, "label": "検証 + INSERT tasks/task_labels", "variant": "default" },
+    { "id": "rows", "from": "mysql", "to": "backend", "y": 290, "label": "rows", "variant": "return" },
+    { "id": "response", "from": "backend", "to": "bff", "y": 330, "label": "201 Created", "variant": "return" },
+    { "id": "final", "from": "bff", "to": "browser", "y": 370, "label": "201 Created \"タスクを作成しました\"", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "bff", "from": 165, "to": 376, "type": "backend" },
+    { "participant": "backend", "from": 205, "to": 336, "type": "backend" },
+    { "participant": "mysql", "from": 245, "to": 296, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Feature Flagルーティング",
+      "items": [
+        "bffがbackend.task-protocolを評価しREST/gRPCへ振り分ける",
+        "どちらを選んでもレスポンスの形状(ワイヤー契約)は同一"
+      ]
+    }
+  ]
+}

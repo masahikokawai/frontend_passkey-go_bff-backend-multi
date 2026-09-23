@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "bff-gin システム構成(概要版)",
+    "output": "bff-gin-system.overview.architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Task操作の主経路",
+        "focus": ["browser", "bff", "backend", "mysql"],
+        "note": "ブラウザからbff経由でbackendへ、TaskをMySQLへ読み書きする主経路"
+      },
+      {
+        "id": "auth-flow",
+        "label": "認証・セッション",
+        "focus": ["browser", "bff", "keycloak", "redis"],
+        "note": "bffがKeycloakとOIDCを行い、セッションはRedisに保存する"
+      }
+    ]
+  },
+  "components": [
+    { "id": "keycloak", "type": "security", "label": "Keycloak", "sublabel": "OIDC IdP :8082", "pos": [284, 80], "size": [120, 62] },
+    { "id": "browser", "type": "frontend", "label": "React SPA", "sublabel": "frontend :5173", "pos": [40, 280], "size": [128, 62] },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin :8080", "pos": [284, 280], "size": [120, 62] },
+    { "id": "backend", "type": "backend", "label": "backend", "sublabel": "REST:8090 gRPC:9090(14言語切替可)", "pos": [560, 280], "size": [170, 62] },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": ":13306", "pos": [824, 280], "size": [110, 62] },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": ":16379", "pos": [284, 480], "size": [120, 62] },
+    { "id": "admin", "type": "external", "label": "Admin UI", "sublabel": "Go:8091 / Rails:8092", "pos": [814, 480], "size": [130, 62] }
+  ],
+  "connections": [
+    { "from": "browser", "to": "bff", "label": "ログイン・API呼び出し(Cookie+CSRF)", "variant": "emphasis", "labelDy": -25 },
+    { "from": "bff", "to": "backend", "label": "REST v1 / gRPC v2", "variant": "emphasis" },
+    { "from": "backend", "to": "mysql", "label": "GORM/bob" },
+    { "from": "bff", "to": "keycloak", "label": "OIDC Authorization Code", "fromSide": "top", "toSide": "bottom" },
+    { "from": "bff", "to": "redis", "label": "セッション・分散ロック", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "from": "admin", "to": "mysql", "label": "Feature Flag CRUD", "fromSide": "top", "toSide": "bottom" }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "bff-gin セッションのライフサイクル(概要版)",
+    "output": "bff-gin-session-lifecycle.overview.lifecycle.html",
+    "viewBox": [
+      900,
+      566
+    ],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main-path",
+        "label": "メインパス",
+        "focus": [
+          "issued",
+          "active"
+        ],
+        "note": "ログイン成功でセッションが発行され、backend呼び出しのたびに有効性が検証される"
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "セッションの主経路"
+    }
+  ],
+  "states": [
+    {
+      "id": "issued",
+      "type": "start",
+      "label": "発行",
+      "sublabel": "ログイン成功(4方式)",
+      "lane": "main",
+      "col": 0,
+      "step": "01"
+    },
+    {
+      "id": "active",
+      "type": "active",
+      "label": "有効",
+      "sublabel": "backend呼び出しのたびに検証",
+      "lane": "main",
+      "col": 2,
+      "step": "02"
+    },
+    {
+      "id": "logout",
+      "type": "success",
+      "label": "ログアウト",
+      "sublabel": "能動的終了",
+      "lane": "main",
+      "col": 4,
+      "step": "03"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "issue-to-active",
+      "from": "issued",
+      "to": "active"
+    },
+    {
+      "id": "active-to-logout",
+      "from": "active",
+      "to": "logout"
+    }
+  ]
+}

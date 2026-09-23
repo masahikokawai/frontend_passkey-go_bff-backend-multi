@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "compare",
+  "type": "architecture",
+  "comparatorVersion": 1,
+  "canonicalVersion": 1,
+  "completeness": "complete",
+  "proofLevel": "authored",
+  "base": {
+    "title": "bff-gin システム構成",
+    "rawSha256": "2f3601692aeb068d1a41167192f565b008fd05a547570eb24b2b2f1fb4249c81",
+    "semanticSha256": "1a631cf62fa5a329415533f4855dc49c33ce40445e29f92b23ce124de4d3c6e8",
+    "bytes": 5296
+  },
+  "head": {
+    "title": "bff-gin システム構成(多言語backend込み・概要版)",
+    "rawSha256": "8a34b2b30a1fd15cea5b055706c9997ebe1f8c00cd7e20b4dd99623ad060a0fb",
+    "semanticSha256": "caf13db3c2b0f26452c8e0f8ab6c874868e436dbc3d73bd4382d741530a76146",
+    "bytes": 7305
+  },
+  "summary": {
+    "components": {
+      "added": 3,
+      "changed": 1,
+      "evidenceChanged": 0,
+      "removed": 0,
+      "moved": 0
+    },
+    "connections": {
+      "added": 3,
+      "changed": 1,
+      "removed": 0,
+      "rerouted": 1
+    },
+    "boundaries": {
+      "added": 0,
+      "changed": 0,
+      "removed": 0,
+      "geometryChanged": 0
+    },
+    "presentationChanged": true,
+    "provenanceChanged": false
+  },
+  "changes": {
+    "components": [
+      {
+        "id": "backend",
+        "baseLabel": "backend",
+        "headLabel": "backend (Go)",
+        "status": "changed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": [
+          "/label"
+        ]
+      },
+      {
+        "id": "backend_haskell",
+        "headLabel": "Haskell",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "backend_python",
+        "headLabel": "Python",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "backend_rust",
+        "headLabel": "Rust",
+        "status": "added",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      }
+    ],
+    "connections": [
+      {
+        "id": "bff-backend",
+        "base": {
+          "from": "bff",
+          "to": "backend",
+          "label": "REST v1 / gRPC v2"
+        },
+        "head": {
+          "from": "bff",
+          "to": "backend",
+          "label": "task-language切替"
+        },
+        "status": "changed",
+        "classifications": [
+          "geometry",
+          "semantic"
+        ],
+        "changedFields": [
+          "/label",
+          "/labelDy"
+        ]
+      },
+      {
+        "id": "bff-backend_haskell",
+        "head": {
+          "from": "bff",
+          "to": "backend_haskell",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "bff-backend_python",
+        "head": {
+          "from": "bff",
+          "to": "backend_python",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "bff-backend_rust",
+        "head": {
+          "from": "bff",
+          "to": "backend_rust",
+          "label": ""
+        },
+        "status": "added",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "bff-keycloak",
+        "base": {
+          "from": "bff",
+          "to": "keycloak",
+          "label": "OIDC Authorization Code"
+        },
+        "head": {
+          "from": "bff",
+          "to": "keycloak",
+          "label": "OIDC Authorization Code"
+        },
+        "status": "rerouted",
+        "classifications": [
+          "geometry"
+        ],
+        "changedFields": [
+          "/labelDx",
+          "/labelDy"
+        ]
+      }
+    ],
+    "boundaries": []
+  },
+  "identity": {
+    "components": "components[].id",
+    "connections": "connections[].id (required)",
+    "boundaries": "boundaries[].kind + boundaries[].label (derived)"
+  },
+  "view": {
+    "visualPreset": "classic"
+  },
+  "limitations": [
+    "Authored Architecture IR only; no runtime impact, causality, risk, or mergeability is inferred.",
+    "Boundary identity is conservatively derived from kind + label."
+  ],
+  "artifact": {
+    "sha256": "d3f4bed7b60ba0a156a0df7237e739ea3c2d85c5284c4f280660af6de734c6a6",
+    "bytes": 2264525
+  },
+  "validation": {
+    "checksPassed": 28,
+    "checkCount": 28,
+    "baseComposition": "pass",
+    "headComposition": "pass"
+  }
+}

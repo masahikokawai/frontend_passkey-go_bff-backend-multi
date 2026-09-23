@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Task作成(超詳細版): REST v1 / gRPC v2 + バリデーションエラー経路",
+    "output": "bff-gin-task-create.ultra.sequence.html",
+    "viewBox": [1040, 620],
+    "column_fit": "spread",
+    "quality_profile": "standard",
+    "views": [
+      { "id": "rest-v1", "label": "REST (v1)", "focus": ["browser", "bff", "backend_rest", "mysql"], "note": "旧実装、N+1クエリが残る" },
+      { "id": "grpc-v2", "label": "gRPC (v2)", "focus": ["browser", "bff", "backend_grpc", "mysql"], "note": "Preloadで最適化した新実装" },
+      { "id": "validation-error", "label": "バリデーションエラー", "focus": ["browser", "bff", "backend_grpc"], "note": "MySQLへ到達する前にbackend側で400を返す" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin, Feature Flag振り分け" },
+    { "id": "backend_rest", "type": "backend", "label": "backend REST v1", "sublabel": "N+1あり、旧実装" },
+    { "id": "backend_grpc", "type": "backend", "label": "backend gRPC v2", "sublabel": "Preload、新実装" },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": "tasks / task_labels" }
+  ],
+  "messages": [
+    { "id": "rest-request", "from": "browser", "to": "bff", "y": 165, "label": "POST /api/tasks (Cookie + X-CSRF-Token)", "variant": "default" },
+    { "id": "rest-route", "from": "bff", "to": "backend_rest", "y": 193, "label": "backend.task-protocol=rest で振り分け", "variant": "emphasis" },
+    { "id": "rest-write", "from": "backend_rest", "to": "mysql", "y": 221, "label": "検証 + INSERT tasks/task_labels", "variant": "default" },
+    { "id": "rest-rows", "from": "mysql", "to": "backend_rest", "y": 249, "label": "rows", "variant": "return" },
+    { "id": "rest-response", "from": "backend_rest", "to": "bff", "y": 277, "label": "201 Created (N+1でラベル取得、ラベル数分SELECT)", "variant": "return" },
+    { "id": "rest-final", "from": "bff", "to": "browser", "y": 305, "label": "201 Created \"タスクを作成しました\"", "variant": "return" },
+
+    { "id": "grpc-request", "from": "browser", "to": "bff", "y": 333, "label": "POST /api/tasks (Cookie + X-CSRF-Token)", "variant": "default" },
+    { "id": "grpc-route", "from": "bff", "to": "backend_grpc", "y": 361, "label": "backend.task-protocol=grpc で振り分け、CreateTask RPC", "variant": "emphasis" },
+    { "id": "grpc-write", "from": "backend_grpc", "to": "mysql", "y": 389, "label": "検証 + Preload(labels)で1クエリ書き込み", "variant": "default" },
+    { "id": "grpc-rows", "from": "mysql", "to": "backend_grpc", "y": 417, "label": "rows", "variant": "return" },
+    { "id": "grpc-response", "from": "backend_grpc", "to": "bff", "y": 445, "label": "CreateTaskResponse(labelsは1クエリで同梱)", "variant": "return" },
+    { "id": "grpc-final", "from": "bff", "to": "browser", "y": 473, "label": "201 Created \"タスクを作成しました\"", "variant": "return" },
+
+    { "id": "err-request", "from": "browser", "to": "bff", "y": 501, "label": "POST /api/tasks (name=21文字超 または finished_onが過去日)", "variant": "emphasis", "note": "bffは未検証のままCreateTask RPCへ転送する" },
+    { "id": "err-final", "from": "bff", "to": "browser", "y": 529, "label": "400 Bad Request \"タスク名は20文字以内です\" 等", "variant": "security", "note": "backendがINVALID_ARGUMENTを返し、MySQLへは到達しない" }
+  ],
+  "activations": [
+    { "participant": "bff", "from": 160, "to": 309, "type": "backend" },
+    { "participant": "backend_rest", "from": 188, "to": 281, "type": "backend" },
+    { "participant": "mysql", "from": 216, "to": 253, "type": "database" },
+    { "participant": "bff", "from": 328, "to": 477, "type": "backend" },
+    { "participant": "backend_grpc", "from": 356, "to": 449, "type": "backend" },
+    { "participant": "mysql", "from": 384, "to": 421, "type": "database" },
+    { "participant": "bff", "from": 496, "to": 533, "type": "backend" }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "新旧実装のクエリ差とルーティング",
+      "items": [
+        "backend.task-protocolで振り分け、v1はN+1、v2はPreloadで1クエリ"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "バリデーションはbackend側の責務",
+      "items": [
+        "bffは素通しし、不正値はMySQLへ到達する前にbackendが拒否する"
+      ]
+    }
+  ]
+}

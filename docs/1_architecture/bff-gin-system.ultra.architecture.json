@@ -1,0 +1,819 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "bff-gin システム構成(超詳細版)",
+    "output": "bff-gin-system.ultra.architecture.html",
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Task操作の主経路",
+        "focus": [
+          "browser",
+          "bff",
+          "go",
+          "mysql"
+        ],
+        "note": "ブラウザからbff経由でbackend(既定はGo、backend.task-languageで14言語のいずれかへ切替)へ、TaskをMySQLへ読み書きする主経路"
+      },
+      {
+        "id": "external-api",
+        "label": "外部公開APIゲートウェイ",
+        "focus": [
+          "swagger_ui",
+          "gateway",
+          "go",
+          "mysql"
+        ],
+        "note": "BFFを経由しない直接公開API。gatewayがbackend.task-languageを見て14言語いずれかへ振り分ける(常にGoへフォールバック)"
+      },
+      {
+        "id": "rails-variants",
+        "label": "frontend-rails 2構成",
+        "focus": [
+          "frontend_rails_without_bff",
+          "frontend_rails_with_bff",
+          "bff_rails",
+          "go",
+          "keycloak"
+        ],
+        "note": "without-bffはbffを介さず自前でOIDC、with-bffはbff-rails経由でGoと同じ役割分担を再現する"
+      },
+      {
+        "id": "admin-compare",
+        "label": "Admin画面のGo/Rails比較",
+        "focus": [
+          "admin_go",
+          "admin_rails",
+          "mysql"
+        ],
+        "note": "同じMySQLテーブルをGo実装・Rails実装の2つの独立したCRUD画面から操作する"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "keycloak",
+      "type": "security",
+      "label": "Keycloak",
+      "sublabel": "OIDC IdP :8082",
+      "pos": [
+        280,
+        20
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL",
+      "sublabel": ":13306",
+      "pos": [
+        1350,
+        20
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "React SPA",
+      "sublabel": "frontend :5173",
+      "pos": [
+        30,
+        160
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "bff",
+      "type": "backend",
+      "label": "bff",
+      "sublabel": "Go/Gin :8080",
+      "pos": [
+        260,
+        160
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "frontend_rails_without_bff",
+      "type": "frontend",
+      "label": "frontend-rails without-bff",
+      "sublabel": ":5174(BFF不使用)",
+      "pos": [
+        30,
+        300
+      ],
+      "size": [
+        185,
+        62
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": ":16379",
+      "pos": [
+        260,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "frontend_rails_with_bff",
+      "type": "frontend",
+      "label": "frontend-rails with-bff",
+      "sublabel": ":5175",
+      "pos": [
+        30,
+        440
+      ],
+      "size": [
+        165,
+        62
+      ]
+    },
+    {
+      "id": "bff_rails",
+      "type": "backend",
+      "label": "bff-rails",
+      "sublabel": ":8102",
+      "pos": [
+        260,
+        440
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "swagger_ui",
+      "type": "external",
+      "label": "Swagger UI",
+      "sublabel": ":18080",
+      "pos": [
+        30,
+        580
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "gateway",
+      "sublabel": "Go製/nginx製(排他) :8081",
+      "pos": [
+        260,
+        580
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "go",
+      "type": "backend",
+      "label": "Go",
+      "sublabel": "REST:8090 gRPC:9090 外部:8097",
+      "pos": [
+        550,
+        160
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "goroutine(自動並行)"
+    },
+    {
+      "id": "rust",
+      "type": "backend",
+      "label": "Rust",
+      "sublabel": "REST:8093 gRPC:9093 外部:8098",
+      "pos": [
+        720,
+        160
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "async+所有権(Tokio)"
+    },
+    {
+      "id": "scala_http4s",
+      "type": "backend",
+      "label": "Scala(http4s)",
+      "sublabel": "REST:8094 gRPC:9094 外部:8099",
+      "pos": [
+        890,
+        160
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "IOモナド(cats-effect)"
+    },
+    {
+      "id": "scala_pekko",
+      "type": "backend",
+      "label": "Scala(Pekko)",
+      "sublabel": "REST:8095 gRPC:9095 外部:8100",
+      "pos": [
+        1060,
+        160
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "Actor(JVMスレッドプール)"
+    },
+    {
+      "id": "rails_backend",
+      "type": "backend",
+      "label": "Rails",
+      "sublabel": "REST:8096 gRPC:9096 外部:8101",
+      "pos": [
+        550,
+        230
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "スレッドプール(Puma)"
+    },
+    {
+      "id": "javascript",
+      "type": "backend",
+      "label": "JavaScript",
+      "sublabel": "REST:8103 gRPC:9097 外部:8107",
+      "pos": [
+        720,
+        230
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "シングルスレッドイベントループ"
+    },
+    {
+      "id": "typescript",
+      "type": "backend",
+      "label": "TypeScript",
+      "sublabel": "REST:8104 gRPC:9098 外部:8108",
+      "pos": [
+        890,
+        230
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "シングルスレッドイベントループ"
+    },
+    {
+      "id": "cpp",
+      "type": "backend",
+      "label": "C++",
+      "sublabel": "REST:8105 gRPC:9099 外部:8109",
+      "pos": [
+        1060,
+        230
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "スレッドプール手動隔離(asio)"
+    },
+    {
+      "id": "c",
+      "type": "backend",
+      "label": "C",
+      "sublabel": "REST:8106 gRPC:9100 外部:8110",
+      "pos": [
+        550,
+        300
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "スレッドプール手動隔離"
+    },
+    {
+      "id": "java",
+      "type": "backend",
+      "label": "Java",
+      "sublabel": "REST:8111 gRPC:9101 外部:8112",
+      "pos": [
+        720,
+        300
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "Virtual Threads(自動)"
+    },
+    {
+      "id": "kotlin",
+      "type": "backend",
+      "label": "Kotlin",
+      "sublabel": "REST:8113 gRPC:9102 外部:8114",
+      "pos": [
+        890,
+        300
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "Dispatchers.IO(明示)"
+    },
+    {
+      "id": "python",
+      "type": "backend",
+      "label": "Python",
+      "sublabel": "REST:8115 gRPC:9103 外部:8116",
+      "pos": [
+        1060,
+        300
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "asyncio(ドライバネイティブ)"
+    },
+    {
+      "id": "elixir",
+      "type": "backend",
+      "label": "Elixir",
+      "sublabel": "REST:8117 gRPC:9104 外部:8118",
+      "pos": [
+        550,
+        370
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "BEAM/GenServer(プリエンプティブ)"
+    },
+    {
+      "id": "haskell",
+      "type": "backend",
+      "label": "Haskell",
+      "sublabel": "REST:8119 gRPC:9105 外部:8120",
+      "pos": [
+        720,
+        370
+      ],
+      "size": [
+        150,
+        56
+      ],
+      "tag": "STM(TVar)"
+    },
+    {
+      "id": "admin_go",
+      "type": "external",
+      "label": "admin/go",
+      "sublabel": ":8091",
+      "pos": [
+        1280,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "admin_rails",
+      "type": "external",
+      "label": "admin/rails",
+      "sublabel": ":8092",
+      "pos": [
+        1450,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "bff_oidc",
+      "type": "backend",
+      "label": "OIDCハンドラ",
+      "sublabel": "Callback・PKCE",
+      "pos": [
+        30,
+        649
+      ],
+      "size": [
+        131.2,
+        42
+      ]
+    },
+    {
+      "id": "bff_session",
+      "type": "backend",
+      "label": "セッションストア",
+      "sublabel": "Redis、TTL連動",
+      "pos": [
+        191.2,
+        649
+      ],
+      "size": [
+        131.2,
+        42
+      ]
+    },
+    {
+      "id": "bff_proxy",
+      "type": "backend",
+      "label": "Taskプロキシ",
+      "sublabel": "Clients map(14言語)",
+      "pos": [
+        352.4,
+        649
+      ],
+      "size": [
+        131.2,
+        42
+      ]
+    },
+    {
+      "id": "go_auth",
+      "type": "security",
+      "label": "authjwt",
+      "sublabel": "HMAC/RSA/Keycloak Dispatcher",
+      "pos": [
+        513.5999999999999,
+        649
+      ],
+      "size": [
+        147.6,
+        42
+      ]
+    },
+    {
+      "id": "go_rest",
+      "type": "backend",
+      "label": "REST v1",
+      "sublabel": "Gin、意図的なN+1",
+      "pos": [
+        691.1999999999999,
+        649
+      ],
+      "size": [
+        131.2,
+        42
+      ]
+    },
+    {
+      "id": "go_repo",
+      "type": "database",
+      "label": "Repository",
+      "sublabel": "GORM/bob切替",
+      "pos": [
+        852.3999999999999,
+        649
+      ],
+      "size": [
+        131.2,
+        42
+      ]
+    },
+    {
+      "id": "go_grpc",
+      "type": "backend",
+      "label": "gRPC v2",
+      "sublabel": "Preload最適化",
+      "pos": [
+        1013.5999999999999,
+        649
+      ],
+      "size": [
+        131.2,
+        42
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "backend実装(14言語、backend.task-languageで切替、ワイヤー契約は完全同一)",
+      "wraps": [
+        "go",
+        "rust",
+        "scala_http4s",
+        "scala_pekko",
+        "rails_backend",
+        "javascript",
+        "typescript",
+        "cpp",
+        "c",
+        "java",
+        "kotlin",
+        "python",
+        "elixir",
+        "haskell"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "bffの内部構成(4つの責務)",
+      "wraps": [
+        "bff_oidc",
+        "bff_session",
+        "bff_proxy"
+      ],
+      "pad": 10
+    },
+    {
+      "kind": "region",
+      "label": "backend(Go)の内部構成(他13言語も同様の層構造を持つ)",
+      "wraps": [
+        "go_auth",
+        "go_rest",
+        "go_repo",
+        "go_grpc"
+      ],
+      "pad": 10
+    }
+  ],
+  "connections": [
+    {
+      "from": "browser",
+      "to": "bff",
+      "label": "ログイン・API呼び出し(Cookie+CSRF)",
+      "labelDy": -25
+    },
+    {
+      "from": "bff",
+      "to": "go",
+      "label": "REST v1/gRPC v2",
+      "variant": "emphasis",
+      "labelAt": [
+        465,
+        140
+      ]
+    },
+    {
+      "from": "bff",
+      "to": "redis",
+      "label": "セッション・分散ロック",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "from": "bff",
+      "to": "keycloak",
+      "label": "OIDC Authorization Code",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "frontend_rails_without_bff",
+      "to": "keycloak",
+      "label": "OIDC(自前)",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          122.5,
+          400
+        ],
+        [
+          500,
+          400
+        ],
+        [
+          500,
+          50
+        ]
+      ],
+      "labelAt": [
+        300,
+        414
+      ]
+    },
+    {
+      "from": "frontend_rails_without_bff",
+      "to": "go",
+      "label": "JIT・パスキー",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          122.5,
+          400
+        ],
+        [
+          500,
+          400
+        ],
+        [
+          500,
+          188
+        ]
+      ],
+      "labelAt": [
+        300,
+        388
+      ]
+    },
+    {
+      "from": "swagger_ui",
+      "to": "gateway",
+      "label": "Try it out",
+      "labelDy": -25
+    },
+    {
+      "from": "gateway",
+      "to": "go",
+      "label": "外部公開API(既定Go)",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          500,
+          610
+        ],
+        [
+          500,
+          188
+        ]
+      ],
+      "labelAt": [
+        460,
+        610
+      ]
+    },
+    {
+      "from": "go",
+      "to": "mysql",
+      "label": "GORM/bob(代表、他13言語も同じMySQLへ)",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          625,
+          100
+        ],
+        [
+          625,
+          50
+        ]
+      ]
+    },
+    {
+      "from": "admin_go",
+      "to": "mysql",
+      "label": "Feature Flag/User CRUD",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "admin_rails",
+      "to": "mysql",
+      "label": "同上(Rails実装)",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "bff_oidc",
+      "to": "bff_session",
+      "label": "セッション発行",
+      "labelDy": 47
+    },
+    {
+      "from": "go_rest",
+      "to": "go_repo",
+      "label": "N+1(ループ取得)",
+      "labelDy": 47
+    },
+    {
+      "from": "go_grpc",
+      "to": "go_repo",
+      "label": "Preload",
+      "labelDy": 47
+    },
+    {
+      "from": "go_auth",
+      "to": "go_rest",
+      "label": "JWT検証",
+      "labelDy": 47
+    },
+    {
+      "from": "frontend_rails_with_bff",
+      "to": "bff_rails",
+      "label": "ログイン・Task一覧取得(表示専用)",
+      "labelDy": -25
+    },
+    {
+      "from": "bff_rails",
+      "to": "keycloak",
+      "label": "OIDC",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          500,
+          471
+        ],
+        [
+          500,
+          50
+        ]
+      ],
+      "labelAt": [
+        460,
+        150
+      ]
+    },
+    {
+      "from": "bff_rails",
+      "to": "go",
+      "label": "Task一覧(表示専用)",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          500,
+          471
+        ],
+        [
+          500,
+          188
+        ]
+      ],
+      "labelAt": [
+        460,
+        415
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "図の簡略化について",
+      "items": [
+        "bff/gateway→14言語backendの矢印・MySQLへの矢印はGoで代表(実際は評価結果に応じ1言語のみ接続)",
+        "bff・Goの内部構成は「bff」「Go」ノードの内訳(他13言語も同様にREST/gRPC/Repository/認証/Feature Flagポーリングの5層構造)",
+        "並行処理安全性はタグ参照: 自動(goroutine/Virtual Threads)・明示的(Dispatchers.IO)・純粋関数型(STM)・アクター(BEAM/Pekko)等、言語ごとに異なる"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "frontend-railsの2構成の違い",
+      "items": [
+        "without-bff: bffパターンを使わず自身でKeycloakとOIDCを行う。Task等のデータ取得は無く、ログイン確認のみ",
+        "with-bff: bff-railsが専用BFFとしてJITプロビジョニング・Task一覧取得(表示専用)を代行する"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "ゲートウェイの2実装",
+      "items": [
+        "Go製・nginx製(サイドカーによるupstream書き換え)の2種類があり、どちらか一方のみ:8081で起動する(同時起動不可)",
+        "いずれもbackend.task-languageをポーリングし、実装が無い言語が選ばれた場合はGoへフォールバックする"
+      ]
+    }
+  ]
+}

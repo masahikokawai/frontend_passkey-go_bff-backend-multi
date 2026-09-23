@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "bff-gin セッションのライフサイクル(超詳細版・分散ロック詳細)",
+    "output": "bff-gin-session-lifecycle.ultra.lifecycle.html",
+    "viewBox": [
+      1000,
+      760
+    ],
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "main-path",
+        "label": "メインパス",
+        "focus": [
+          "issued",
+          "active"
+        ],
+        "note": "ログイン成功でセッションが発行され、backend呼び出しのたびに有効性が検証される"
+      },
+      {
+        "id": "keycloak-refresh",
+        "label": "Keycloak: リアクティブリフレッシュ",
+        "focus": [
+          "active",
+          "refresh-attempt",
+          "refresh-failed"
+        ],
+        "note": "Keycloakセッションのみrefresh_tokenで能動的に更新を試みる"
+      },
+      {
+        "id": "auto-end",
+        "label": "自動的な終了(refresh_tokenなし)",
+        "focus": [
+          "active",
+          "auto-destroyed"
+        ],
+        "note": "ローカル/パスキーは401で即破棄、いずれもTTL到達でも自然に消える"
+      },
+      {
+        "id": "manual-end",
+        "label": "能動的なログアウト",
+        "focus": [
+          "active",
+          "logout"
+        ],
+        "note": "keycloakのみRP-Initiated Logoutも実行する"
+      },
+      {
+        "id": "lock-contention",
+        "label": "分散ロックの競合解決",
+        "focus": [
+          "active",
+          "refresh-attempt"
+        ],
+        "note": "SETNXでロックを取れなかった場合、待機中に他リクエストが更新した最新トークンを再利用してactiveへ復帰する(破棄はしない)"
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "セッションの主経路"
+    },
+    {
+      "id": "terminal",
+      "label": "分岐・終端"
+    }
+  ],
+  "states": [
+    {
+      "id": "issued",
+      "type": "start",
+      "label": "発行",
+      "sublabel": "ログイン成功(4方式)",
+      "lane": "main",
+      "col": 0,
+      "step": "01"
+    },
+    {
+      "id": "active",
+      "type": "active",
+      "label": "有効",
+      "sublabel": "backend呼び出しのたびに検証",
+      "lane": "main",
+      "col": 2,
+      "step": "02"
+    },
+    {
+      "id": "auto-destroyed",
+      "type": "failure",
+      "label": "自動的に破棄",
+      "sublabel": "TTL到達 / 401(非keycloak) / 不在",
+      "lane": "terminal",
+      "col": 0,
+      "width": 150
+    },
+    {
+      "id": "logout",
+      "type": "success",
+      "label": "ログアウト",
+      "sublabel": "能動的終了",
+      "lane": "terminal",
+      "col": 1
+    },
+    {
+      "id": "refresh-attempt",
+      "type": "decision",
+      "label": "リフレッシュ試行",
+      "sublabel": "keycloakの401、RedisでSETNX",
+      "lane": "terminal",
+      "col": 2,
+      "width": 150
+    },
+    {
+      "id": "refresh-failed",
+      "type": "failure",
+      "label": "破棄",
+      "sublabel": "refresh失効",
+      "lane": "terminal",
+      "col": 2,
+      "yOffset": 130
+    }
+  ],
+  "transitions": [
+    {
+      "id": "issue-to-active",
+      "from": "issued",
+      "to": "active"
+    },
+    {
+      "id": "active-auto-destroyed",
+      "from": "active",
+      "to": "auto-destroyed",
+      "label": "TTL / 401(非keycloak) / 不在",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 30
+    },
+    {
+      "id": "active-logout",
+      "from": "active",
+      "to": "logout",
+      "label": "能動的ログアウト",
+      "variant": "default",
+      "fromSide": "right",
+      "toSide": "top",
+      "labelDy": -10
+    },
+    {
+      "id": "active-refresh-attempt",
+      "from": "active",
+      "to": "refresh-attempt",
+      "label": "401(keycloak)",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top",
+      "labelDy": -50
+    },
+    {
+      "id": "refresh-fail",
+      "from": "refresh-attempt",
+      "to": "refresh-failed",
+      "label": "refresh失敗",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 30
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "認証方式による違い",
+      "items": [
+        "ローカルHMAC/RSA/パスキーはrefresh_tokenを持たず、有効期限は固定寿命で更新されない",
+        "auth_modeがkeycloak以外なら401を受けてもリフレッシュを試みず即座に破棄する",
+        "Keycloakセッションのみrefresh_tokenを保持し401時にリアクティブなリフレッシュを試みる"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "分散ロックの競合解決フロー",
+      "items": [
+        "リフレッシュ試行時にRedisのSETNXでロックを取得できたリクエストだけが実際にKeycloakへrefresh_tokenを送る",
+        "ロックを取れなかったリクエストは待機し、先行リクエストが保存した最新のaccess tokenをそのまま再利用してactiveへ復帰する",
+        "先行リクエストのrefresh自体が失敗した場合のみ、待機側もrefresh-failed(破棄)に合流する"
+      ]
+    }
+  ]
+}

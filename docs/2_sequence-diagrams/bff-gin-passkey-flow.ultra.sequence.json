@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "パスキー登録・ログアウト・ログイン・リプレイ検知(超詳細版)",
+    "output": "bff-gin-passkey-flow.ultra.sequence.html",
+    "quality_profile": "standard",
+    "column_fit": "spread",
+    "viewBox": [980, 1080],
+    "views": [
+      { "id": "register", "label": "パスキー登録", "focus": ["browser", "frontend", "bff", "backend", "mysql"], "note": "既存ログイン済みユーザーがWebAuthn認証器を登録する" },
+      { "id": "logout", "label": "ログアウト", "focus": ["frontend", "bff"], "note": "セッションを破棄しCookieを消す" },
+      { "id": "login", "label": "パスキーのみでログイン", "focus": ["browser", "frontend", "bff", "backend", "mysql"], "note": "メールアドレス入力無しでdiscoverable credentialによりログインする" },
+      { "id": "replay", "label": "counter不正のリプレイ検知", "focus": ["frontend", "bff", "backend", "mysql"], "note": "sign_countが既知の値以下の場合はクローン認証器の疑いとして拒否する" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "WebAuthn" },
+    { "id": "frontend", "type": "frontend", "label": "Frontend", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin" },
+    { "id": "backend", "type": "backend", "label": "Backend", "sublabel": "Go" },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": "webauthn_credentials" }
+  ],
+  "segments": [
+    { "from": 150, "to": 477, "label": "パスキー登録" },
+    { "from": 487, "to": 533, "label": "ログアウト" },
+    { "from": 543, "to": 869, "label": "パスキーのみでログイン" },
+    { "from": 879, "to": 989, "label": "counter不正のリプレイ検知" }
+  ],
+  "messages": [
+    { "id": "reg-options-req", "from": "frontend", "to": "bff", "y": 160, "label": "POST /api/account/passkey/register/options", "variant": "default" },
+    { "id": "reg-options-fwd", "from": "bff", "to": "backend", "y": 188, "label": "登録オプション要求", "variant": "default" },
+    { "id": "reg-options-challenge", "from": "backend", "to": "bff", "y": 216, "label": "options(challenge)", "variant": "return" },
+    { "id": "reg-options-back", "from": "bff", "to": "frontend", "y": 244, "label": "options", "variant": "return" },
+    { "id": "reg-create", "from": "frontend", "to": "browser", "y": 272, "label": "navigator.credentials.create()", "variant": "emphasis" },
+    { "id": "reg-attestation", "from": "browser", "to": "frontend", "y": 300, "label": "attestation", "variant": "return" },
+    { "id": "reg-submit", "from": "frontend", "to": "bff", "y": 328, "label": "POST /api/account/passkey/register", "variant": "default" },
+    { "id": "reg-verify", "from": "bff", "to": "backend", "y": 356, "label": "attestation検証依頼", "variant": "security" },
+    { "id": "reg-insert", "from": "backend", "to": "mysql", "y": 384, "label": "INSERT webauthn_credentials(sign_count=0)", "variant": "default" },
+    { "id": "reg-insert-ok", "from": "mysql", "to": "backend", "y": 412, "label": "ok", "variant": "return" },
+    { "id": "reg-success-backend", "from": "backend", "to": "bff", "y": 440, "label": "登録成功", "variant": "return" },
+    { "id": "reg-success-frontend", "from": "bff", "to": "frontend", "y": 468, "label": "登録成功", "variant": "return" },
+
+    { "id": "logout-req", "from": "frontend", "to": "bff", "y": 496, "label": "POST /api/auth/logout", "variant": "default" },
+    { "id": "logout-done", "from": "bff", "to": "frontend", "y": 524, "label": "セッション破棄・Cookie削除", "variant": "return" },
+
+    { "id": "login-options-req", "from": "frontend", "to": "bff", "y": 552, "label": "GET /api/auth/passkey/login/options(メール不要)", "variant": "default" },
+    { "id": "login-options-fwd", "from": "bff", "to": "backend", "y": 580, "label": "discoverable credentialオプション要求", "variant": "default" },
+    { "id": "login-options-back", "from": "backend", "to": "bff", "y": 608, "label": "options", "variant": "return" },
+    { "id": "login-options-frontend", "from": "bff", "to": "frontend", "y": 636, "label": "options", "variant": "return" },
+    { "id": "login-get", "from": "frontend", "to": "browser", "y": 664, "label": "navigator.credentials.get()", "variant": "emphasis" },
+    { "id": "login-assertion", "from": "browser", "to": "frontend", "y": 692, "label": "assertion(counter=7)", "variant": "return" },
+    { "id": "login-submit", "from": "frontend", "to": "bff", "y": 720, "label": "POST /api/auth/passkey/login", "variant": "default" },
+    { "id": "login-verify", "from": "bff", "to": "backend", "y": 748, "label": "assertion検証依頼", "variant": "security" },
+    { "id": "login-select", "from": "backend", "to": "mysql", "y": 776, "label": "SELECT webauthn_credentials", "variant": "default" },
+    { "id": "login-credential", "from": "mysql", "to": "backend", "y": 804, "label": "credential(前回sign_count=6)", "variant": "return" },
+    { "id": "login-jwt", "from": "backend", "to": "bff", "y": 832, "label": "counter>前回値を確認しUPDATE、JWT発行", "variant": "return" },
+    { "id": "login-session", "from": "bff", "to": "frontend", "y": 860, "label": "タスク一覧へ(セッション作成 auth_mode=passkey)", "variant": "return" },
+
+    { "id": "replay-submit", "from": "frontend", "to": "bff", "y": 888, "label": "POST /api/auth/passkey/login(複製された認証器のassertion、counter=6)", "variant": "emphasis" },
+    { "id": "replay-verify", "from": "bff", "to": "backend", "y": 916, "label": "assertion検証依頼", "variant": "security" },
+    { "id": "replay-reject", "from": "backend", "to": "bff", "y": 944, "label": "counter(6)<=前回値(6) → クローン疑いで拒否", "variant": "security" },
+    { "id": "replay-final", "from": "bff", "to": "frontend", "y": 972, "label": "401 Unauthorized \"認証に失敗しました\"", "variant": "security" }
+  ],
+  "activations": [
+    { "participant": "frontend", "from": 155, "to": 864 },
+    { "participant": "bff", "from": 158, "to": 472 },
+    { "participant": "bff", "from": 491, "to": 528 },
+    { "participant": "bff", "from": 547, "to": 864 },
+    { "participant": "bff", "from": 883, "to": 976 },
+    { "participant": "backend", "from": 183, "to": 444 },
+    { "participant": "backend", "from": 575, "to": 836 },
+    { "participant": "backend", "from": 911, "to": 948 },
+    { "participant": "mysql", "from": 379, "to": 416 },
+    { "participant": "mysql", "from": 771, "to": 808 },
+    { "participant": "browser", "from": 267, "to": 304 },
+    { "participant": "browser", "from": 659, "to": 696 }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Discoverable Credentialとbffの仲介",
+      "items": [
+        "パスキーログインはメールアドレス入力が不要",
+        "attestation/assertionの検証はbackendが行いbffは仲介、JWTはbffで終端"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "sign_countによるクローン検知",
+      "items": [
+        "認証器は署名のたびにcounterを増分し、backendは前回値以下のcounterを拒否する",
+        "同じ認証器が複製・共有された場合の再生攻撃をこの比較だけで検知できる"
+      ]
+    }
+  ]
+}

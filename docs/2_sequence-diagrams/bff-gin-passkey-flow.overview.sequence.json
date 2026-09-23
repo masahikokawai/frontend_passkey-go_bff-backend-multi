@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "パスキーログイン(概要版): メール入力なしでログインする",
+    "output": "bff-gin-passkey-flow.overview.sequence.html",
+    "viewBox": [860, 500],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "login", "label": "パスキーのみでログイン", "focus": ["browser", "frontend", "bff", "backend", "mysql"], "note": "メールアドレス入力無しでdiscoverable credentialによりログインする" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "external", "label": "Browser", "sublabel": "WebAuthn" },
+    { "id": "frontend", "type": "frontend", "label": "Frontend", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin" },
+    { "id": "backend", "type": "backend", "label": "Backend", "sublabel": "Go" },
+    { "id": "mysql", "type": "database", "label": "MySQL", "sublabel": "webauthn_credentials" }
+  ],
+  "messages": [
+    { "id": "login-options-req", "from": "frontend", "to": "bff", "y": 165, "label": "GET /api/auth/passkey/login/options(メール不要)", "variant": "default" },
+    { "id": "login-get", "from": "frontend", "to": "browser", "y": 193, "label": "navigator.credentials.get()", "variant": "emphasis" },
+    { "id": "login-assertion", "from": "browser", "to": "frontend", "y": 221, "label": "assertion", "variant": "return" },
+    { "id": "login-submit", "from": "frontend", "to": "bff", "y": 249, "label": "POST /api/auth/passkey/login", "variant": "default" },
+    { "id": "login-verify", "from": "bff", "to": "backend", "y": 277, "label": "assertion検証依頼", "variant": "security" },
+    { "id": "login-select", "from": "backend", "to": "mysql", "y": 305, "label": "SELECT webauthn_credentials", "variant": "default" },
+    { "id": "login-jwt", "from": "backend", "to": "bff", "y": 333, "label": "検証OK、JWT発行", "variant": "return" },
+    { "id": "login-session", "from": "bff", "to": "frontend", "y": 361, "label": "セッション作成(auth_mode=passkey)", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "bff", "from": 160, "to": 365, "type": "backend" },
+    { "participant": "backend", "from": 272, "to": 337, "type": "backend" },
+    { "participant": "mysql", "from": 300, "to": 310, "type": "database" },
+    { "participant": "browser", "from": 188, "to": 226, "type": "external" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Discoverable Credential",
+      "items": [
+        "パスキーログインはメールアドレス入力が不要",
+        "ブラウザが登録済みの認証器を提示する"
+      ]
+    }
+  ]
+}

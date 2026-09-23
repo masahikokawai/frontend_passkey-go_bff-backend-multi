@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "ログイン(概要版): ローカルHMACの主経路",
+    "output": "bff-gin-login-flows.overview.sequence.html",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [860, 500],
+    "views": [
+      { "id": "local-hmac", "label": "ローカルHMAC", "focus": ["browser", "bff", "backend", "redis"], "note": "既定のログイン方式、bffが共有シークレットでJWTに自己署名する" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "frontend", "label": "Browser", "sublabel": "React SPA" },
+    { "id": "bff", "type": "backend", "label": "bff", "sublabel": "Go/Gin :8080" },
+    { "id": "backend", "type": "backend", "label": "backend", "sublabel": "Go、MySQLの正本 :8090" },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "セッションストア :16379" }
+  ],
+  "messages": [
+    { "id": "hmac-login", "from": "browser", "to": "bff", "y": 165, "label": "POST /api/auth/login(email/password)", "variant": "emphasis" },
+    { "id": "hmac-verify", "from": "bff", "to": "backend", "y": 193, "label": "POST /internal/v1/auth/verify-local-password", "variant": "default" },
+    { "id": "hmac-verify-ok", "from": "backend", "to": "bff", "y": 221, "label": "user_passwords照合 → OK(user_id/name/roles)", "variant": "return" },
+    { "id": "hmac-session", "from": "bff", "to": "redis", "y": 249, "label": "session:{id}を保存(auth_mode=local_hmac、HS256 JWT)", "variant": "default" },
+    { "id": "hmac-cookie", "from": "bff", "to": "browser", "y": 277, "label": "Set-Cookie: session_id(HttpOnly)+CSRFトークン", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "bff", "from": 160, "to": 281, "type": "backend" },
+    { "participant": "backend", "from": 188, "to": 225, "type": "backend" },
+    { "participant": "redis", "from": 244, "to": 254, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "BFFパターンの核心",
+      "items": [
+        "ブラウザが持つのはHttpOnly Cookie+CSRFトークンのみ、JWTは一切渡らない",
+        "bffはMySQLに直接アクセスせず、パスワード照合をbackendへ委譲する"
+      ]
+    }
+  ]
+}
