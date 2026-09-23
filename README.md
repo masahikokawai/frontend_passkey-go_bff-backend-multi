@@ -53,7 +53,7 @@ MySQL 8.0
 - **v1 (REST)**: N+1 クエリの実装「旧」
 - **v2 (gRPC)**: `Preload` で N+1 を解消し、cursor ページングの実装「新」
 - backend が `backend.task-protocol` フラグで v1/v2 を切り替える
-  - さらに `backend.task-language` フラグで Go/Rust/Scala(http4s)/Scala(Pekko)/Rails/JavaScript/TypeScript の7言語実装を切り替えられる(多言語比較、後述)
+  - さらに `backend.task-language` フラグで Go/Rust/Scala(http4s)/Scala(Pekko)/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell の14言語実装を切り替えられる(多言語比較、後述)
 - frontendは`features/tasks/`のみTypeScript化
   - `frontend.tasks-ts-rewrite` フラグで新旧コンポーネントを切り替える
 - 認証はKeycloak(OIDC)だけでない
@@ -84,7 +84,7 @@ KeycloakのAuthorization Code Flow はブラウザを直接 Keycloak へリダ�
 | admin/go | 8091 | http://localhost:8091 | ネイティブ(`go run`) Basic Auth必須 |
 | admin/rails | 8092 | http://localhost:8092 | ネイティブ(`rails s -p 8092`) Basic Auth必須 |
 
-多言語backend(Rust/Scala×2/Rails)・ゲートウェイ・frontend-rails・bff-railsは既定では未起動の追加構成のため、上記一覧には含めていない
+多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)・ゲートウェイ・frontend-rails・bff-railsは既定では未起動の追加構成のため、上記一覧には含めていない
 ポート・起動コマンドはそれぞれ「[確認手順](#確認手順)」の該当節を参照
 **ログインURL(比較用に3方式、詳細は後述「ローカル(非Keycloak)認証」参照)**:
 
@@ -344,7 +344,7 @@ MySQLの`feature_flags`テーブルが正本で、admin/go・admin/rails(管理�
 | `frontend.task-create-ux` | bff | 同上 | Task登録UXのinline/modal/page切り替え(3値) |
 | `bff.tasks-backend-v2` | bff | 渡さない(BFF内部限定) | 非推奨 `backend.task-protocol`に統合済み(履歴保持のため画面には残置) |
 | `backend.task-protocol` | backend | 該当なし | bffがbackendへのリクエストをREST/gRPCどちらで送るか |
-| `backend.task-language` | backend | 該当なし | Task CRUDの実装言語(go/rust/scala-http4s/scala-pekko/rails/javascript/typescript)切り替え |
+| `backend.task-language` | backend | 該当なし | Task CRUDの実装言語(go/rust/scala-http4s/scala-pekko/rails/javascript/typescript/cpp/c/java/kotlin/python/elixir/haskell)切り替え |
 | `backend.external-tasks-pagination-v2` | backend | 該当なし(外部APIクライアント向け) | 外部公開APIのoffset/cursorページング切り替え |
 | `backend.external-tasks-orm` | backend | 該当なし | 外部公開APIのTask一覧取得のORM実装(gorm/bob)切り替え |
 | `frontend-rails.oidc-gem` | frontend-rails/without-bff | 該当なし | 使用するOIDC gem(omniauth-openid-connect/openid_connect)切り替え |
@@ -468,9 +468,7 @@ docker compose exec mysql mysql -uroot -e "SHOW DATABASES;"
 
 ```sh
 cd backend
-
-# seedも含まれる
-go run ./cmd/migrate up
+go run ./cmd/migrate up   # seedも含まれる
 ```
 
 - `DB_DSN`は未設定でも既定値(`root@tcp(127.0.0.1:13306)/bff_gin_development?parseTime=true`)が使われる
@@ -483,9 +481,6 @@ go run ./cmd/migrate up
 cd backend
 go run ./cmd/server
 # REST v1: http://localhost:8090 / gRPC v2: localhost:9090 / 外部公開API(内部アドレス): http://localhost:8097
-
-# 詳細なログ(GORMが発行したSQLを含む)を見たい場合:
-LOG_LEVEL=debug go run ./cmd/server
 ```
 
 `DB_DSN`/`KEYCLOAK_ISSUER`/`EXPECTED_AUDIENCE`等はdocker-compose.yamlの構成に対応する既定値が入っているため、通常は環境変数の指定なしでそのまま起動できる
@@ -493,9 +488,9 @@ LOG_LEVEL=debug go run ./cmd/server
 
 起動に失敗する場合は、マイグレーション未適用(手順4を先に実行する)か、対象ポート(8090/9090/8097)が別プロセスに使われていないかを確認する(`lsof -iTCP:<port> -sTCP:LISTEN -P`)
 
-#### 5.1 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript)を起動する(追加構成)
+#### 5.1 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)を起動する(追加構成)
 
-Task CRUD(内部REST/gRPC)をGo以外の6言語でも実装している
+Task CRUD(内部REST/gRPC/外部公開API)をGo以外の13言語でも実装している
 `backend.task-language`フラグで切り替える際に必要
 
 ```sh
@@ -510,25 +505,71 @@ cd backend-scala-pekko && sbt run
 
 # Rails(REST:8096 / 外部:8101 / gRPC:9096、3プロセス構成)
 cd backend-rails
-# 初回のみ
-bundle install
-# REST :8096
-bundle exec puma -C config/puma.rb
-# gRPC :9096(別プロセス)
-bundle exec bin/grpc_server
-# 外部公開API :8101(こちらも別プロセス)
-bundle exec puma -C config/puma_external.rb
+bundle install   # 初回のみ
+bundle exec puma -C config/puma.rb            # REST :8096
+bundle exec bin/grpc_server                     # gRPC :9096(別プロセス)
+bundle exec puma -C config/puma_external.rb    # 外部公開API :8101(こちらも別プロセス)
 
 # JavaScript(REST:8103 gRPC:9097 外部:8107)
 cd backend-js-express && npm install && npm start
 
 # TypeScript(REST:8104 gRPC:9098 外部:8108)
 cd backend-js-ts-express && npm install && npm start
+
+# C++(REST:8105 gRPC:9099 外部:8109)
+cd backend-cpp
+brew install cmake boost mysql-client nlohmann-json googletest protobuf grpc   # 初回のみ
+cmake -S . -B build && cmake --build build -j 4
+./build/backend_cpp_server
+
+# C(REST:8106 gRPC:9100 外部:8110)
+cd backend-c
+brew install cmake cjson mysql-client protobuf grpc protobuf-c openssl@3   # 初回のみ
+cmake -S . -B build && cmake --build build -j 4
+./build/backend_c_server
+
+# Java(REST:8111 gRPC:9101 外部:8112)
+cd backend-java
+brew install openjdk gradle   # 初回のみ
+export JAVA_HOME=/opt/homebrew/opt/openjdk
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew run
+
+# Kotlin(REST:8113 gRPC:9102 外部:8114)
+cd backend-kotlin
+export JAVA_HOME=/opt/homebrew/opt/openjdk
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew run
+
+# Python(REST:8115 gRPC:9103 外部:8116)
+cd backend-python
+brew install python@3.12   # 初回のみ
+python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+python -m app.main
+
+# Elixir(REST:8117 gRPC:9104 外部:8118)
+cd backend-elixir
+brew install elixir   # Erlang/OTPも依存関係として自動的にインストールされる、初回のみ
+mix deps.get
+mix run --no-halt
+
+# Haskell(REST:8119 gRPC:9105 外部:8120)
+cd backend-haskell
+brew install ghc cabal-install pcre snappy   # 初回のみ
+cabal build
+cabal run exe:backend-haskell-server
 ```
 
-Rust/Scala×2/Rails/JavaScript/TypeScriptはいずれも独自のマイグレーションを持たない
-スキーマの正本は`backend/migrations`のみで、他6言語は同じMySQL(`bff_gin_development`)を読み書きするだけ
+Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskellはいずれも独自のマイグレーションを持たない
+スキーマの正本は`backend/migrations`のみで、他13言語は同じMySQL(`bff_gin_development`)を読み書きするだけ
 Railsだけ`GRPC::RpcServer`のブロッキングイベントループがPumaと同居できないため3プロセス構成になる
+C++のアーキテクチャ選定(Boost.Asio/Beast + gRPC C++ Callback API + libmysqlclient、検討した他候補・薄れる学習効果の記録含む)は`backend-cpp/README.md`の「アーキテクチャ選定」節を参照
+Cのアーキテクチャ選定(CivetWeb + gRPC Core C API + protobuf-c + libmysqlclient、JWT/JWKS認証はOpenSSLのプリミティブを直接使った自前実装)は`backend-c/README.md`の「アーキテクチャ選定」節を参照
+Javaのアーキテクチャ選定(Javalin + 生JDBC + HikariCP + grpc-java、Virtual Threadsで並行処理の安全性を自動化)は`backend-java/README.md`の「アーキテクチャ選定」節を参照
+Kotlinのアーキテクチャ選定(Ktor + 生JDBC + grpc-kotlin、`Dispatchers.IO`への明示的な切り替えで並行処理の安全性を型システムと明示的なディスパッチャ選択で保証)は`backend-kotlin/README.md`の「アーキテクチャ選定」節を参照
+Pythonのアーキテクチャ選定(FastAPI + aiomysql + grpc.aio、ドライバ自体が非同期ネイティブなため明示的な隔離が不要)は`backend-python/README.md`の「アーキテクチャ選定」節を参照
+Elixirのアーキテクチャ選定(Plug + Cowboy + Ecto + elixir-grpc、GenServer/Supervisorとlet it crash、BEAMのプリエンプティブなスケジューラ)は`backend-elixir/README.md`の「アーキテクチャ選定」節を参照
+Haskellのアーキテクチャ選定(Servant + mysql-haskell + grapesy、型駆動API設計とSTMによる並行処理)は`backend-haskell/README.md`の「アーキテクチャ選定」節を参照
 
 ### 6. bffを起動する
 
@@ -545,8 +586,7 @@ go run ./cmd/server
 
 ```sh
 cd frontend
-# 初回のみ
-npm install
+npm install   # 初回のみ
 npm run dev
 # http://localhost:5173
 ```
@@ -556,8 +596,7 @@ npm run dev
 ```sh
 # Rails版(:8092)
 cd admin/rails
-# 初回のみ
-bundle install
+bundle install   # 初回のみ
 bin/rails server -p 8092
 
 # Go+Gin版(:8091)
@@ -588,8 +627,7 @@ cd gateway/nginx
 ```sh
 # frontend-rails/without-bff(:5174、bffを使わずRails自身がKeycloakと直接OIDCを行う)
 cd frontend-rails/without-bff
-# 初回のみ
-bundle install
+bundle install   # 初回のみ
 bin/rails server -p 5174
 
 # bff-rails(:8102)+ frontend-rails/with-bff(:5175、React+bffと同じ役割分担をRailsで再現)
@@ -767,7 +805,7 @@ TS/JS実装(`tasks-ts-rewrite`)とは独立した軸
 - 作成したラベルがタスクのラベル選択(Select2)に表示され、タスクに紐付けられる
 - `[SECURITY]` 使用中(いずれかのタスクに紐付いている)のラベルを削除しようとすると422エラーで拒否される
 - `[SECURITY]` タスクのラベル選択で同じラベルを重複して送信しても(通常のUI操作では起きないはずだが)、タスク作成/更新が500エラーにならない(直接APIを叩いた場合の防御確認
-  Go/Rust/Scala(http4s)/Scala(Pekko)/Railsいずれも重複を排除して処理する)
+  14言語いずれも重複を排除して処理する)
 
 #### Feature Flagの切り替え(実際に挙動が変わることの確認)
 
@@ -860,20 +898,27 @@ curl -sI http://localhost:8080/api/me | grep -iE "cache-control|x-content-type|x
 - `[SECURITY]` 自分がログインしていない他ユーザーのタスクIDを直接指定してGET/PATCH/DELETEしても404になる(IDOR対策
   存在しないID、例: `999999`で確認できる)
 
-#### backend多言語比較(Go / Rust / Scala×2 / Rails / JavaScript / TypeScript)
+#### backend多言語比較(Go / Rust / Scala×2 / Rails / JavaScript / TypeScript / C++ / C / Java / Kotlin / Python / Elixir / Haskell)
 
-Architecture Delta(コア構成→多言語backend込み構成の差分レシート、Rust/Scala×2/Rails/JavaScript/TypeScriptの6言語分): [`docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html`](docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html)(コンポーネント追加6・変更1、接続追加6・変更1・経路変更1)
+Architecture Delta(コア構成→多言語backend込み構成の差分レシート、Rust/Scala×2/Rails/JavaScript/TypeScriptの6言語分、C++・C・Java・Kotlin・Python・Elixir・Haskell追加前のスナップショット): [`docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html`](docs/5_architecture-delta/bff-gin-core-vs-multilang.architecture-delta.html)(コンポーネント追加6・変更1、接続追加6・変更1・経路変更1)
 多言語backend込みの単体アーキテクチャ図: [`docs/5_architecture-delta/bff-gin-system-with-multilang.architecture.html`](docs/5_architecture-delta/bff-gin-system-with-multilang.architecture.html)
 
-Task CRUD(内部REST/gRPC)を7言語で実装
+Task CRUD(内部REST/gRPC)を14言語で実装
 `backend.task-language` / `backend.task-protocol`で切り替え
 JavaScript(:8103/:9097/:8107)・TypeScript(:8104/:9098/:8108)は型の有無だけを変数にした一対の実装で、backend-js-ts-expressはbackend-js-expressの構造をそのまま型付けした移植
+C++(:8105/:9099/:8109)はBoost.Asio/Beast + gRPC C++(Callback API) + libmysqlclientで実装、アーキテクチャ選定の詳細は`backend-cpp/README.md`参照
+C(REST:8106 gRPC:9100 外部:8110)はCivetWeb + gRPC Core C API + protobuf-c + libmysqlclientで実装、JWT/JWKS認証はOpenSSLのプリミティブを直接使った自前実装、アーキテクチャ選定の詳細は`backend-c/README.md`参照
+Java(REST:8111 gRPC:9101 外部:8112)はJavalin + 生JDBC + HikariCP + grpc-javaで実装、Virtual Threadsで並行処理の安全性を自動化、アーキテクチャ選定の詳細は`backend-java/README.md`参照
+Kotlin(REST:8113 gRPC:9102 外部:8114)はKtor + 生JDBC + grpc-kotlinで実装、`Dispatchers.IO`への明示的な切り替えで並行処理の安全性を型システムと明示的なディスパッチャ選択で保証(Javaとの意図的な対比)、アーキテクチャ選定の詳細は`backend-kotlin/README.md`参照
+Python(REST:8115 gRPC:9103 外部:8116)はFastAPI + aiomysql + grpc.aioで実装、ドライバ自体が非同期ネイティブなため明示的な隔離が不要(C++の手動隔離・Kotlinの`Dispatchers.IO`との3段階比較)、アーキテクチャ選定の詳細は`backend-python/README.md`参照
+Elixir(REST:8117 gRPC:9104 外部:8118)はPlug + Cowboy + Ecto + elixir-grpcで実装、GenServer/Supervisorによるlet it crashとBEAMのプリエンプティブなスケジューラが特徴、アーキテクチャ選定の詳細は`backend-elixir/README.md`参照
+Haskell(REST:8119 gRPC:9105 外部:8120)はServant + mysql-haskell + grapesyで実装、型駆動API設計とSTM(`TVar`)による並行処理が特徴、アーキテクチャ選定の詳細は`backend-haskell/README.md`参照
 
-前提: Goのbackendが起動済みでマイグレーション`000016`まで適用済みであること
-他6言語は同じMySQLを読み書きするだけで、独自のマイグレーションは持たない
+前提: Goのbackendが起動済みでマイグレーション`000019`まで適用済みであること
+他13言語は同じMySQLを読み書きするだけで、独自のマイグレーションは持たない
 
 ```sh
-# backend.task-languageをgo→rust→scala-http4s→scala-pekko→rails→javascript→typescriptの順に切り替える例
+# backend.task-languageをgo→rust→scala-http4s→scala-pekko→rails→javascript→typescript→cpp→c→java→kotlin→python→elixir→haskellの順に切り替える例
 docker compose exec mysql mysql -uroot bff_gin_development -e \
   "UPDATE feature_flags SET default_variation='rust' WHERE flag_key='backend.task-language';"
 # admin/go(http://localhost:8091)のFeature Flag編集画面から変更しても同じ
@@ -884,23 +929,24 @@ docker compose exec mysql mysql -uroot bff_gin_development -e \
   詳細は[各種ログの出力先](#各種ログの出力先)参照)の両方で確認できる
   各言語は互いに重複しないポートを専有しているため、対象言語プロセスが起動していなければ接続自体が失敗する(他の言語が代わりに答えることはない)
 - `backend.task-language`を切り替え、そのつどfrontend(http://localhost:5173)からタスク一覧・作成・更新・削除を実際に操作し、どの言語を選んでも同じ形状で動くことを確認する(反映まで最大10秒ほどのポーリング待ちがある)
-- `backend.task-protocol`をrest⇄grpcに切り替えても、7言語いずれでも同様に動く(最低限Go以外の1〜2言語で両プロトコルを確認すれば十分)
+- `backend.task-protocol`をrest⇄grpcに切り替えても、14言語いずれでも同様に動く(最低限Go以外の1〜2言語で両プロトコルを確認すれば十分)
 - `[SECURITY]` 他人のタスクIDを指定した削除で、Scala(http4s)・Scala(Pekko)ともラベル関連付けだけが消えてしまわないこと(所有者チェック前にラベル関連を無条件削除するIDOR類似脆弱性の回帰確認
   存在しないtask idや他ユーザーのtask idでDELETEを試し、404になり自分のタスクのラベルも消えていないことを確認する)
-- `[SECURITY]` 7言語全てのタスク削除処理が、tasksとtask_labelsの両方の削除を1つのDBトランザクションで包んでいる(Go: `db.Transaction(...)`/GORM、Rust: `pool.begin()`→両方のDELETE→`tx.commit()`/sqlx、Scala(http4s): `.transact(xa)`/doobie、Scala(Pekko): `.transactionally`/Slick、Rails: `has_many :task_labels, dependent: :destroy`によりActiveRecordが自動でトランザクション化、JavaScript/TypeScript: `beginTransaction`/`commit`/`rollback`を明示使用)
+- `[SECURITY]` 14言語全てのタスク削除処理が、tasksとtask_labelsの両方の削除を1つのDBトランザクションで包んでいる(Go: `db.Transaction(...)`/GORM、Rust: `pool.begin()`→両方のDELETE→`tx.commit()`/sqlx、Scala(http4s): `.transact(xa)`/doobie、Scala(Pekko): `.transactionally`/Slick、Rails: `has_many :task_labels, dependent: :destroy`によりActiveRecordが自動でトランザクション化、JavaScript/TypeScript: `beginTransaction`/`commit`/`rollback`を明示使用、C++/C: `libmysqlclient`の`mysql_autocommit(0)`→両方のDELETE→`mysql_commit()`/失敗時`mysql_rollback()`を明示使用、Java/Kotlin: JDBCの`Connection.setAutoCommit(false)`→両方のDELETE→`commit()`/失敗時`rollback()`を明示使用(Kotlinは`withContext(Dispatchers.IO)`内で実行)、Python: `aiomysql`の`conn.begin()`→両方のDELETE→`commit()`/失敗時`rollback()`を明示使用、Elixir: `Ecto.Multi`で両方のDELETEを合成し`Repo.transaction()`で実行、Haskell: `mysql-haskell`の`withTransaction`で両方のDELETEを包む)
   ラベル付きタスクを削除した後、`SELECT * FROM task_labels WHERE task_id = <削除したタスクのid>;`が0件になることで確認できる(`task_labels`に外部キー制約が無いため、トランザクション無しだと孤立行が残り得る)
   Rustはこの回帰テスト`delete_task_removes_task_labels_rows_known_bug_in_rust`(`backend-rust/tests/integration_test.rs`)を持つ
-- `[SECURITY]` 期限(`finished_on`)を「今日の日付」に設定してタスクを作成すると、7言語のどのbackendでも一貫して受理される(「過去日付」判定は全言語UTC基準に統一されている
+- `[SECURITY]` 期限(`finished_on`)を「今日の日付」に設定してタスクを作成すると、14言語のどのbackendでも一貫して受理される(「過去日付」判定は全言語UTC基準に統一されている
   日本時間の夜遅く〜深夜にかけて確認する価値がある)
 - 確認後、`backend.task-language`を`go`・`backend.task-protocol`を`rest`に戻す(既定値)
 
 #### 外部公開APIゲートウェイ(Go製 / nginx製)
 
 :8081を占有し、`backend.task-language`に応じて外部公開APIを振り分ける(常にGoへフォールバック)
+外部公開APIを実装済みの14言語(Go/Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)全てが対象
 
 - 8.1節の手順でGo製またはnginx製ゲートウェイを起動する(同時起動不可)
 - Keycloakでexternal-api-clientのトークンを取得し、:8081(ゲートウェイ)経由で`/external/v1/tasks`が呼べる(手順は次の「外部公開API」節と同じcurlで、ポートだけ:8081のまま)
-- `backend.task-language`をrust等に切り替えても、外部公開APIは引き続き200を返す(Rust/Scala/Rails側にも外部公開APIが実装済みのため、実際にその言語が応答する
+- `backend.task-language`をrust等に切り替えても、外部公開APIは引き続き200を返す(Go以外の13言語いずれも外部公開APIが実装済みのため、実際にその言語が応答する
   ゲートウェイ自身のログに振り分け結果(`resolved_language`・`path`)が出る)
 - `[SECURITY]` swagger-ui(http://localhost:18080)の「Try it out」から、ゲートウェイ経由(:8081)で`/external/v1/tasks`を実際に実ブラウザから叩ける(両ゲートウェイに`GATEWAY_ALLOWED_ORIGIN`によるCORS設定がある)
 - 確認後、`backend.task-language`を`go`に戻し、ゲートウェイプロセスを停止する
@@ -941,7 +987,7 @@ docker compose exec mysql mysql -uroot bff_gin_development -e \
 - backend・bffのログにfeature flag評価ログ・振り分けログが出ている
 - `LOG_LEVEL=debug`で起動すると、backendにGORMが発行したSQLログが追加で出る
 - ブラウザの開発者ツール(コンソール)に、タスク一覧の新旧切り替えログ(`console.info`)が出ている
-- 多言語backend(Rust/Scala×2/Rails)も、REST/外部公開API/gRPCそれぞれにリクエスト単位のログが出ている(形式・出力先は[各種ログの出力先](#各種ログの出力先)参照)
+- 多言語backend(Go以外の13言語)も、REST/外部公開API/gRPCいずれもリクエスト単位のログが出ている(形式・出力先は[各種ログの出力先](#各種ログの出力先)参照)
 
 #### Redisの中身
 
@@ -1020,35 +1066,42 @@ docker compose exec mysql mysql -uroot bff_gin_development -e \
 ## ディレクトリ構成
 
 ```
-bff-gin/
+frontend_passkey-go_bff-backend-multi/
   CONTRACT.md              # 設計の正本
- backend/ # REST v1 + gRPC v2(Go)、private network限定 feature_flagsテーブルの正本(マイグレーション)もここ
- backend-rust/ # Task CRUD Rust実装(追加構成) REST:8093 gRPC:9093 外部:8098
- backend-scala-http4s/ # Task CRUD Scala(http4s)実装(追加構成) REST:8094 gRPC:9094 外部:8099
- backend-scala-pekko/ # Task CRUD Scala(Pekko)実装(追加構成) REST:8095 gRPC:9095 外部:8100
- backend-rails/ # Task CRUD Rails実装(追加構成) REST:8096 外部:8101 gRPC:9096(3プロセス)
- backend-js-express/ # Task CRUD JavaScript実装(追加構成) REST:8103 gRPC:9097 外部:8107
- backend-js-ts-express/ # Task CRUD TypeScript実装(追加構成、backend-js-expressの型付き移植) REST:8104 gRPC:9098 外部:8108
+  backend/                 # REST v1 + gRPC v2(Go)、private network限定 feature_flagsテーブルの正本(マイグレーション)もここ
+  backend-rust/            # Task CRUD Rust実装(追加構成) REST:8093 gRPC:9093 外部:8098
+  backend-scala-http4s/    # Task CRUD Scala(http4s)実装(追加構成) REST:8094 gRPC:9094 外部:8099
+  backend-scala-pekko/     # Task CRUD Scala(Pekko)実装(追加構成) REST:8095 gRPC:9095 外部:8100
+  backend-rails/           # Task CRUD Rails実装(追加構成) REST:8096 外部:8101 gRPC:9096(3プロセス)
+  backend-js-express/      # Task CRUD JavaScript実装(追加構成) REST:8103 gRPC:9097 外部:8107
+  backend-js-ts-express/   # Task CRUD TypeScript実装(追加構成、backend-js-expressの型付き移植) REST:8104 gRPC:9098 外部:8108
+  backend-cpp/             # Task CRUD C++実装(追加構成、Boost.Asio/Beast + gRPC C++ + libmysqlclient) REST:8105 gRPC:9099 外部:8109
+  backend-c/               # Task CRUD C実装(追加構成、CivetWeb + gRPC Core C API + protobuf-c + libmysqlclient) REST:8106 gRPC:9100 外部:8110
+  backend-java/            # Task CRUD Java実装(追加構成、Javalin + 生JDBC + HikariCP + grpc-java + Virtual Threads) REST:8111 gRPC:9101 外部:8112
+  backend-kotlin/          # Task CRUD Kotlin実装(追加構成、Ktor + 生JDBC(Dispatchers.IO) + grpc-kotlin) REST:8113 gRPC:9102 外部:8114
+  backend-python/          # Task CRUD Python実装(追加構成、FastAPI + aiomysql + grpc.aio) REST:8115 gRPC:9103 外部:8116
+  backend-elixir/          # Task CRUD Elixir実装(追加構成、Plug + Cowboy + Ecto + elixir-grpc + GenServer/Supervisor) REST:8117 gRPC:9104 外部:8118
+  backend-haskell/         # Task CRUD Haskell実装(追加構成、Servant + mysql-haskell + grapesy + STM) REST:8119 gRPC:9105 外部:8120
   bff/                     # OIDCクライアント・Redisセッション・Feature Flag(HTTP retriever)・プロキシ(Go)
- bff-rails/ # bffのRails版(追加構成) :8102
- frontend/ # React(Vite) features/tasksのみTypeScript
+  bff-rails/               # bffのRails版(追加構成) :8102
+  frontend/                # React(Vite) features/tasksのみTypeScript
   frontend-rails/
- without-bff/ # bffを使わずRails自身がKeycloakと直接OIDCを行う比較実装(追加構成) :5174
- with-bff/ # bff-railsと組み合わせて使う比較実装(追加構成) :5175
+    without-bff/           # bffを使わずRails自身がKeycloakと直接OIDCを行う比較実装(追加構成) :5174
+    with-bff/              # bff-railsと組み合わせて使う比較実装(追加構成) :5175
   admin/
- go/ # Feature Flag管理画面+ユーザー管理画面(Go+Gin+html/template、Bootstrap) :8091
- rails/ # 同上のRails実装(比較用) :8092 goと同じMySQLテーブル・backend APIを操作する
+    go/                    # Feature Flag管理画面+ユーザー管理画面(Go+Gin+html/template、Bootstrap) :8091
+    rails/                 # 同上のRails実装(比較用) :8092 goと同じMySQLテーブル・backend APIを操作する
   gateway/
- go/ # 外部公開APIゲートウェイ Go実装(追加構成) :8081
- nginx/ # 同上のnginx実装(追加構成) :8081(go版と排他)
+    go/                    # 外部公開APIゲートウェイ Go実装(追加構成) :8081
+    nginx/                 # 同上のnginx実装(追加構成) :8081(go版と排他)
   e2e/                     # playwright/ cypress/ selenium/ chromedp/ go-rod/ playwright-go/(計6フレームワーク)
- docs/ # C4図・ER図・シーケンス図(PlantUMLソース+PNG) _old/は過去バージョンのバックアップ
+  docs/                    # C4図・ER図・シーケンス図(PlantUMLソース+PNG) _old/は過去バージョンのバックアップ
   docker-compose.yaml
 ```
 
 ## 各種ログの出力先
 
-「言語によってログの有無・形式が異なる」ことを踏まえた一覧(CONTRACT.mdセクション20.10参照)
+「言語によってログの有無・形式が異なる」ことを踏まえた一覧(CONTRACT.mdセクション20.10・25.7参照)
 ファイル出力のものは実際の相対パスまで明記する
 
 | 対象 | 出力先 | 形式 |
@@ -1060,6 +1113,13 @@ bff-gin/
 | backend-rust | 標準出力(ターミナル) | key=value形式(`tracing`) |
 | backend-js-express | 標準出力(ターミナル) | key=value形式 |
 | backend-js-ts-express | 標準出力(ターミナル) | key=value形式(backend-js-expressと同一形式) |
+| backend-cpp | 標準出力(ターミナル) | key=value形式(REST/外部API/gRPCとも実際のステータスコードを記録) |
+| backend-c | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`printf`)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
+| backend-java | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`log.info`経由)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
+| backend-kotlin | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`log.info`経由)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
+| backend-python | 標準出力(ターミナル) | REST/外部API/gRPCとも`logging`モジュール経由で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
+| backend-elixir | 標準出力(ターミナル) | REST/外部API/gRPCとも`Logger.info`によるkey=value形式で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
+| backend-haskell | 標準出力(ターミナル) | REST/外部API/gRPCともkey=value形式(`putStrLn`経由)で実際のステータスコードを記録、`LOG_LEVEL`(既定`info`)対応 |
 | backend-scala-http4s | 標準出力(ターミナル) | logbackのデフォルト形式(設定ファイル無し、DEBUGレベル) |
 | backend-scala-pekko | 標準出力(ターミナル) | logbackのデフォルト形式(設定ファイル無し、DEBUGレベル) |
 | backend-rails | ファイル: `backend-rails/log/development.log`(test実行時は`log/test.log`) | Rails標準ログ形式(REST/外部公開API) gRPC(`bin/grpc_server`)は独自のkey=value形式で同じファイルへ追記 |
@@ -1068,13 +1128,14 @@ bff-gin/
 | frontend-rails/with-bff | ファイル: `frontend-rails/with-bff/log/development.log`(test実行時は`log/test.log`) | Rails標準ログ形式 |
 | bff-rails | ファイル: `bff-rails/log/development.log`(test実行時は`log/test.log`) | Rails標準ログ形式 |
 | gateway/nginx | ファイル: `gateway/nginx/logs/access.log`・`logs/error.log` | nginx標準形式 |
+| gateway/nginx(サイドカー) | 標準出力(ターミナル) | JSON(`log/slog`、flagポーリング・upstream.conf書き換え・reloadのイベントログ) |
 
 いずれもファイル出力のもの(Rails各アプリ・nginx)以外は、ターミナルを閉じる/プロセスを止めるとログも消える
 
-### backend多言語比較: リクエスト単位のログの精度(CONTRACT.mdセクション20.10・20.11)
+### backend多言語比較: リクエスト単位のログの精度(CONTRACT.mdセクション20.10・20.11・25.7、5言語構成時点の記録+9言語追加分)
 
-REST・外部公開APIは7言語とも正確(外側のHTTPステータスがそのまま実際のステータスのため)
-gRPCは「外側のHTTPステータスが常に200固定」という性質上工夫が必要だが、7言語全てが実際のステータスコードまで正確に記録する
+REST・外部公開API・gRPCとも、14言語全てがリクエスト単位のログを持ち、実際のステータスコードまで正確に記録する(gRPCは「外側のHTTPステータスが常に200固定」という性質上、ハンドラの型付き戻り値/例外を直接見る実装が必要になる)
+C/Java/Kotlin/Python/Elixir/Haskellの6言語は`LOG_LEVEL`環境変数(既定`info`)にも対応しており、`debug`指定時は認証成功後のuser_id・クエリパラメータ・JWKSキャッシュ更新等の詳細ログも追加で出力される
 
 | 言語 | 内部REST/外部公開API | gRPC: ログの有無 | gRPC: 実際のステータスコードまで正確か | 実装方法(gRPC) |
 |---|---|---|---|---|
@@ -1085,6 +1146,13 @@ gRPCは「外側のHTTPステータスが常に200固定」という性質上工
 | Rails | ✅ 正確(Rails標準ログ) | ✅ あり | ✅ 正確(`GRPC::BadStatus#code`) | `GRPC::BadStatus#code`を直接記録 |
 | JavaScript | ✅ 正確 | ✅ あり | ✅ 正確(`err.code`をハンドラから直接受け取る) | `withLogging`デコレータ(gRPCハンドラを直接ラップ) |
 | TypeScript | ✅ 正確 | ✅ あり | ✅ 正確(`err.code`をハンドラから直接受け取る) | `withLogging`デコレータ(backend-js-expressと同一パターン) |
+| C++ | ✅ 正確 | ✅ あり | ✅ 正確(`status.error_code()`) | サービスメソッド内で直接記録(`std::cout`) |
+| C | ✅ 正確(`rest`/`external`ログの`status`変数を直接記録) | ✅ あり | ✅ 正確(`status`変数を直接記録) | サービスメソッド内で直接記録(`printf`) |
+| Java | ✅ 正確(Javalinの`before`/`after`フックで実際の`ctx.status()`を記録) | ✅ あり | ✅ 正確(`status.getCode()`) | サービスメソッド内で直接記録(`log.info`) |
+| Kotlin | ✅ 正確(Ktorの`ApplicationCallPipeline.Monitoring`で実際の`call.response.status()`を記録) | ✅ あり | ✅ 正確(`status.code`) | サービスメソッド内で直接記録(`log.info`) |
+| Python | ✅ 正確(FastAPIミドルウェアで実際の`response.status_code`を記録) | ✅ あり | ✅ 正確(`grpc.StatusCode`) | サービスメソッド内で直接記録(`logging`モジュール) |
+| Elixir | ✅ 正確(`register_before_send`で実際の`conn.status`を記録) | ✅ あり | ✅ 正確(`status`を直接記録) | サービスメソッド内で直接記録(`Logger.info`) |
+| Haskell | ✅ 正確(WAIミドルウェアで実際のレスポンスステータスを記録) | ✅ あり | ✅ 正確(`grpcError`を直接記録) | サービスメソッド内で直接記録(`putStrLn`) |
 
 いずれも「ハンドラの型付き戻り値/例外を直接見る」実装方式(HTTP/2トレーラーを直接読み取る実装は、自分でハンドラを実装していない汎用ミドルウェア・OpenTelemetry計装等でのみ必要な手段であり、このプロジェクトではハンドラを自前で持っているため不要と判断した)
 Scala(Pekko)には既知の制約があり、REST/外部公開APIでルートに一切マッチしない404相当のパスは`status=rejected`と表示される(実際のステータスコードではない)
@@ -1162,3 +1230,130 @@ BFF集中型(今回の構成)はサービスが1つ(または少数)の場合に
 
 `authjwt.Dispatcher`が`iss`クレームでKeycloak/`bff-gin-local-hmac`/`bff-gin-local-rsa`の3方式を振り分け、`RequireAuth`/`RequireExternalClientAuth`はこの`Dispatcher`経由で検証する
 詳細は前述の「ローカル(非Keycloak)認証」を参照
+
+**⑥ バックエンド実装9言語(Go/Rust/Scala×2/Rails/JS/TS/C++/C)のうちC言語が最も難易度が高い理由**
+
+理由は「言語自体が難しい」というより、エコシステムが何も用意してくれない分、全部自分で作る必要があるという点に集約される
+具体的には以下の点
+
+1. gRPC実装が別次元に難しい
+
+他の8言語は全て「protocが生成したサービススタブ＋クライアント/サーバーコード」をそのまま使えるが、C言語は違う
+
+- 公式protocにC出力機能自体が無いため、メッセージの(逆)シリアライズだけはprotobuf-c(サードパーティ)に頼るしかない
+- サービススタブは生成されないため、RPCディスパッチを`call_details.method`の文字列比較で自前実装している
+- gRPC自体もC++のCallback APIではなく、素のgRPC Core C API(Completion Queueベース)を直接使い、`grpc_op`のバッチ構築まで手書きしている
+- おまけにprotobuf-cはproto3の`optional`フィールドに未対応という制約があり、共通`.proto`を汚さずにC用だけビルド時に`sed`で`optional`を取り除いたコピーを食わせるという回避策を取っている
+
+2. メモリ管理が完全に手動
+
+- RAII(C++)・GC(Go/Scala/JS/TS/Ruby)・借用チェッカー(Rust)、いずれも無い
+- `task_create`/`task_destroy`のような生成/破棄ペアを全構造体で自分で対にする必要がある
+- gRPCだけでも「`grpc_slice`/`grpc_byte_buffer`の参照カウント」「protobuf-cの`__pack`/`__unpack`/`__free_unpacked`」「アプリ独自のドメインオブジェクトのcreate/destroy」という3階層のメモリ管理が同時に絡む
+- `task.c`にコメントで残している通り、固定長バッファ+`strcpy`のバッファオーバーフロー(CWE-120)のような、C++以降では型システムやライブラリが防いでくれるバグが常に起こり得る
+
+3. 並行処理のバグ
+
+gRPCのシャットダウン処理で`grpc_server_cancel_all_calls`と`grpc_server_destroy`を別スレッドから同時に呼ぶとセグフォルトする、という競合バグが実際に見つかった
+Go/Rustのような安全な並行処理プリミティブが無いため、この種のバグは実行時にしか発見できない
+
+4. エラーハンドリングが冗長かつ見落としやすい
+
+Rustの`Result`、C++の`std::expected`、Go/Scalaの多値/Either相当と違い、`enum TaskError`の戻り値チェックを全呼び出し箇所で目視する必要があり、チェック漏れをコンパイラが検出できない
+
+5. JWT認証も同じ構図
+
+他言語は全て成熟したJWTライブラリ(Rustの`jsonwebtoken` crate等)に任せているが、Cには実用的なJWTライブラリが無いため、OpenSSLのプリミティブから自分で組む設計にしている(base64url decode、algホワイトリストチェック、HMAC検証、JWKSのRSA鍵構築、`CRYPTO_memcmp`による定数時間比較、など)
+この種の自作は一歩間違うとアルゴリズム混同攻撃や署名検証バイパスといったセキュリティ脆弱性に直結するため、他言語のJWT実装より神経を使う難所になっている
+
+C++はRAII・`std::expected`・例外・gRPC C++のCallback API(生成スタブあり)・Boost.Asio/Beastの非同期フレームワークがある分、Cよりは大幅に楽
+難易度としては「Go/Rust/Scala/Rails/JS/TS ≪ C++ ≪ C」という体感になる
+
+**⑦ バックエンド追加言語(Java/Kotlin/Python/Elixir/Haskell)**
+
+Go/Rust/Scala×2/Rails/JavaScript/TypeScript/C++/Cの9言語に、Java/Kotlin/Python/Elixir/Haskellの5言語を追加済み(計14言語構成)
+この5言語の追加をもって`backend.task-language`への言語追加は打ち止めとする方針
+
+狙いは「並行処理モデルの比較」という軸を14言語すべてで別の立ち位置にすること
+
+- 既存9言語の並行処理モデル: goroutine(Go)・async+所有権(Rust)・IOモナド(Scala/http4s、`cats-effect`)・JVMアクター(Scala/Pekko)・スレッドプール(Rails/C++/C)・シングルスレッドイベントループ(JS/TS)
+- Java: 仮想スレッド(Virtual Threads、JDK21+)、OSスレッドを消費しない軽量スレッドという第三のモデル、`grpc-java`はgRPC自体の主要開発言語でエコシステムの成熟度が最も高い
+- Kotlin: コルーチン(`suspend`関数、構造化並行性、親子関係を持つ`CoroutineScope`)、同じJVM上でもJavaの仮想スレッドとは異なる並行処理哲学、`grpc-kotlin`は`grpc-java`上に構築されており成熟度は高い
+- Python: GIL(Global Interpreter Lock)によりマルチスレッドでも真の並列実行ができず、`asyncio`はシングルスレッドのイベントループのみを提供する、「元々同期前提で設計された言語に後からasyncを足した」という経緯自体がGo/Node.jsとの好対照になる、`grpcio`は公式・成熟
+- Elixir: BEAM(Erlang VM)の軽量プロセスはOSスレッドでもグリーンスレッドでもなく、VM自体が持つプリエンプティブなスケジューラ(reduction counting)で動く、同じ「アクターモデル」でもPekko(JVMのスレッドプール上で協調的にディスパッチされる)とは根本的に別物、「let it crash」+スーパーバイザーツリー(OTP)という耐障害性の哲学は他のどの言語にも無い
+- Haskell: 純粋関数型・遅延評価がデフォルトという、14言語中唯一の性質を持つ。Scala(http4s、`cats-effect`)のIOモナドと概念的に近く学習内容が一部重複する点、gRPC/MySQL向けのエコシステムがC言語同様に薄い点は認識した上で、実採用事例(IOHK/Cardano、Hasura、Microsoft Bond、Credit Suisse、CircuitHub等、いずれも高い正確性が求められる金融・ブロックチェーン領域が中心)があることも踏まえて採用する
+
+OCamlはHaskellと同種のエコシステム上の制約を持ち、採用を見送っている
+
+**⑧ Haskellの実採用事例**
+
+- IOHK(現Input Output Global): ブロックチェーン基盤Cardanoと、そのスマートコントラクト言語Plutusの実装にHaskellを採用。金融・ブロックチェーンのような高い正確性が求められる領域との相性を理由に挙げている
+- Hasura: GraphQL自動生成エンジンの中核をHaskellで実装(GitHubリポジトリ内で最も使用言語比率が高い)
+- Microsoft: スキーマ化データ用フレームワーク「Bond」の一部(コード生成ツール`gbc`)でHaskellを使用
+- Credit Suisse: 定量モデリング部門(GMAG)が2006年から金融モデリングにHaskellを使用
+- CircuitHub: 基幹サービス・アルゴリズムにHaskellを採用
+
+いずれも採用企業の母数自体は少ないが、金融・ブロックチェーン・DSL(ドメイン特化言語)構築といった高い正確性が求められる領域に採用が集中している
+
+**⑨ HaskellとClojureの設計思想の違い(検討メモ)**
+
+どちらも「関数型言語」と呼ばれるが、設計思想はかなり対照的
+
+- **言語系統**: Haskellはラムダ計算・圏論に根ざした独自設計の純粋関数型言語(1990年にHaskell 98として標準化)。ClojureはLisp系(Common Lisp/Schemeの系譜)の方言で、2007年にRich Hickeyが開発、JVM上で動く「ホスト言語」として設計されている(ClojureScript・clojure-clrという派生もある)
+- **型システム**: Haskellは静的型付け・Hindley-Milner型推論・代数的データ型・型クラスを持ち、コンパイル時に多くのバグを検出する。Clojureは動的型付け(他のLispと同様)で、`clojure.spec`はあるが「型システム」というより実行時の契約検査+生成的テストという性質のもの
+- **純粋性の強制**: Haskellは副作用を行う関数の型シグネチャに必ず`IO`が現れ、コンパイラがこれを強制する。Clojureはどの関数からでも自由に副作用を起こせ、イミュータブルなデータ構造や関数型スタイルは推奨される「作法」に留まる
+- **評価戦略**: Haskellは遅延評価(non-strict)がデフォルトで、無限リストのような構造が自然に書ける一方、サンク(遅延評価の中間状態)の蓄積によるスペースリークという独自のバグクラスも生まれる。Clojureは他のLispと同様に正格評価(eager)がデフォルトだが、`lazy-seq`や`map`/`filter`/`range`等の多くのシーケンス関数が遅延シーケンスを返すため、遅延評価はライブラリレベルで広く使われる(言語全体のデフォルトではなく、オプトインする機能という位置づけ)
+- **構文**: Haskellは独自構文(インデント依存のlayout rule、中置演算子、関数定義でのパターンマッチ)。Clojureは全てがS式のLisp構文で前置記法、コードそのものがデータ構造である(homoiconic)という特性を持つ
+- **イミュータブルなデータ構造と並行処理**: Haskellは純粋なコードでは全データがイミュータブルで、可変状態が必要な場合は`IORef`/`STRef`/`MVar`を`IO`/`ST`モナド経由で明示的に使う。並行処理は軽量スレッド+STM(Software Transactional Memory、Haskellが実用化を主導した技術)が中心。Clojureは永続データ構造(persistent data structures、ハッシュ配列マップドトライによりO(log32 n)の更新を元の構造との共有付きで実現、ScalaのイミュータブルコレクションやJSのImmutable.jsにも影響を与えた)が最大の技術的貢献の一つで、さらにAtom(非協調・同期)・Ref(協調・同期、STM経由)・Agent(非協調・非同期)・Varという4種類の参照型で変更管理を明示的に使い分ける独自の並行処理モデルを持つ。`core.async`(Goのgoroutine/channelに着想を得たCSPスタイル)も広く使われる
+- **ホストプラットフォームという設計哲学**: HaskellはGHC(Glasgow Haskell Compiler)がネイティブマシンコードへコンパイルする独立したランタイムを持ち、ライブラリエコシステム(Hackage)もHaskell独自。Clojureは意図的に「ホスト言語」として設計されており、JVM上であらゆるJavaライブラリを直接呼び出せる(相互運用性が言語設計の中心的な哲学)。「ゼロから全てを構築する」Haskellと、「成熟したホストのエコシステムに乗る」Clojureという対照
+- **メタプログラミング**: Clojureはコード自体がS式(データ)であるため、Lisp流のマクロが自然かつ強力に機能する。Haskellにも Template Haskell はあるが、イディオムとしてのHaskellコードがマクロに依存する度合いは、Clojureにおけるマクロの中心性とは比べ物にならない
+- **実採用事例(Clojure)**: Nubank(ラテンアメリカ最大級のデジタル銀行、3800万人以上の顧客基盤を持つバックエンドに採用)・Appsflyer(モバイル広告業界のスケーラビリティ要件に対応)・Atlassian(リアルタイムコラボレーション機能の構築)・Reify Health(6年以上Clojure/ClojureScriptを主力言語として運用)
+
+一言で言えば、Haskellは「型システムで正しさを証明する」ことを追求した独自設計言語、Clojureは「実務で使えるLispを、JVMという成熟したホスト上で、イミュータブルなデータ構造と実践的な並行処理プリミティブと共に提供する」ことを追求したホスト言語、という対照的なアプローチ
+どちらも「関数型」を掲げつつ、純粋性の強制(Haskell)とホスト言語としての実用性(Clojure)という、優先順位が全く異なる設計判断をしている
+
+**⑩ JWTとJWKSの違い(検討メモ)**
+
+JWTとJWKSは全く違う役割を持つ概念。今回のプロジェクトで全言語に実装している3issuer認証の設計を例に説明する
+
+**JWT(JSON Web Token)= トークンそのもの**
+
+JWTは「このリクエストを送っている主体は誰で、いつまで有効か」を主張する、署名付きのデータそのもの(RFC 7519)
+
+- 構造は`header.payload.signature`の3つをドット区切りでbase64url連結したもの
+  - header: `alg`(署名アルゴリズム、例: `HS256`/`RS256`)・`typ`(通常`JWT`)・`kid`(どの鍵で署名したかを示すID、後述)
+  - payload: `sub`(誰か)・`iss`(誰が発行したか)・`aud`(誰向けか)・`exp`(いつまで有効か)などのクレーム
+  - signature: header+payloadを、headerの`alg`で指定した鍵で署名した値
+- `Authorization: Bearer <token>`のように、リクエストごとに送られる「使い捨てに近い、期限付きの証明書」
+
+**JWKS(JSON Web Key Set)= 検証用の鍵の集合、トークンではない**
+
+JWKSはJWTの署名を検証するために必要な公開鍵を、発行者(Issuer)が公開する仕組み(JWK自体はRFC 7517、複数まとめたものがJWKS)
+
+```json
+{ "keys": [ { "kty": "RSA", "kid": "abc123", "use": "sig", "n": "...", "e": "AQAB" } ] }
+```
+
+- `kty`: 鍵の種類(RSA等)
+- `kid`: 鍵ID。JWTのheaderの`kid`と対応し、「このトークンはどの鍵で署名されたか」を突き合わせるためのキー
+- `n`/`e`: RSA公開鍵の素材(モジュラス・指数)
+- 通常`/.well-known/jwks.json`や`/protocol/openid-connect/certs`(Keycloakの慣習、今回のプロジェクトでも使用)のような、認証不要でGETできる公開URLとして提供される(公開鍵しか含まないため、誰でも見れて問題ない)
+
+**決定的な違い**: 「毎回送られてくるもの」か「一度取得してキャッシュするもの」か
+
+| | JWT | JWKS |
+|---|---|---|
+| 何であるか | 個々のリクエストが持つ、署名済みの主張データ | 発行者が公開する、検証用公開鍵の集合 |
+| 誰が作る | 発行者(bff、Keycloak) | 発行者(同じ) |
+| 誰が使う | 検証者(各backend実装)がリクエストごとに受け取る | 検証者が起動時/kid不一致時に一度取得してキャッシュする |
+| 頻度 | リクエストごとに毎回変わる(期限付き) | 鍵ローテーションが起きない限り不変、複数のJWTの検証に再利用される |
+| 秘密情報を含むか | 含まない(署名済みデータのみ) | 含まない(公開鍵のみ、秘密鍵は発行者だけが持つ) |
+
+**なぜ「複数の鍵の集合(Set)」なのか**: 鍵ローテーションに対応するため。発行者は古い鍵と新しい鍵を一時的に両方公開しておき、JWTのheaderの`kid`でどちらの鍵を使うべきかを個別に指定できる。これにより、鍵を切り替える際にサービスを止めずに済む
+
+**このプロジェクトでの具体的な実装(全言語共通のパターン)**: 3issuer設計に、この違いがそのまま反映されている
+
+- ローカルHMAC(`iss=bff-gin-local-hmac`): JWKSを使わない唯一の方式。HS256は対称鍵暗号なので「公開鍵」という概念自体が存在せず、署名側(bff)と検証側(各backend)が同じ秘密の文字列(`LOCAL_AUTH_HMAC_SECRET`)を事前共有するだけ
+- ローカルRSA(`iss=bff-gin-local-rsa`)・Keycloak: JWKSを使う方式。各backendの`JwksVerifier`が、JWTのheaderから`kid`を読み取り→キャッシュ済みのJWKSから該当する公開鍵を探す→無ければJWKSエンドポイントへHTTP GETして再取得→その公開鍵でJWTの署名を検証、という一連の流れを実装している
+
+つまり、「HS256(対称鍵)にはJWKSが存在せず、RS256(非対称鍵)にはJWKSが存在する」というのが、JWTとJWKSの関係を理解する最も分かりやすい切り口。JWTは「毎回届く手紙」、JWKSは「その手紙の署名が本物かを確認するための、差出人の公開されたスタンプ帳」というイメージ

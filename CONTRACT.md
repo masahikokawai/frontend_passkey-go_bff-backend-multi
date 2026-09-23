@@ -740,6 +740,11 @@ VALUES ('frontend.task-create-ux', 'Task登録UIの3パターン(inline/modal/pa
 
 ## 20. backend多言語実装比較(Go/Rust/Scala×2/Rails)とプロトコル(REST/gRPC)の直交2軸、外部公開APIゲートウェイ新設
 
+【2026-09-17〜2026-09-21追記】本セクション(20)は最初の4言語追加(Rust/Scala(http4s)/Scala(Pekko)/Rails、計5言語構成)時点の記録であり、そのまま残す(歴史的経緯として)
+その後 JavaScript/TypeScript(2026-09-17、migration `000016`)→ C++(2026-09-20、`000017`)→ C(2026-09-21、`000018`)→ Java/Kotlin/Python/Elixir/Haskell(2026-09-21、`000019`)の順に追加され、現在は**14言語構成**になっている
+追加の経緯・技術選定・現在のFeature Flag定義(`backend.task-language`の全14値)・現在のポート/ログ状況の正本は**セクション25**を参照すること
+本セクション内の「5言語」「10パターン」等の記述は、このセクションが書かれた時点(5言語構成時)の記録としてそのまま残し、書き換えない
+
 Task CRUD(内部)と外部公開APIの実処理を、Go以外の言語・フレームワークでも比較実装する
 
 既存の「bffはbackend経由でのみデータを扱う」原則は維持したまま、
@@ -1530,3 +1535,117 @@ backend.external-tasks-orm (多値、2値)
   - 既存の`backend.external-tasks-pagination-v2`に加えて`backend.external-tasks-orm`も評価し、4通りの組み合わせを解決する
 - **検証方針**: GORM実装とbob実装が同じデータに対して完全に同じ結果を返すことを突き合わせテストで確認する
   - (`test/integration/task_v1_v2_compare_test.go`と同じ考え方、go-cmp での構造体比較)
+
+## 25. backend多言語実装比較の追加言語(JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell、計9言語追加)
+
+セクション20で確立した5言語構成(Go/Rust/Scala(http4s)/Scala(Pekko)/Rails)に、以降4回の波でさらに9言語を追加し、**現在は14言語構成**になっている
+この節が現在の全体像の正本であり、セクション20.1〜20.9(5言語構成時点の記録)より優先して参照すること
+セクション20.5の「ワイヤー契約パリティの原則」・20.6の「bff側変更が不要な理由」は、追加された9言語にもそのまま適用されている(新しい言語を追加してもbffのクライアントコードは増えず、`Clients map[string]TaskBackendClient`へのエントリ追加とconfigの環境変数追加のみで済む設計が維持されている)
+
+### 25.1 概要
+
+| 波 | 日付 | 追加言語 | migration |
+|---|---|---|---|
+| 1 | 2026-09-17 | JavaScript・TypeScript | `000016_add_js_ts_task_language_variations` |
+| 2 | 2026-09-20 | C++ | `000017_add_cpp_task_language_variation` |
+| 3 | 2026-09-21 | C | `000018_add_c_task_language_variation` |
+| 4 | 2026-09-21 | Java・Kotlin・Python・Elixir・Haskell(5言語同時) | `000019_add_java_kotlin_python_elixir_haskell_task_language_variations` |
+
+各波とも、内部REST v1・内部gRPC v2・JWT/JWKS認証(ローカルHMAC/ローカルRSA/Keycloakの3issuer)・外部公開API(Client Credentials Grant)・Feature Flagポーリング・bff/gateway/migrationへの配線までを一括して実装し、20.5のワイヤー契約パリティを実機検証(curl/grpcurlで実際に署名したトークンを使用)で確認済み
+テストは各言語ごとに単体テスト+実DB(docker-composeのMySQL)を使った結合テストの両方を実装済み(このプロジェクト全体の既存方針を踏襲)
+
+### 25.2 JavaScript・TypeScript追加(migration `000016`)
+
+| 言語 | ディレクトリ | REST | gRPC | 外部公開API | 技術選定 |
+|---|---|---|---|---|---|
+| JavaScript | `backend-js-express/` | `:8103` | `:9097` | `:8107` | Express + `@grpc/grpc-js` + `mysql2` |
+| TypeScript | `backend-js-ts-express/` | `:8104` | `:9098` | `:8108` | `backend-js-express`の構造をそのまま型付けした移植(ロジックは完全同一、型の有無のみを比較変数にする) |
+
+TypeScript版は`tsc --noEmit`(strict)0エラーを維持する
+
+### 25.3 C++追加(migration `000017`)
+
+| ディレクトリ | REST | gRPC | 外部公開API | 技術選定 |
+|---|---|---|---|---|
+| `backend-cpp/` | `:8105` | `:9099` | `:8109` | Boost.Asio/Beast(HTTP、C++20コルーチン)+ gRPC C++(Callback API)+ `libmysqlclient`(RAII包み) |
+
+同期DBアクセスは`asio::thread_pool`+`asio::co_spawn`でHTTP用の`io_context`から隔離する設計(検討した3案・選定理由は`backend-cpp/README.md`「アーキテクチャ選定」節)
+
+### 25.4 C追加(migration `000018`)
+
+| ディレクトリ | REST | gRPC | 外部公開API | 技術選定 |
+|---|---|---|---|---|
+| `backend-c/` | `:8106` | `:9100` | `:8110` | CivetWeb(HTTPスレッドプール)+ gRPC Core C API(Completion Queue)+ protobuf-c + `libmysqlclient`(スレッドローカル接続) |
+
+JWT/JWKS認証(3issuer)は、成熟したC言語向けJWTライブラリが存在しないため、OpenSSLのプリミティブを直接使った自前実装にした(`backend-c/README.md`参照)
+
+### 25.5 Java・Kotlin・Python・Elixir・Haskell追加(migration `000019`)
+
+5言語を1つの波として同時に追加した。並行処理安全性のモデルをそれぞれ変えることで、JVM系(自動/明示)・非同期ネイティブ・BEAM・純粋関数型という4つの異なるアプローチを比較する構成にした
+
+| 言語 | ディレクトリ | REST | gRPC | 外部公開API | 技術選定 | 並行処理安全性のモデル |
+|---|---|---|---|---|---|---|
+| Java | `backend-java/` | `:8111` | `:9101` | `:8112` | Javalin + 生JDBC + HikariCP + `grpc-java` | Virtual Threads(JDK21+)による自動化(呼び出し側に特別な記述は不要) |
+| Kotlin | `backend-kotlin/` | `:8113` | `:9102` | `:8114` | Ktor(CIO)+ 生JDBC + `grpc-kotlin` | `withContext(Dispatchers.IO)`への明示的な切り替え(Javaの自動化との意図的な対比。両READMEに相互参照コメントあり) |
+| Python | `backend-python/` | `:8115` | `:9103` | `:8116` | FastAPI(Pydanticは構造検証のみ)+ `aiomysql`(非同期ネイティブドライバ)+ `grpc.aio` | ドライバ自体が非同期ネイティブなため、明示的な隔離が不要(C++の手動スレッドプール隔離・Kotlinの明示的ディスパッチャ選択との3段階比較) |
+| Elixir | `backend-elixir/` | `:8117` | `:9104` | `:8118` | Plug + Cowboy(Phoenixではない)+ Ecto(このプロジェクトの「ORM禁止」方針への意図的な唯一の例外)+ `elixir-grpc` | JWKS鍵キャッシュをGenServerが排他的に所有、SupervisorのSupervisor/let it crash、BEAMのプリエンプティブなスケジューラ(reduction counting)によりCPU律速の暴走リクエストが他リクエストを飢餓状態にしない(14言語中唯一) |
+| Haskell | `backend-haskell/` | `:8119` | `:9105` | `:8120` | Servant(型駆動API設計)+ `mysql-haskell` + grapesy(純粋Haskell実装のgRPCライブラリ) | JWKS鍵キャッシュをSTM(`TVar`+`atomically`)で実装。Kotlinの`Mutex`・Javaの`ConcurrentHashMap`・Elixirの`GenServer`に続く4つ目の並行処理安全性モデル。`IO`モナドとbackend-scala-http4sの`cats-effect`との概念的な重複・違いをREADME.mdとソースコード双方に相互参照コメントとして記載(ユーザーの明示的な要求) |
+
+Elixirの`Ecto`採用は、このプロジェクト全体で「ORM禁止・生SQL直書き」を通してきた方針(C/C++/Rust/Scala×2/JavaScript/TypeScript/Java/Kotlin/Pythonはいずれも生SQLまたは薄いクエリビルダのみ)に対する唯一の意図的な例外であり、理由は`backend-elixir/README.md`のアーキテクチャ選定節に明記している
+
+### 25.6 現在のFeature Flag定義(正本)
+
+セクション20.2で定義した`backend.task-language`は、上記4波の追加により以下へ拡張されている(現在の正本)
+
+```
+backend.task-language (多値、14値)
+  variations: {
+    "go":"go", "rust":"rust", "scala-http4s":"scala-http4s", "scala-pekko":"scala-pekko", "rails":"rails",
+    "javascript":"javascript", "typescript":"typescript", "cpp":"cpp", "c":"c",
+    "java":"java", "kotlin":"kotlin", "python":"python", "elixir":"elixir", "haskell":"haskell"
+  }
+  default_variation: "go"
+```
+
+`backend.task-protocol`(rest/grpcの2値)は変更なく、14言語すべてに対して独立した軸のまま適用される(セクション20.2の原則通り)
+→ 内部CRUD: 14言語 × 2プロトコル = 28パターン。外部公開API: 14言語(常にREST) = 14パターン
+
+`backend.external-tasks-pagination-v2`(offset/cursor切り替え)も14言語で共有する1つのflagのまま(20.7の原則を維持)
+`backend.external-tasks-orm`(GORM/bob切り替え、セクション24)は引き続きGoの外部公開API限定の軸であり、他13言語には適用されない(スコープ外のまま)
+
+gatewayの`Targets`マップ(`gateway/go/config.go`・`gateway/nginx/sidecar/main.go`)は14言語全てのエントリを持ち、実機で14言語全てへのフォールバック無しルーティングを確認済み(20.7の原則を14言語に拡張)
+
+### 25.7 REST/外部公開APIのリクエスト単位ログ+`LOG_LEVEL`追加(2026-09-21)
+
+セクション20.10・20.11で5言語(Go/Rust/Scala(http4s)/Scala(Pekko)/Rails)についてはREST/外部公開API/gRPCの3種類全てにログを揃え、うちgRPCの実際のステータスコードまで正確に記録できる状態にしていた
+JavaScript/TypeScript/C++は実装当初からREST/外部公開API/gRPCの3種類全てにログを持たせていたが、**C/Java/Kotlin/Python/Elixir/Haskellの6言語は実装当初、gRPCのみログがありREST/外部公開APIにログが無い**状態だった(ユーザーによる手動検証で発覚、20.10と同じ種類の見落とし)
+
+対応: 6言語それぞれに、既存のgRPCログ(`grpc method=... status=... duration_ms=...`)と同じkey=value形式で、REST/外部公開API向けのリクエスト単位ログ(`rest method=... path=... status=... duration_ms=...` / `external method=... path=... status=... duration_ms=...`)を追加した
+実装方式はいずれも「実際に送信される最終的なレスポンスステータスをそのまま記録する」(ハンドラの型付き戻り値を直接見る、20.11で確立した原則)方式に統一している(C: `src/http/handler.c`, Java: Javalinの`before`/`after`フックで`ctx.status()`, Kotlin: Ktorの`ApplicationCallPipeline.Monitoring`で`call.response.status()`, Python: FastAPIミドルウェアで`response.status_code`, Elixir: `register_before_send`で`conn.status`, Haskell: WAIミドルウェアで実レスポンスステータス)
+
+合わせて`LOG_LEVEL`環境変数(`debug`/`info`/`warn`/`error`、既定`info`、backend(Go)/bff/gatewayと同じ命名規則)をこの6言語に追加した(ユーザーの追加指示)
+`debug`にすると、上記の1行サマリに加えて認証で解決した`user_id`・JWKSキャッシュの再取得イベント・REST/外部公開APIで解析したクエリパラメータ等の詳細ログが追加で出る
+Kotlinはこの過程で`slf4j-simple`がプロセス起動後の動的なログレベル変更に対応できないと判明し、`logback-classic`(`logback.xml`の`<root level="${LOG_LEVEL:-INFO}">`が実行時に環境変数を読む)へ切り替えた(既知の落とし穴として記録)
+
+**最終結果**: 14言語×3種類(REST/外部公開API/gRPC)=**42パターン**全てにリクエスト単位のログが揃った。gRPCの実際のステータスコード(成否)まで正確に記録できるのはGo・Rust・Scala(http4s)・Scala(Pekko)・Rails(20.11時点の5言語)に加え、JavaScript・TypeScript・C++・C・Java・Kotlin・Python・Elixir・Haskellの9言語全て(実装当初からハンドラの型付き戻り値を直接見る方式で統一したため、20.10〜20.11のような「method+durationのみ」の中間状態を経ずに済んだ)
+
+### 25.8 現状まとめ(2026-09-21時点、14言語)
+
+| 言語 | ディレクトリ | REST | gRPC | 外部公開API | REST/外部/gRPCログ | LOG_LEVEL |
+|---|---|---|---|---|---|---|
+| Go | `backend/` | 8090 | 9090 | 8097(gateway経由:8081) | ✅/✅/✅ | ✅(既存) |
+| Rust | `backend-rust/` | 8093 | 9093 | 8098 | ✅/✅/✅ | ✅(既存、`LOG_LEVEL`) |
+| Scala(http4s) | `backend-scala-http4s/` | 8094 | 9094 | 8099 | ✅/✅/✅ | logbackデフォルトでdebug相当 |
+| Scala(Pekko) | `backend-scala-pekko/` | 8095 | 9095 | 8100 | ✅/✅/✅ | logbackデフォルトでdebug相当 |
+| Rails | `backend-rails/` | 8096 | 9096 | 8101 | ✅/✅/✅ | Rails標準ログ(development既定debug) |
+| JavaScript | `backend-js-express/` | 8103 | 9097 | 8107 | ✅/✅/✅ | - |
+| TypeScript | `backend-js-ts-express/` | 8104 | 9098 | 8108 | ✅/✅/✅ | - |
+| C++ | `backend-cpp/` | 8105 | 9099 | 8109 | ✅/✅/✅ | - |
+| C | `backend-c/` | 8106 | 9100 | 8110 | ✅/✅/✅ | ✅(25.7で追加) |
+| Java | `backend-java/` | 8111 | 9101 | 8112 | ✅/✅/✅ | ✅(25.7で追加) |
+| Kotlin | `backend-kotlin/` | 8113 | 9102 | 8114 | ✅/✅/✅ | ✅(25.7で追加) |
+| Python | `backend-python/` | 8115 | 9103 | 8116 | ✅/✅/✅ | ✅(25.7で追加) |
+| Elixir | `backend-elixir/` | 8117 | 9104 | 8118 | ✅/✅/✅ | ✅(25.7で追加) |
+| Haskell | `backend-haskell/` | 8119 | 9105 | 8120 | ✅/✅/✅ | ✅(25.7で追加) |
+
+この表が現時点の正本。以降さらに言語やログ機能を追加した場合は、この節(セクション25)を直接更新するか、セクション20.10/20.11と同じ形式で新しいラウンドとして追記すること

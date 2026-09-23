@@ -28,7 +28,7 @@
 | Keycloak (/login/keycloak) | `general-user / password` | role: general |
 | Keycloak (/login/keycloak) | `admin-user / password` | role: management |
 
-多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript)・ゲートウェイ・frontend-rails・bff-railsのポート/認証情報は、それぞれの検証セクション内にスニペットとして記載
+多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)・ゲートウェイ・frontend-rails・bff-railsのポート/認証情報は、それぞれの検証セクション内にスニペットとして記載
 
 ## 目次
 
@@ -42,7 +42,7 @@
 8. [Admin画面: ユーザー管理(Go / Rails比較)](#8-admin画面-ユーザー管理go-rails比較)
 9. [パスキー(WebAuthn)](#9-パスキーwebauthn)
 10. [セキュリティ回帰確認](#10-セキュリティ回帰確認)
-11. [backend多言語比較(Go / Rust / Scala×2 / Rails / JavaScript / TypeScript)](#11-backend多言語比較go-rust-scala×2-rails-javascript-typescript)
+11. [backend多言語比較(Go / Rust / Scala×2 / Rails / JavaScript / TypeScript / C++ / C / Java / Kotlin / Python / Elixir / Haskell)](#11-backend多言語比較go-rust-scala×2-rails-javascript-typescript-c-c-java-kotlin-python-elixir-haskell)
 12. [外部公開APIゲートウェイ(Go製 / nginx製)](#12-外部公開apiゲートウェイgo製-nginx製)
 13. [frontend-rails(without-bff / with-bff)+ bff-rails](#13-frontend-railswithout-bff-with-bff+-bff-rails)
 14. [各種ログの確認](#14-各種ログの確認)
@@ -59,7 +59,7 @@ _Docker起動 → マイグレーション → 各プロセス起動_
 
 - [ ] (確認) 環境構築のやり直しで、DBデータ自体の変更・再作成は不要
   - note: 既存のMySQLデータボリューム(`bff-gin-mysql-data`)をそのまま使う場合、マイグレーションの再実行やデータの初期化は不要
-    完全に作り直す場合(`docker compose down -v`等)は、下記の手順通り`000016`まで適用すれば同じ状態になる
+    完全に作り直す場合(`docker compose down -v`等)は、下記の手順通り`000019`まで適用すれば同じ状態になる
 - [ ] Docker Desktopが起動している
 - [ ] コンテナ群(mysql/redis/keycloak/swagger-ui)を起動し、全てhealthyになる
   - expect: 4サービスとも STATUS が (healthy)
@@ -68,7 +68,7 @@ _Docker起動 → マイグレーション → 各プロセス起動_
   docker compose ps
   ```
 - [ ] MySQLのマイグレーションを実行する(既存データを使う場合もこのコマンド自体は実行して問題ない、未適用分だけ適用されて冪等)
-  - expect: マイグレーション(up)が完了しました(000016まで適用される)
+  - expect: マイグレーション(up)が完了しました(000019まで適用される)
   ```sh
   cd backend
   go run ./cmd/migrate up
@@ -183,7 +183,7 @@ _/labels 画面での作成・編集・削除_
 - [ ] `[SECURITY]` 使用中(いずれかのタスクに紐付いている)のラベルを削除しようとすると拒否される
   - note: 422エラーになることを確認する(使用中ラベルの削除保護)
 - [ ] `[SECURITY]` タスクのラベル選択で同じラベルを重複して送信しても(通常のUI操作では起きないはずだが)、タスク作成/更新が500エラーにならない
-  - note: 同一リクエスト内に重複するlabel_id(例: [3,3,5])は重複除去されてから書き込まれる(7言語全て対応済み)
+  - note: 同一リクエスト内に重複するlabel_id(例: [3,3,5])は重複除去されてから書き込まれる(14言語全て対応済み)
     通常のSelect2 UIでは同じラベルを二重選択できない構造のため、UI操作だけでは再現しない(直接APIを叩いた場合の防御の確認、という位置づけ)
 
 ## 6. Feature Flagの切り替え(実際に挙動が変わることの確認)
@@ -295,15 +295,15 @@ _Open Redirect・Session Fixation・IDOR・TOCTOU等の脆弱性対策の手動�
   - note: IDOR(Insecure Direct Object Reference)対策の回帰確認
     他ユーザーのタスクIDは推測が難しいため、厳密に試すのは難しいが、存在しないID(例: 999999)で404になることは確認できる
 
-## 11. backend多言語比較(Go / Rust / Scala×2 / Rails / JavaScript / TypeScript)
+## 11. backend多言語比較(Go / Rust / Scala×2 / Rails / JavaScript / TypeScript / C++ / C / Java / Kotlin / Python / Elixir / Haskell)
 
-_Task CRUD(内部REST/gRPC)を7言語で実装
+_Task CRUD(内部REST/gRPC)を14言語で実装
 backend.task-language / backend.task-protocol で切り替え_
 
-- [ ] 前提: Goのbackendが起動済みで、マイグレーションが000016まで適用されていること
-  - note: Rust/Scala(http4s)/Scala(Pekko)/Rails/JavaScript/TypeScriptはいずれも独自のマイグレーションを持たない
-    スキーマの正本は`backend/migrations`のみで、他6言語は同じMySQL(bff_gin_development)を読み書きするだけ
-    `000016`で`backend.task-language`の選択肢にjavascript/typescriptが追加されている
+- [ ] 前提: Goのbackendが起動済みで、マイグレーションが000019まで適用されていること
+  - note: Rust/Scala(http4s)/Scala(Pekko)/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskellはいずれも独自のマイグレーションを持たない
+    スキーマの正本は`backend/migrations`のみで、他13言語は同じMySQL(bff_gin_development)を読み書きするだけ
+    `000016`で`backend.task-language`の選択肢にjavascript/typescriptが、`000017`でcppが、`000018`でcが、`000019`でjava/kotlin/python/elixir/haskellが追加されている
     docker composeのmysql/keycloakも先に起動しておくこと
 - [ ] `[RUST]` 追加構成: Rust backendを起動する(REST :8093 / gRPC :9093 / 外部公開API :8098)
   ```sh
@@ -362,8 +362,90 @@ backend.task-language / backend.task-protocol で切り替え_
   ```
   - note: backend-js-expressの構造をそのまま型付けした移植で、ロジックは完全に同一(型の有無だけを比較変数にした一対の実装)
     `tsc --noEmit`(strict)0エラー、テスト全パス、REST/gRPC/外部公開API実機確認済み
-- [ ] `[SECURITY]` 7言語全てのdelete処理が、tasksとtask_labelsの両方の削除を1つのDBトランザクションで包んでいる
-  - note: Go(`db.Transaction(...)`、GORM)・Rust(`pool.begin()`→両方のDELETE→`tx.commit()`、sqlx)・Scala(http4s)(`.transact(xa)`、doobie)・Scala(Pekko)(`.transactionally`、Slick)・Rails(`has_many :task_labels, dependent: :destroy`によりActiveRecordが`destroy`を自動的にトランザクション化)・JavaScript/TypeScript(`beginTransaction`/`commit`/`rollback`を明示使用)
+- [ ] `[CPP]` 追加構成: C++ backendを起動する(REST :8105 / gRPC :9099 / 外部公開API :8109)
+  ```sh
+  cd backend-cpp
+  brew install cmake boost mysql-client nlohmann-json googletest protobuf grpc   # 初回のみ
+  cmake -S . -B build && cmake --build build -j 4
+  ./build/backend_cpp_server
+  ```
+  - note: Boost.Asio/Beast(HTTP、C++20コルーチン)+ gRPC C++(Callback API)+ `libmysqlclient`(RAII包み)構成
+    同期DBアクセスは`asio::thread_pool`+`asio::co_spawn`でHTTP用の`io_context`から隔離している
+    REST/外部公開API/gRPCとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化まで確認済み
+    アーキテクチャ選定(検討した3案・選定理由・薄れる学習効果)は`backend-cpp/README.md`参照
+- [ ] `[C]` 追加構成: C backendを起動する(REST :8106 / gRPC :9100 / 外部公開API :8110)
+  ```sh
+  cd backend-c
+  brew install cmake cjson mysql-client protobuf grpc protobuf-c openssl@3   # 初回のみ
+  cmake -S . -B build && cmake --build build -j 4
+  ./build/backend_c_server
+  ```
+  - note: CivetWeb(HTTPスレッドプール)+ gRPC Core C API(Completion Queue)+ protobuf-c + `libmysqlclient`(スレッドローカル接続)構成
+    JWT/JWKS認証(ローカルHMAC/ローカルRSA/Keycloakの3issuer)はOpenSSLのプリミティブを直接使った自前実装(成熟したC言語向けJWTライブラリが存在しないため)
+    REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
+    外部公開APIはClient Credentials Grant(Keycloak発行、`azp`一致)のみ受け付け、ローカルHMAC/RSA発行のJWTは正しく署名されていても拒否される
+    Feature Flag(`backend.external-tasks-pagination-v2`)は`mysql_conn_get()`(スレッドローカル接続)を再利用した専用ポーリングスレッドが10秒間隔で評価し、offset(v1)/cursor(v2)ページングを切り替える
+    アーキテクチャ選定・メモリ管理のバッド/グッドプラクティス・結合テストの詳細は`backend-c/README.md`参照
+- [ ] `[JAVA]` 追加構成: Java backendを起動する(REST :8111 / gRPC :9101 / 外部公開API :8112)
+  ```sh
+  cd backend-java
+  brew install openjdk gradle   # 初回のみ
+  export JAVA_HOME=/opt/homebrew/opt/openjdk
+  export PATH="$JAVA_HOME/bin:$PATH"
+  ./gradlew run
+  ```
+  - note: Javalin(明示的ルーティング)+ 生JDBC + HikariCP + `grpc-java`構成
+    Virtual Threads(JDK21+)で並行処理の安全性を自動化(JDBC呼び出し側に特別な記述は不要)
+    REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
+    アーキテクチャ選定(Spring Bootを選ばなかった理由含む)は`backend-java/README.md`参照
+- [ ] `[KOTLIN]` 追加構成: Kotlin backendを起動する(REST :8113 / gRPC :9102 / 外部公開API :8114)
+  ```sh
+  cd backend-kotlin
+  export JAVA_HOME=/opt/homebrew/opt/openjdk
+  export PATH="$JAVA_HOME/bin:$PATH"
+  ./gradlew run
+  ```
+  - note: Ktor(コルーチンネイティブ)+ 生JDBC + `grpc-kotlin`構成
+    `withContext(Dispatchers.IO)`への明示的な切り替えで並行処理の安全性を型システムと明示的なディスパッチャ選択で保証(Javaの自動化との意図的な対比)
+    REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
+    アーキテクチャ選定(Ktorを選んだ理由・Javaとの並行処理モデルの対比)は`backend-kotlin/README.md`参照
+- [ ] `[PYTHON]` 追加構成: Python backendを起動する(REST :8115 / gRPC :9103 / 外部公開API :8116)
+  ```sh
+  cd backend-python
+  brew install python@3.12   # 初回のみ
+  python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+  python -m app.main
+  ```
+  - note: FastAPI(構造検証のみPydantic、ビジネスルールは手書き)+ `aiomysql`(非同期ネイティブドライバ)+ `grpc.aio`構成
+    ドライバ自体が非同期ネイティブなため、C++の手動`asio::thread_pool`隔離やKotlinの`Dispatchers.IO`のような明示的な隔離が不要
+    REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
+    アーキテクチャ選定(GIL・後付けの非同期という歴史的経緯、C++/Kotlinとの3段階比較)は`backend-python/README.md`参照
+- [ ] `[ELIXIR]` 追加構成: Elixir backendを起動する(REST :8117 / gRPC :9104 / 外部公開API :8118)
+  ```sh
+  cd backend-elixir
+  brew install elixir   # Erlang/OTPも依存関係として自動的にインストールされる、初回のみ
+  mix deps.get
+  mix run --no-halt
+  ```
+  - note: Plug + Cowboy(明示的ルーティング)+ Ecto(このプロジェクトの「ORM禁止」方針への意図的な例外)+ `elixir-grpc`構成
+    JWKS鍵キャッシュはGenServerが排他的に所有(ロック不使用)、SupervisorによるSupervisor/let it crashを実演
+    BEAMのプリエンプティブなスケジューラ(reduction counting)により、CPU律速の暴走リクエストが他のリクエストを飢餓状態にすることを言語・VMレベルで防げる(14言語中唯一)
+    REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
+    アーキテクチャ選定(Phoenixを選ばなかった理由・Ecto採用の経緯・BEAMスケジューラの詳細)は`backend-elixir/README.md`参照
+- [ ] `[HASKELL]` 追加構成: Haskell backendを起動する(REST :8119 / gRPC :9105 / 外部公開API :8120)
+  ```sh
+  cd backend-haskell
+  brew install ghc cabal-install pcre snappy   # 初回のみ
+  cabal build
+  cabal run exe:backend-haskell-server
+  ```
+  - note: Servant(型駆動API設計)+ `mysql-haskell` + `grapesy`(純粋Haskell実装のgRPCライブラリ)構成
+    JWKS鍵キャッシュはSTM(`TVar`+`atomically`)で実装、Kotlinの`Mutex`・Javaの`ConcurrentHashMap`・Elixirの`GenServer`と並ぶ4つ目の並行処理安全性モデル
+    `IO`モナドはHaskell言語仕様そのものであり、backend-scala-http4sの`cats-effect`との概念的な重複・違いをREADME.mdとソースコード双方に相互参照コメントとして記載
+    REST/gRPC/外部公開APIとも実機でCRUD・422バリデーション・冪等な削除・重複label_idの正規化・実際に署名したJWTでの認証まで確認済み
+    アーキテクチャ選定(Servant/STM/grapesyの選定理由)は`backend-haskell/README.md`参照
+- [ ] `[SECURITY]` 14言語全てのdelete処理が、tasksとtask_labelsの両方の削除を1つのDBトランザクションで包んでいる
+  - note: Go(`db.Transaction(...)`、GORM)・Rust(`pool.begin()`→両方のDELETE→`tx.commit()`、sqlx)・Scala(http4s)(`.transact(xa)`、doobie)・Scala(Pekko)(`.transactionally`、Slick)・Rails(`has_many :task_labels, dependent: :destroy`によりActiveRecordが`destroy`を自動的にトランザクション化)・JavaScript/TypeScript(`beginTransaction`/`commit`/`rollback`を明示使用)・C++/C(`mysql_autocommit(0)`→両方のDELETE→`mysql_commit()`/失敗時`mysql_rollback()`を明示使用)・Java/Kotlin(JDBCの`Connection.setAutoCommit(false)`→両方のDELETE→`commit()`/失敗時`rollback()`を明示使用、Kotlinは`withContext(Dispatchers.IO)`内で実行)・Python(`aiomysql`の`conn.begin()`→両方のDELETE→`commit()`/失敗時`rollback()`を明示使用)・Elixir(`Ecto.Multi`で両方のDELETEを合成し`Repo.transaction()`で実行)・Haskell(`mysql-haskell`の`withTransaction`で両方のDELETEを包む)
     ラベル付きタスクを削除した後、`SELECT * FROM task_labels WHERE task_id = <削除したタスクのid>;`が0件になることを確認する(`task_labels`に外部キー制約が無いため、トランザクション無しだと孤立行が残り得る)
     回帰テスト`delete_task_removes_task_labels_rows_known_bug_in_rust`(`backend-rust/tests/integration_test.rs`)がこれを検証する
   ```sh
@@ -380,8 +462,8 @@ backend.task-language / backend.task-protocol で切り替え_
   # 例: "language":"rust", "protocol":"rest", "implementation":"rust:rest"
   ```
   - note: 各言語は互いに重複しないポートを専有している(Rust REST=:8093等)ため、bffがそのURLへ実際に接続できて200が返ってきたのであれば、対象の言語プロセスが起動していなければそもそも接続自体が失敗する(connection refusedやタイムアウトになり、他の言語が代わりに答えることはあり得ない)
-    7言語×3種類(REST/外部公開API/gRPC)=21パターン全てにリクエスト単位のログがあるため、bffのログとbackend自身のログの2箇所で二重に確認できる
-- [ ] backend自身のログでもリクエスト単位に確認できる(7言語×REST/外部公開API/gRPCの21パターン全てに対応)
+    14言語×3種類(REST/外部公開API/gRPC)=42パターン全てにリクエスト単位のログがあるため、bffのログとbackend自身のログの2箇所で二重に確認できる
+- [ ] backend自身のログでもリクエスト単位に確認できる(14言語×REST/外部公開API/gRPCの42パターン全てに対応)
   ```sh
   # Go: JSON形式(method/path/status/duration_ms) REST/外部公開API/gRPC全て対応、gRPCも実ステータス記録
   # 例: {"method":"GET","path":"/internal/v1/tasks","status":200,"duration_ms":3}
@@ -403,11 +485,17 @@ backend.task-language / backend.task-protocol で切り替え_
   # Scala(Pekko): REST/外部公開API/gRPC全て対応、gRPCも実ステータス記録(io.grpc.Status)
   # INFO http.rest -- method=GET path=/internal/v1/tasks status=200 duration_ms=3
   # method=listTasks status=OK duration_ms=3
+
+  # C/C++/JavaScript/TypeScript/Rust同様、key=value形式(LOG_LEVEL対応: C/Java/Kotlin/Python/Elixir/Haskell)
+  # rest method=GET path=/internal/v1/tasks status=200 duration_ms=3
+  # external method=GET path=/external/v1/tasks status=401 duration_ms=1
+  # grpc method=... status=... duration_ms=...
   ```
-  - note: gRPCの実際の成否(ステータスコード)まで7言語全てが正確に記録できる(CONTRACT.mdセクション20.10・20.11)
+  - note: gRPCの実際の成否(ステータスコード)まで14言語全てが正確に記録できる(CONTRACT.mdセクション20.10・20.11)
+    C/Java/Kotlin/Python/Elixir/Haskellは`LOG_LEVEL`環境変数(debug/info/warn/error、既定info、backend(Go)/bff/gatewayと同じ命名)に対応し、debugで認証解決・JWKS再取得等の詳細行が追加される
     実装方式は「ハンドラの型付き戻り値/例外を直接見る」で統一(HTTP/2トレーラーを直接覗く実装は、自分でハンドラを実装していない汎用ミドルウェア向けの手段であり不要)
     既知の制約: Scala(Pekko)はREST/外部公開APIでルートに一切マッチしない404相当のパスを`status=rejected`と表示する(実際のステータスコードではない)
-- [ ] MySQLで backend.task-language を go→rust→scala-http4s→scala-pekko→rails→javascript→typescript の順に切り替え、そのつどfrontend(http://localhost:5173)からタスク一覧・作成・更新・削除を実際に操作し、同じ形状で動くことを確認する
+- [ ] MySQLで backend.task-language を go→rust→scala-http4s→scala-pekko→rails→javascript→typescript→cpp→c→java→kotlin→python→elixir→haskell の順に切り替え、そのつどfrontend(http://localhost:5173)からタスク一覧・作成・更新・削除を実際に操作し、同じ形状で動くことを確認する
   - expect: どの言語を選んでも、一覧の表示・作成成功メッセージ・更新成功メッセージ・削除後に一覧から消えることが同じように起こる(レスポンス形状も含めGoと完全に同じワイヤー契約)
   ```sh
   docker compose exec mysql mysql -uroot bff_gin_development -e \
@@ -416,15 +504,15 @@ backend.task-language / backend.task-protocol で切り替え_
   ```
   - note: 反映まで最大10秒ほどのポーリング待ちがある(bff・backend自身とも10秒間隔でDBを再読込する固定値、環境変数での変更は不可)
     curlで直接bffの/api/tasksを叩くこともできるが、セッションCookie+CSRFトークンが必須のため、frontendのブラウザ画面をそのまま使う方が簡単
-- [ ] backend.task-protocol を rest⇄grpc に切り替えても、7言語いずれでも同様に動く
-  - note: 7言語×2プロトコル=14通りの組み合わせがある
+- [ ] backend.task-protocol を rest⇄grpc に切り替えても、14言語いずれでも同様に動く
+  - note: 14言語×2プロトコル=28通りの組み合わせがある
     全部は大変なので、最低限Go以外の1〜2言語で両プロトコルを確認すれば十分
     gRPCへ切り替えた場合、bffのログのimplementationが`{言語}:grpc`になることも合わせて確認するとよい
 - [ ] `[SECURITY]` 他人のタスクIDを指定した削除で、Scala(http4s)・Scala(Pekko)ともラベル関連付けだけが消えてしまわないこと
   - note: 所有者チェックを先に行うため、存在しないtask idや他ユーザーのtask idでDELETEを試すと404になり、自分のタスクのラベルも消えない(IDOR類似脆弱性対策)
-- [ ] `[SECURITY]` 期限(finished_on)を「今日の日付」に設定してタスクを作成すると、7言語のどのbackendでも一貫して受理される(日本時間の夜遅く〜深夜にかけて特に確認する価値がある)
-  - note: 「過去日付」判定に使う「今日」の計算基準は7言語全てUTCで統一されている
-    開発機がJST(UTC+9)のため、UTC 15:00〜23:59(日本時間で24:00〜翌8:59)の時間帯に7言語を切り替えながら同じ日付でタスク作成を試すと効果的に確認できる
+- [ ] `[SECURITY]` 期限(finished_on)を「今日の日付」に設定してタスクを作成すると、14言語のどのbackendでも一貫して受理される(日本時間の夜遅く〜深夜にかけて特に確認する価値がある)
+  - note: 「過去日付」判定に使う「今日」の計算基準は14言語全てUTCで統一されている
+    開発機がJST(UTC+9)のため、UTC 15:00〜23:59(日本時間で24:00〜翌8:59)の時間帯に14言語を切り替えながら同じ日付でタスク作成を試すと効果的に確認できる
 - [ ] 確認後、backend.task-language を go・backend.task-protocol を rest に戻す(既定値)
 
 ## 12. 外部公開APIゲートウェイ(Go製 / nginx製)
@@ -439,7 +527,7 @@ _:8081を占有し、backend.task-languageに応じて外部公開APIを振り�
 - [ ] Keycloakでexternal-api-clientのトークンを取得し、:8081(ゲートウェイ)経由で/external/v1/tasksが呼べる
   - note: 既存の「外部公開API」セクションの手順と同じcurlで、ポートだけ:8081のまま(内部的にgatewayが:8097等へ転送する)
 - [ ] backend.task-languageをrust等に切り替えても、外部公開APIは引き続き200を返す
-  - note: Rust/Scala/Rails側には外部公開APIも実装済みのため、フォールバックせず実際にその言語が応答する
+  - note: Go以外の13言語いずれも外部公開APIが実装済みのため、フォールバックせず実際にその言語が応答する
     ゲートウェイ自身のログ(標準出力、JSON)に「外部公開APIリクエストを振り分け」というログ行が出て、resolved_language・pathが確認できる
 - [ ] `[SECURITY]` swagger-ui(http://localhost:18080)の「Try it out」から、ゲートウェイ経由(:8081)で /external/v1/tasks を実際に実ブラウザから叩ける
   - note: 両ゲートウェイとも`GATEWAY_ALLOWED_ORIGIN`(既定`http://localhost:18080`)によるCORS設定を持つ
@@ -524,9 +612,9 @@ _backend / bff / frontend、Feature Flag切り替えログを含む_
 - [ ] Goのgrpc v2・外部公開APIにも、リクエスト単位のログが出ている
   - note: 外部公開APIは`internal/handler/external/router.go`のrequestLogger、gRPCは`internal/grpcserver/server.go`のloggingUnaryInterceptorが担う
     gRPCは実際のgRPCステータス(`status.Code(err)`)まで記録する(grpc-goの`ChainUnaryInterceptor`が結果を直接渡す)
-- [ ] 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript)も、7言語×REST/外部公開API/gRPCの21パターン全てにログが揃っている
-  - note: 形式は言語ごとに異なる(Go=JSON・Rails=標準Railsログ+gRPCのみ独自形式・Rust/Scala×2/JS/TS=key=value形式)
-    gRPCの実際の成否(ステータスコード)まで7言語全てが正確に記録できる(いずれも「ハンドラの型付き戻り値/例外を直接見る」実装方式に統一、詳細はCONTRACT.mdセクション20.10・20.11)
+- [ ] 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)のうち、Go以外の13言語は14言語×REST/外部公開API/gRPCの42パターン全てにログが揃っている
+  - note: 形式は言語ごとに異なる(Go=JSON・Rails=標準Railsログ+gRPCのみ独自形式・Rust/Scala×2/JS/TS/C++=key=value形式・C/Java/Kotlin/Python/Elixir/Haskell=key=value形式、`LOG_LEVEL`環境変数対応)
+    gRPCの実際の成否(ステータスコード)まで14言語全てが正確に記録できる(いずれも「ハンドラの型付き戻り値/例外を直接見る」実装方式に統一、詳細はCONTRACT.mdセクション20.10・20.11)
     詳細は「backend多言語比較」セクション参照
 - [ ] ブラウザの開発者ツール(コンソール)に、タスク一覧の新旧切り替えログ(console.info)が出ている
 
@@ -689,3 +777,8 @@ _JS 3種(Playwright/Cypress/Selenium)+ Go 3種(chromedp/go-rod/playwright-go)、
 - **2026-09-17**: backendのTask CRUD実装にJavaScript・TypeScript(backend-js-express/backend-js-ts-express)を追加、7言語構成に(migration 000016)
   Rustのdelete_taskがトランザクション保護もtask_labels削除も無い既知バグを発見 → 11. backend多言語比較
 - **2026-09-18**: Rustのdelete_task_removes_task_labels_rows_known_bug_in_rust回帰テストを追加後、delete_taskをsqlxトランザクションで修正し、回帰テスト含む全10件がpassすることを確認 → 11. backend多言語比較
+- **2026-09-20**: backendのTask CRUD実装にC++(backend-cpp、Boost.Asio/Beast + gRPC C++ + libmysqlclient)を追加、8言語構成に(migration 000017) → 11. backend多言語比較
+- **2026-09-21**: backendのTask CRUD実装にC(backend-c、CivetWeb + gRPC Core C API + protobuf-c + libmysqlclient、JWT/JWKS認証を自前実装(OpenSSL))を追加、9言語構成に(migration 000018)。bff(内部REST/gRPC)へ配線
+  続けて外部公開API(Client Credentials Grant、offset/cursorページング)とFeature Flagポーリング(`backend.external-tasks-pagination-v2`)も実装し、gatewayの接続先設定を実際に機能する状態に更新、9言語すべてが外部公開API実装済みに
+  続けてJava/Kotlin/Python/Elixir/Haskellの5言語を追加(migration 000019)、内部REST/gRPC/JWT/JWKS認証・外部公開API・Feature Flagポーリング・bff/gateway/migrationへの配線を実装し、14言語すべてが完全に同等の機能を持つ構成に
+  続けてC/Java/Kotlin/Python/Elixir/Haskellの6言語にREST/外部公開APIのリクエスト単位ログと`LOG_LEVEL`環境変数対応を追加し、14言語すべてでREST/外部公開API/gRPCのリクエスト単位ログが揃う構成に → 11. backend多言語比較
