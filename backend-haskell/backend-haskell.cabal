@@ -1,0 +1,177 @@
+cabal-version:      3.0
+name:               backend-haskell
+version:            0.1.0
+build-type:         Simple
+
+common lang
+  build-depends:    base >= 4.14 && < 5
+  default-language: Haskell2010
+  ghc-options:      -Wall -Wno-unused-do-bind
+  default-extensions:
+      DataKinds
+      DeriveGeneric
+      LambdaCase
+      OverloadedLabels
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      TupleSections
+      MultiParamTypeClasses
+      FlexibleContexts
+      FlexibleInstances
+
+library
+  import:           lang
+  hs-source-dirs:   src, generated
+  exposed-modules:
+      BackendHaskell.Config
+      BackendHaskell.Logging
+      BackendHaskell.Domain.Models
+      BackendHaskell.Domain.Errors
+      BackendHaskell.Domain.Validation
+      BackendHaskell.Auth.Claims
+      BackendHaskell.Auth.Dispatcher
+      BackendHaskell.Auth.ExternalAuth
+      BackendHaskell.Auth.HmacVerifier
+      BackendHaskell.Auth.JwksCache
+      BackendHaskell.Auth.JwksVerifier
+      BackendHaskell.Auth.UserResolver
+      BackendHaskell.External.Api
+      BackendHaskell.External.Query
+      BackendHaskell.External.Server
+      BackendHaskell.Flags.FeatureFlagCache
+      BackendHaskell.Repository.TaskRepository
+      BackendHaskell.Rest.ErrorMapper
+      BackendHaskell.Rest.TaskJson
+      BackendHaskell.Rest.Api
+      BackendHaskell.Rest.Server
+      BackendHaskell.Grpc.ProtoMapper
+      BackendHaskell.Grpc.TaskService
+      Proto.API.Task.V1.Task
+  other-modules:
+      Proto.Task.V1.Task
+      Proto.Task.V1.Task_Fields
+  build-depends:
+    , aeson
+    , base64-bytestring
+    , bytestring
+    , containers
+    , crypton
+    , grapesy
+    , grpc-spec
+    , http-client
+    , http-client-tls
+    , http-types
+    , io-streams
+    , jose
+    , mtl
+    , lens
+    , mtl
+    , mysql-haskell
+    , proto-lens
+    , proto-lens-protobuf-types
+    , proto-lens-runtime
+    , resource-pool
+    , servant-server
+    , stm
+    , text
+    , time
+    , unordered-containers
+    , uuid
+    , wai
+    , warp
+
+executable backend-haskell-server
+  import:         lang
+  main-is:        Main.hs
+  hs-source-dirs: app
+  ghc-options:    -threaded -rtsopts "-with-rtsopts=-N"
+  build-depends:
+      backend-haskell
+    , grapesy
+    , mysql-haskell
+    , resource-pool
+    , servant-server
+    , text
+    , warp
+
+test-suite backend-haskell-unit
+  import:             lang
+  type:               exitcode-stdio-1.0
+  main-is:            Spec.hs
+  ghc-options:        -threaded "-with-rtsopts=-N"
+  hs-source-dirs:     test/Unit, test/Support
+  other-modules:
+      HmacAndDispatcherSpec
+      JwksVerifierSpec
+      JwksCacheSpec
+      ValidationSpec
+      ErrorMapperSpec
+      ExternalQuerySpec
+      ExternalAuthSpec
+      TestTokenHelper
+      MockJwksServer
+  build-depends:
+    , backend-haskell
+    , aeson
+    , base64-bytestring
+    , bytestring
+    , containers
+    , crypton
+    , hspec
+    , http-types
+    , jose
+    , mtl
+    , lens
+    , stm
+    , text
+    , time
+    , uuid
+    , wai
+    , warp
+  build-tool-depends: hspec-discover:hspec-discover
+
+test-suite backend-haskell-integration
+  import:             lang
+  type:               exitcode-stdio-1.0
+  main-is:            Spec.hs
+  ghc-options:        -threaded "-with-rtsopts=-N"
+  hs-source-dirs:     test/Integration, test/Support
+  other-modules:
+      TaskRepositorySpec
+      GrpcServiceSpec
+      ExternalHandlerSpec
+      FeatureFlagCacheSpec
+      DbFixture
+      TestTokenHelper
+      MockJwksServer
+  build-depends:
+    , backend-haskell
+    , aeson
+    , base64-bytestring
+    , bytestring
+    , containers
+    , crypton
+    , grapesy
+    , grpc-spec
+    , hspec
+    , http-client
+    , http-types
+    , jose
+    , mtl
+    , lens
+    , io-streams
+    , mysql-haskell
+    , resource-pool
+    , servant-server
+    , proto-lens
+    , stm
+    , text
+    , time
+    , uuid
+    , wai
+    , warp
+  build-tool-depends: hspec-discover:hspec-discover
