@@ -16,6 +16,7 @@ go-gin(サーバーサイドレンダリング + セッションCookie認証)を
 - [確認手順](#確認手順)
 - [ディレクトリ構成](#ディレクトリ構成)
 - [各種ログの出力先](#各種ログの出力先)
+- [セキュリティに関する既知の課題・推奨対策(未対応)](#セキュリティに関する既知の課題推奨対策未対応)
 - [関連ドキュメント](#関連ドキュメント)
 - [その他、検討事項など](#その他検討事項など)
 
@@ -688,7 +689,7 @@ cd admin/go && TEST_DB_DSN="root@tcp(127.0.0.1:13306)/bff_gin_development?parseT
 #### 多言語backend(Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell)の単体テスト・結合テスト
 
 いずれも「単体テスト(DB不要)」と「結合テスト(docker-compose上の実MySQL/Keycloakが必要)」を分離する設計を踏襲している
-結合テストを実行する前に`docker compose up -d --wait mysql redis keycloak swagger-ui`(frontend_passkey-go_bff-backend-multi 直下)を実行しておくこと
+結合テストを実行する前に`docker compose up -d --wait mysql redis keycloak swagger-ui`(bff-gin直下)を実行しておくこと
 詳細な内訳(各テストファイルが何を検証するか)は各`backend-<言語>/README.md`の「単体テスト」「結合テスト」節を参照
 
 | 言語 | 単体テスト | 結合テスト(実DB必須) |
@@ -1182,6 +1183,110 @@ JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskellの9言語は`LOG_L
 
 いずれも「ハンドラの型付き戻り値/例外を直接見る」実装方式(HTTP/2トレーラーを直接読み取る実装は、自分でハンドラを実装していない汎用ミドルウェア・OpenTelemetry計装等でのみ必要な手段であり、このプロジェクトではハンドラを自前で持っているため不要と判断した)
 Scala(Pekko)には既知の制約があり、REST/外部公開APIでルートに一切マッチしない404相当のパスは`status=rejected`と表示される(実際のステータスコードではない)
+
+## セキュリティに関する既知の課題・推奨対策(未対応)
+
+CONTRACT.mdセクション23(3回のセキュリティ監査で発見・修正した脆弱性/意図的に対応を見送った既知の制約)に加え、
+XSS耐性についてユーザーとレビューした際に洗い出した追加の推奨対策をここに記録する
+(現時点では**未実装**、学習用プロジェクトのためユーザー判断で対応を見送っている)
+
+**前提として確認済みの現状**: `frontend/`(React)に`dangerouslySetInnerHTML`の使用は無く、
+`admin/rails`・`frontend-rails`・`bff-rails`に`.html_safe`・`raw()`の使用も無い
+(JSX/ERBの既定の自動エスケープに委ねられており、直接のXSS注入口は見当たらない)
+そのため以下は「今すぐ塞ぐべき穴」ではなく、**将来のコード変更でXSS注入口が生まれた場合の二次防御**として推奨する対策
+
+- **Content-Security-Policy(CSP)ヘッダーが`bff`・`admin/go`・`admin/rails`・`frontend-rails`・`bff-rails`のいずれにも無い**(`bff/internal/auth/security_headers.go`にはCache-Control/X-Content-Type-Options/X-Frame-Optionsはあるが、CSPが抜けている)
+  - 推奨値: `Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`(`unsafe-inline`・`unsafe-eval`は許可しない)
+  - `script-src 'self'`を指定すると、将来XSSの注入口ができても攻撃者が注入した`<script>`やインラインイベントハンドラ自体をブラウザに実行させない
+  - CSRF Cookie(`csrf_token`)は`HttpOnly=false`(ReactがJSから読み取る設計上必須)のため、XSSが刺さればCSRF対策ごと突破される。これを根本的に防ぐのはCookie側の工夫ではなくCSPによる注入自体の阻止
+  - トレードオフ: Viteの開発サーバー(HMR)は既定でインラインスクリプト/eval的な仕組みを使うため、開発環境ではCSPを緩めるか無効化し、本番ビルドにのみ適用する調整が必要。Swagger UI等の外部リソースを読み込む画面がある場合はそこだけ緩和が必要
+- **Trusted Types(Chrome系ブラウザ限定)未導入**: `innerHTML`等の危険なDOM sinkへの代入自体をブラウザレベルで強制チェックさせる仕組み。将来`dangerouslySetInnerHTML`的なコードが増えても事故を防げるが、Chromium限定・学習コストありのため優先度は中
+- **依存ライブラリの脆弱性監視(`npm audit`/Dependabot等)が未導入**: 実際のXSSは自前コードよりReact周辺ライブラリの脆弱性経由で入ることが多いため、CI組み込みは費用対効果が高い
+
+### OSコマンドインジェクション(CWE-78)について確認した内容
+
+14言語のbackend + gateway + adminを対象に、シェル文字列を組み立てて外部コマンドを実行している箇所を全て検索した
+`gateway/nginx/sidecar/main.go`の`exec.Command("nginx", "-p", prefixDir, "-c", "nginx.conf", "-s", "reload")`が唯一の外部コマンド実行箇所だが、これは後述の「シェルを経由しない安全なAPI」を使っており問題無い
+他に該当箇所は無く、**現時点でこのリポジトリに実際のOSコマンドインジェクションの穴は無い**
+以下は今後、外部ツール呼び出し(画像変換・PDF生成・zip展開など)を新規に追加する際に踏襲すべき設計指針として記録する
+
+**根本原因**: 「文字列を組み立ててシェルに渡す」設計そのもの。シェルは`;` `|` `` ` `` `$()` `&&`などを特別な文字として解釈するため、その文字列にユーザー入力が混ざっていると、意図しない別コマンドを注入される
+
+```bash
+# 危険な例(擬似コード): filename にユーザー入力がそのまま入る
+sh -c "convert " + filename + " out.png"
+# filename = "a.jpg; rm -rf /" が来たら2つのコマンドとして実行されてしまう
+```
+
+**唯一にして最も確実な対策は「シェルを経由しない」ことである。** ほとんどの言語には「シェルを起動せず、プロセスを直接起動するAPI(execve系)」があり、これを使えば引数はあくまで「1個の文字列」として扱われ、シェルのメタ文字は解釈されない。上記の`nginx`起動コードはまさにこのパターン
+
+| 言語 | 安全(シェルを経由しない) | 危険(シェル文字列を経由する) |
+|---|---|---|
+| Go | `exec.Command("nginx", "-p", dir, "-s", "reload")`(←このリポジトリの実例) | `exec.Command("sh", "-c", "nginx "+dir)` |
+| Rust | `Command::new("cmd").arg(a).arg(b)` | `Command::new("sh").arg("-c").arg(input)` |
+| Python | `subprocess.run([cmd, a, b])` | `subprocess.run(cmd, shell=True)` / `os.system(...)` |
+| Node.js | `child_process.execFile(cmd, [a, b])` / `spawn(cmd, [a,b])` | `` child_process.exec(`cmd ${input}`) `` |
+| Ruby | `system(cmd, a, b)`(複数引数形式) | `` `cmd #{input}` `` / `system("cmd #{input}")` / `%x{}` |
+| Java/Kotlin | `ProcessBuilder(listOf(cmd, a, b))` | `Runtime.getRuntime().exec("cmd " + input)`(単一文字列版) |
+| C/C++ | `execve`/`execvp`(argv配列) | `system(buf)` / `popen(buf, "r")` |
+| Elixir | `System.cmd(cmd, [a, b])` | `:os.cmd('cmd ' ++ input)` |
+
+ポイントは共通して「**引数を配列(argv)として渡すAPIを使う**」ことである。これにより、たとえユーザー入力に`; rm -rf /`のような文字列が含まれていても、それは「1個の引数の中の、ただの文字の並び」として渡され、シェルに解釈させる余地が一切なくなる(バリデーションや文字のエスケープに頼らずに、設計そのもので防げる点が強い)
+
+**補足の多層防御**
+
+- どうしても`sh -c`的な実行が必要な場合: ブロックリスト(危険文字を除去)ではなく**許可リスト(英数字とハイフンのみ等、期待する形式だけを通す)**で検証する。ブロックリストは抜け漏れが起きやすい
+- 最小権限: 実行するプロセス自体を非rootユーザー・読み取り専用ファイルシステム等で動かし、突破された場合の被害範囲を限定する
+- そもそもシェルアウトを避ける設計: 今回の`nginx reload`のような操作は、OSシグナル(`SIGHUP`)を直接プロセスに送る、あるいはnginxの管理APIを使うなど、外部コマンド起動自体を無くす方が理想的(現状のままで安全なため変更不要)
+
+### その他検討した脆弱性カテゴリ
+
+CSP・OSコマンドインジェクションに続けて、他の脆弱性カテゴリも実際にコードを確認した
+結論として、**今回新たに気づいた具体的な懸念点が3つ**ある
+
+**1. 外部公開APIに構造的なBOLA/IDOR(Broken Object Level Authorization)がある(CONTRACT.mdに既知の制約として記載済み・未対応)**
+
+`backend`の外部公開API(`Client Credentials Grant`で認証)は、リクエストの`user_id`をクライアント側が任意に指定できる
+つまりこのクライアント資格情報(1組の`client_id`/`client_secret`)を持つ者は、認可を一切受けずに任意ユーザーのタスクを読み取れる
+CONTRACT.mdに「サーバー間の信頼関係を前提にした設計」と明記されている意図的な仕様だが、実運用ではこの資格情報1つが漏れた瞬間に全ユーザーの全データが読めるという影響範囲の大きさは把握しておくべき
+
+**2. ログイン系エンドポイントにレート制限が無い(既出の再確認)**
+
+これは「コードにバグがある」タイプの脆弱性ではなく、**何もしなくても今すぐ悪用できる**種類のものである
+実際、直近数年の実インシデントで最も件数が多いのは0-dayの高度な攻撃ではなく、**クレデンシャルスタッフィング(漏洩済みID/パスワードの総当たり)**である
+ログイン系エンドポイント(ローカルHMAC/RSA・パスキーとも)に回数制限が一切無いこの構成は、まさにその攻撃がそのまま通る状態
+
+**3. Dockerイメージが`latest`タグ固定(サプライチェーンの再現性)**
+
+`docker-compose.yaml`で`redis:latest`・`quay.io/keycloak/keycloak:latest`・`swaggerapi/swagger-ui:latest`が使われている(`mysql:8.0`のみバージョン固定)
+学習用途では実害は小さいが、**「ある日突然pullし直したら脆弱性入りの新バージョンに変わっていた」**という事故のもと
+近年の実インシデントは、直接のコード脆弱性より「気づかぬうちに更新された依存物」経由が急増している(サプライチェーン攻撃)
+
+**確認して問題なかったもの(念のため裏を取った)**
+
+| カテゴリ | 確認内容 | 結果 |
+|---|---|---|
+| SQLインジェクション | Rust(`backend-rust/src/db.rs`)の動的フィルタ生成コードを実際に読んだ。`format!`はSQLの「形」(プレースホルダの並び)だけを組み立て、ユーザー入力(`name`検索文字列等)は必ず`sqlx`のバインド変数経由 | ✅ 安全(パラメータ化クエリ) |
+| JWTアルゴリズム混同攻撃 | Python(`hmac_verifier.py`/`jwks_verifier.py`)は`algorithms=["HS256"]`/`["RS256"]`で明示的に許可リスト化 | ✅ 安全(`alg:none`等は拒否される) |
+| デバッグログへの機密情報混入 | 全言語の`LogDebug`/`log.debug`呼び出しをgrepし、token/password/secretを含む行が無いことを確認 | ✅ 安全 |
+| MySQL/Redisの無認証設定 | `docker-compose.yaml`で確かにパスワード無しだが、`127.0.0.1:`限定バインドで「同一LANの第三者が繋げる」リスクを明示的にコメントで回避済み | ✅ 意図通り(本番構成ではないと明記あり) |
+
+**なぜ「インシデントが加速している」ように見えるのか**
+
+近年増えているインシデントの多くは**エキゾチックな新種の脆弱性ではなく、上記1〜3のような「地味だが実際に悪用しやすい穴」**が原因である。具体的には:
+
+- 認可の境界が甘い(BOLA/IDOR、OWASP API Security Top 10の1位)
+- ログイン系のレート制限欠如(クレデンシャルスタッフィング)
+- サプライチェーン(依存関係・コンテナイメージの無警戒な更新)
+- 設定ミス(デフォルト認証情報の本番流用、過剰な公開範囲)
+
+いずれも「コードを書く技術力」ではなく「運用・設定・防御の層の厚み」の問題であり、AIコーディングツールの普及でコード自体の実装速度が上がった分、この手の「地味な抜け漏れ」が相対的に目立つようになっている、というのが実態に近いと考える
+
+**優先度をつけるなら**
+
+1. レート制限(今すぐ実害があり得る、実装コストも比較的小さい)
+2. 外部APIのBOLA(影響範囲が最大、ただし設計思想そのものに関わる判断が必要)
+3. CSP(前述、二次防御として効果大)
 
 ## 関連ドキュメント
 
