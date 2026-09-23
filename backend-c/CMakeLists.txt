@@ -234,6 +234,25 @@ add_executable(backend_c_external_query_tests
 target_link_libraries(backend_c_external_query_tests PRIVATE backend_c_lib unity)
 add_test(NAME backend_c_external_query_tests COMMAND backend_c_external_query_tests)
 
+# 外部公開API認証(src/auth/external_auth.c、CONTRACT.mdセクション11
+# 「RequireExternalClientAuth」相当)の単体テスト。jwks_test.cと同じくこのプロセス内に
+# モックJWKSサーバーを1つ立てるのみで、実Keycloak・実DBは不要
+add_executable(backend_c_external_auth_tests
+  tests/external_auth_test.c
+  tests/test_token_helper.c
+)
+target_link_libraries(backend_c_external_auth_tests PRIVATE backend_c_lib unity)
+add_test(NAME backend_c_external_auth_tests COMMAND backend_c_external_auth_tests)
+
+# REST/外部公開API共通のエラーコード→HTTPステータス・JSONボディ変換
+# (src/common/error.c)の単体テスト。文字列を渡すだけの純粋関数のみが対象のため、
+# 実サーバー・DB不要
+add_executable(backend_c_rest_error_mapper_tests
+  tests/rest_error_mapper_test.c
+)
+target_link_libraries(backend_c_rest_error_mapper_tests PRIVATE backend_c_lib unity)
+add_test(NAME backend_c_rest_error_mapper_tests COMMAND backend_c_rest_error_mapper_tests)
+
 # 実DBに接続する結合テスト(tests/task_repository_integration_test.c参照)。
 # ctestのデフォルト対象には含めない(docker-compose上のMySQLが必須なため、
 # add_test()には登録せず手動実行のみとする。実行方法はREADME.md「結合テスト」節を参照)

@@ -15,6 +15,13 @@
 char *make_hmac_token(const char *secret, const char *iss, const char *aud, const char *sub,
                        long long exp_offset_secs);
 
+/* make_hmac_tokenにazpクレームを追加できる版(make_rsa_token_with_azpのHMAC版。
+ * external_auth_test.cの「ローカルHMAC発行トークンは、azpが正しくても外部公開APIでは
+ * 拒否される」テスト用。azp==NULLまたは空文字列ならクレーム自体を省略する。
+ * 呼び出し側がfree()すること) */
+char *make_hmac_token_with_azp(const char *secret, const char *iss, const char *aud,
+                                const char *sub, const char *azp, long long exp_offset_secs);
+
 /* RS256で署名したJWTを組み立てる(呼び出し側がfree()すること)。private_keyはRSA鍵の
  * EVP_PKEY*。headerに"kid"クレームを含める(jwks_test.cのモックJWKSサーバー用) */
 char *make_rsa_token(EVP_PKEY *private_key, const char *kid, const char *iss, const char *aud,

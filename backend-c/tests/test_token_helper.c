@@ -37,20 +37,15 @@ static cJSON *build_payload_ext(const char *iss, const char *aud, const char *su
     return payload;
 }
 
-static cJSON *build_payload(const char *iss, const char *aud, const char *sub,
-                             long long exp_offset_secs) {
-    return build_payload_ext(iss, aud, sub, NULL, exp_offset_secs);
-}
-
-char *make_hmac_token(const char *secret, const char *iss, const char *aud, const char *sub,
-                       long long exp_offset_secs) {
+char *make_hmac_token_with_azp(const char *secret, const char *iss, const char *aud,
+                                const char *sub, const char *azp, long long exp_offset_secs) {
     cJSON *header = cJSON_CreateObject();
     cJSON_AddStringToObject(header, "alg", "HS256");
     cJSON_AddStringToObject(header, "typ", "JWT");
     char *header_b64 = json_to_b64(header);
     cJSON_Delete(header);
 
-    cJSON *payload = build_payload(iss, aud, sub, exp_offset_secs);
+    cJSON *payload = build_payload_ext(iss, aud, sub, azp, exp_offset_secs);
     char *payload_b64 = json_to_b64(payload);
     cJSON_Delete(payload);
 
@@ -69,6 +64,11 @@ char *make_hmac_token(const char *secret, const char *iss, const char *aud, cons
     free(signing_input);
     free(sig_b64);
     return token;
+}
+
+char *make_hmac_token(const char *secret, const char *iss, const char *aud, const char *sub,
+                       long long exp_offset_secs) {
+    return make_hmac_token_with_azp(secret, iss, aud, sub, NULL, exp_offset_secs);
 }
 
 char *make_rsa_token(EVP_PKEY *private_key, const char *kid, const char *iss, const char *aud,
