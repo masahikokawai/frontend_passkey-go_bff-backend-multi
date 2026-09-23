@@ -28,6 +28,15 @@ final case class TaskCursorFilter(
 
 // tasks/labels/task_labels/users は backend/migrations(golang-migrate)が正本のスキーマ
 // (CONTRACT.mdセクション20.5)。ここでは既存テーブルへ接続するだけで、独自マイグレーションは持たない
+//
+// 【IOモナドについて、backend-haskellとの対比】このファイルの全メソッドが返す`cats.effect.IO[...]`は、
+// 「副作用を伴う計算を、実行せずに値として組み立て、呼び出し側(main等)が最終的に一度だけ
+// 実行する」という設計を型で強制する。backend-haskell(src/BackendHaskell/Repository/TaskRepository.hs)
+// もほぼ同じ発想で、全公開関数が`IO`アクションを返す。異なるのは、Haskellの`IO`は言語のRTSに
+// 組み込まれたプリミティブ型(すべての副作用がこれを経由する唯一の道)であるのに対し、
+// cats-effectの`IO`はサードパーティのライブラリが提供するデータ型であり、Scala言語自体は
+// 副作用の分離を強制しない(通常のメソッドで直接副作用を起こすことも可能)という点。
+// 詳細はbackend-haskell/README.md「IOモナドについて」節を参照
 class TaskRepo(xa: HikariTransactor[IO]) extends UserLookup {
 
   private def labelsFilterFragment(labelIds: List[Long]): Fragment =
