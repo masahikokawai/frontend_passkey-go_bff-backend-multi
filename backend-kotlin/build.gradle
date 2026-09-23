@@ -1,0 +1,151 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.0.21'
+    id 'application'
+    id 'com.google.protobuf' version '0.9.4'
+}
+
+group = 'com.bffgin'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    grpcVersion = '1.68.1'
+    grpcKotlinVersion = '1.4.1'
+    protobufVersion = '4.26.1'
+    ktorVersion = '2.3.12'
+    coroutinesVersion = '1.9.0'
+    jjwtVersion = '0.12.6'
+}
+
+sourceSets {
+    integrationTest {
+        kotlin {
+            srcDir 'src/integrationTest/kotlin'
+        }
+        resources {
+            srcDir 'src/integrationTest/resources'
+        }
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
+    main {
+        proto {
+            srcDir 'proto'
+        }
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+dependencies {
+    // --- コルーチン基盤 ---
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:${coroutinesVersion}"
+
+    // --- HTTP(REST v1): Ktor、コルーチンネイティブなルーティングDSL(suspend fun) ---
+    // CIOエンジンを採用(Nettyより依存が軽量、かつ純Kotlin実装でコルーチンとの親和性が高い)
+    implementation "io.ktor:ktor-server-core:${ktorVersion}"
+    implementation "io.ktor:ktor-server-cio:${ktorVersion}"
+    // JWKS取得用のKtor Client(java.net.http.HttpClientの同期呼び出しではなく、
+    // suspend fun get(...)でコルーチンネイティブなHTTP呼び出しを一貫させる)
+    implementation "io.ktor:ktor-client-core:${ktorVersion}"
+    implementation "io.ktor:ktor-client-cio:${ktorVersion}"
+    // slf4j-simpleではなくlogback-classicを採用する。理由: LOG_LEVEL(環境変数)で
+    // 実行時にログレベルを切り替えたいが、slf4j-simpleはSimpleLoggerConfigurationを
+    // クラスロード時に一度だけ静的に読み込むため、Kotlinコード側でSystem.setProperty(...)しても
+    // 「どのロガーが最初に初期化されるか」というクラスロード順序に結果が左右され信頼できない。
+    // logback-classicは`logback.xml`の`${LOG_LEVEL:-INFO}`という変数展開でOS環境変数を
+    // 設定ファイル読み込み時に直接参照するため、コード側の初期化順序に一切依存しない
+    implementation 'ch.qos.logback:logback-classic:1.5.12'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.1'
+
+    // --- gRPC v2: grpc-kotlin(grpc-javaの上に構築されたcoroutine版生成スタブ) ---
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "com.google.protobuf:protobuf-kotlin:${protobufVersion}"
+    implementation "io.grpc:grpc-kotlin-stub:${grpcKotlinVersion}"
+    implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    implementation "io.grpc:grpc-services:${grpcVersion}"
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
+    // --- DB: 生JDBC + PreparedStatement(ORM禁止方針)、コネクションプールはHikariCP。
+    // 全メソッドの本体をwithContext(Dispatchers.IO)で明示的に囲む(README.md「アーキテクチャ選定」参照) ---
+    implementation 'com.mysql:mysql-connector-j:9.1.0'
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+
+    // --- JWT: backend-javaと同じくjjwt(成熟したライブラリ)を使う。KotlinはJavaと完全な
+    // 相互運用性があるため追加コストは無い。学習予算はコルーチン設計に集中させる ---
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // --- テスト ---
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
+    testImplementation "io.grpc:grpc-testing:${grpcVersion}"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:${coroutinesVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    integrationTestImplementation "io.grpc:grpc-testing:${grpcVersion}"
+    integrationTestImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:${coroutinesVersion}"
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+        grpckt {
+            artifact = "io.grpc:protoc-gen-grpc-kotlin:${grpcKotlinVersion}:jdk8@jar"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+            grpckt {}
+        }
+        all()*.builtins {
+            kotlin {}
+        }
+    }
+}
+
+application {
+    mainClass = 'com.bffgin.backend.MainKt'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('integrationTest', Test) {
+    description = '実DB(docker-compose上のMySQL)に接続する結合テスト。デフォルトのtestタスクには含めない'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter test
+}
+
+tasks.named('compileKotlin') {
+    dependsOn 'generateProto'
+}

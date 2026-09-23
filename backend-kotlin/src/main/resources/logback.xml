@@ -1,0 +1,19 @@
+<configuration>
+  <!--
+    LOG_LEVEL(環境変数、既定"info")でルートロガーのレベルを切り替える。
+    ${LOG_LEVEL:-INFO}はlogback自身がOS環境変数を設定ファイル読み込み時に直接参照する構文で、
+    Kotlin側のコードによるSystem.setProperty(...)や初期化順序に一切依存しない
+    (slf4j-simpleではなくlogback-classicを採用した理由、build.gradle参照)。
+    Level.toLevel()は大文字小文字を区別しないため、LOG_LEVEL=debugのように小文字で
+    渡しても正しく解釈される
+  -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="${LOG_LEVEL:-INFO}">
+    <appender-ref ref="STDOUT" />
+  </root>
+</configuration>
