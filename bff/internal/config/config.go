@@ -69,6 +69,24 @@ type Config struct {
 	JSGRPCAddr             string
 	TSRESTBaseURL          string
 	TSGRPCAddr             string
+	CppRESTBaseURL         string
+	CppGRPCAddr            string
+	// CRESTBaseURL/CGRPCAddrはbackend-c(内部REST v1+内部gRPC v2+JWT/JWKS認証を実装済み)の
+	// 接続先。backend-cは外部公開API未実装のため、gateway側の接続先とは異なりこちらは
+	// 実際に機能する(bffは内部REST/gRPCしか使わないため)
+	CRESTBaseURL string
+	CGRPCAddr    string
+	// Java/Kotlin/Python/Elixir/Haskell(内部REST v1+内部gRPC v2+JWT/JWKS認証を実装済み)の接続先
+	JavaRESTBaseURL    string
+	JavaGRPCAddr       string
+	KotlinRESTBaseURL  string
+	KotlinGRPCAddr     string
+	PythonRESTBaseURL  string
+	PythonGRPCAddr     string
+	ElixirRESTBaseURL  string
+	ElixirGRPCAddr     string
+	HaskellRESTBaseURL string
+	HaskellGRPCAddr    string
 
 	// FeatureFlagFilePath はGO Feature Flagのフラグ定義YAMLのパス(旧方式、参考用
 	// 実際にはFeatureFlagExportURLが使われる。internal/featureflag/flags.yaml参照)
@@ -163,6 +181,20 @@ func Load() (*Config, error) {
 		JSGRPCAddr:             getEnv("BACKEND_JS_GRPC_ADDR", "localhost:9097"),
 		TSRESTBaseURL:          getEnv("BACKEND_TS_REST_BASE_URL", "http://localhost:8104"),
 		TSGRPCAddr:             getEnv("BACKEND_TS_GRPC_ADDR", "localhost:9098"),
+		CppRESTBaseURL:         getEnv("BACKEND_CPP_REST_BASE_URL", "http://localhost:8105"),
+		CppGRPCAddr:            getEnv("BACKEND_CPP_GRPC_ADDR", "localhost:9099"),
+		CRESTBaseURL:           getEnv("BACKEND_C_REST_BASE_URL", "http://localhost:8106"),
+		CGRPCAddr:              getEnv("BACKEND_C_GRPC_ADDR", "localhost:9100"),
+		JavaRESTBaseURL:        getEnv("BACKEND_JAVA_REST_BASE_URL", "http://localhost:8111"),
+		JavaGRPCAddr:           getEnv("BACKEND_JAVA_GRPC_ADDR", "localhost:9101"),
+		KotlinRESTBaseURL:      getEnv("BACKEND_KOTLIN_REST_BASE_URL", "http://localhost:8113"),
+		KotlinGRPCAddr:         getEnv("BACKEND_KOTLIN_GRPC_ADDR", "localhost:9102"),
+		PythonRESTBaseURL:      getEnv("BACKEND_PYTHON_REST_BASE_URL", "http://localhost:8115"),
+		PythonGRPCAddr:         getEnv("BACKEND_PYTHON_GRPC_ADDR", "localhost:9103"),
+		ElixirRESTBaseURL:      getEnv("BACKEND_ELIXIR_REST_BASE_URL", "http://localhost:8117"),
+		ElixirGRPCAddr:         getEnv("BACKEND_ELIXIR_GRPC_ADDR", "localhost:9104"),
+		HaskellRESTBaseURL:     getEnv("BACKEND_HASKELL_REST_BASE_URL", "http://localhost:8119"),
+		HaskellGRPCAddr:        getEnv("BACKEND_HASKELL_GRPC_ADDR", "localhost:9105"),
 		FeatureFlagFilePath:    getEnv("FEATURE_FLAG_FILE_PATH", "internal/featureflag/flags.yaml"),
 		FeatureFlagExportURL: getEnv("FEATURE_FLAG_EXPORT_URL",
 			getEnv("BACKEND_REST_BASE_URL", "http://localhost:8090")+"/internal/v1/feature-flags/export"),

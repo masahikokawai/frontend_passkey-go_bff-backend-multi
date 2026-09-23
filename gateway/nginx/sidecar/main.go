@@ -21,7 +21,7 @@ func main() {
 	defer stop()
 
 	targets := map[string]string{
-		// gateway/goと同じ: 5言語すべてが外部公開APIを実装済み
+		// gateway/goと同じ: 14言語すべてが外部公開APIを実装済み
 		"go":           cfg.GoExternalBaseURL,
 		"rust":         cfg.RustExternalBaseURL,
 		"scala-http4s": cfg.ScalaHTTP4sExternalBaseURL,
@@ -29,6 +29,13 @@ func main() {
 		"rails":        cfg.RailsExternalBaseURL,
 		"javascript":   cfg.JSExternalBaseURL,
 		"typescript":   cfg.TSExternalBaseURL,
+		"cpp":          cfg.CppExternalBaseURL,
+		"c":            cfg.CExternalBaseURL,
+		"java":         cfg.JavaExternalBaseURL,
+		"kotlin":       cfg.KotlinExternalBaseURL,
+		"python":       cfg.PythonExternalBaseURL,
+		"elixir":       cfg.ElixirExternalBaseURL,
+		"haskell":      cfg.HaskellExternalBaseURL,
 	}
 
 	logger.Info("nginx製ゲートウェイのサイドカーを起動します",
@@ -129,6 +136,13 @@ type sidecarConfig struct {
 	RailsExternalBaseURL       string
 	JSExternalBaseURL          string
 	TSExternalBaseURL          string
+	CppExternalBaseURL         string
+	CExternalBaseURL           string
+	JavaExternalBaseURL        string
+	KotlinExternalBaseURL      string
+	PythonExternalBaseURL      string
+	ElixirExternalBaseURL      string
+	HaskellExternalBaseURL     string
 	UpstreamConfPath           string
 	NginxPrefixDir             string
 }
@@ -149,6 +163,13 @@ func loadConfig() sidecarConfig {
 		RailsExternalBaseURL:       getEnv("GATEWAY_RAILS_EXTERNAL_BASE_URL", "http://localhost:8101"),
 		JSExternalBaseURL:          getEnv("GATEWAY_JS_EXTERNAL_BASE_URL", "http://localhost:8107"),
 		TSExternalBaseURL:          getEnv("GATEWAY_TS_EXTERNAL_BASE_URL", "http://localhost:8108"),
+		CppExternalBaseURL:         getEnv("GATEWAY_CPP_EXTERNAL_BASE_URL", "http://localhost:8109"),
+		CExternalBaseURL:           getEnv("GATEWAY_C_EXTERNAL_BASE_URL", "http://localhost:8110"),
+		JavaExternalBaseURL:        getEnv("GATEWAY_JAVA_EXTERNAL_BASE_URL", "http://localhost:8112"),
+		KotlinExternalBaseURL:      getEnv("GATEWAY_KOTLIN_EXTERNAL_BASE_URL", "http://localhost:8114"),
+		PythonExternalBaseURL:      getEnv("GATEWAY_PYTHON_EXTERNAL_BASE_URL", "http://localhost:8116"),
+		ElixirExternalBaseURL:      getEnv("GATEWAY_ELIXIR_EXTERNAL_BASE_URL", "http://localhost:8118"),
+		HaskellExternalBaseURL:     getEnv("GATEWAY_HASKELL_EXTERNAL_BASE_URL", "http://localhost:8120"),
 		UpstreamConfPath:           getEnv("UPSTREAM_CONF_PATH", "../upstream.conf"),
 		NginxPrefixDir:             getEnv("NGINX_PREFIX_DIR", ".."),
 	}

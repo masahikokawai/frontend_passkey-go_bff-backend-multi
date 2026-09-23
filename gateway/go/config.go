@@ -38,6 +38,15 @@ type Config struct {
 	RailsExternalBaseURL       string
 	JSExternalBaseURL          string
 	TSExternalBaseURL          string
+	CppExternalBaseURL         string
+	// CExternalBaseURLはbackend-cの外部公開APIの接続先
+	CExternalBaseURL string
+	// Java/Kotlin/Python/Elixir/Haskellの外部公開APIの接続先
+	JavaExternalBaseURL    string
+	KotlinExternalBaseURL  string
+	PythonExternalBaseURL  string
+	ElixirExternalBaseURL  string
+	HaskellExternalBaseURL string
 
 	// LogLevel は "debug"/"info"/"warn"/"error"
 	LogLevel string
@@ -69,6 +78,13 @@ func Load() Config {
 		RailsExternalBaseURL:       getEnv("GATEWAY_RAILS_EXTERNAL_BASE_URL", "http://localhost:8101"),
 		JSExternalBaseURL:          getEnv("GATEWAY_JS_EXTERNAL_BASE_URL", "http://localhost:8107"),
 		TSExternalBaseURL:          getEnv("GATEWAY_TS_EXTERNAL_BASE_URL", "http://localhost:8108"),
+		CppExternalBaseURL:         getEnv("GATEWAY_CPP_EXTERNAL_BASE_URL", "http://localhost:8109"),
+		CExternalBaseURL:           getEnv("GATEWAY_C_EXTERNAL_BASE_URL", "http://localhost:8110"),
+		JavaExternalBaseURL:        getEnv("GATEWAY_JAVA_EXTERNAL_BASE_URL", "http://localhost:8112"),
+		KotlinExternalBaseURL:      getEnv("GATEWAY_KOTLIN_EXTERNAL_BASE_URL", "http://localhost:8114"),
+		PythonExternalBaseURL:      getEnv("GATEWAY_PYTHON_EXTERNAL_BASE_URL", "http://localhost:8116"),
+		ElixirExternalBaseURL:      getEnv("GATEWAY_ELIXIR_EXTERNAL_BASE_URL", "http://localhost:8118"),
+		HaskellExternalBaseURL:     getEnv("GATEWAY_HASKELL_EXTERNAL_BASE_URL", "http://localhost:8120"),
 		LogLevel:                   getEnv("LOG_LEVEL", "info"),
 		AllowedOrigin:              getEnv("GATEWAY_ALLOWED_ORIGIN", "http://localhost:18080"),
 	}

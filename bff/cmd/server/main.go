@@ -124,6 +124,62 @@ func main() {
 	}
 	defer closeTSGRPC()
 
+	cppClientV1 := proxy.NewTaskClientV1(cfg.CppRESTBaseURL)
+	cppClientV2, closeCppGRPC, err := proxy.NewTaskClientV2(cfg.CppGRPCAddr)
+	if err != nil {
+		logger.Error("backend-cpp v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeCppGRPC()
+
+	cClientV1 := proxy.NewTaskClientV1(cfg.CRESTBaseURL)
+	cClientV2, closeCGRPC, err := proxy.NewTaskClientV2(cfg.CGRPCAddr)
+	if err != nil {
+		logger.Error("backend-c v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeCGRPC()
+
+	javaClientV1 := proxy.NewTaskClientV1(cfg.JavaRESTBaseURL)
+	javaClientV2, closeJavaGRPC, err := proxy.NewTaskClientV2(cfg.JavaGRPCAddr)
+	if err != nil {
+		logger.Error("backend-java v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeJavaGRPC()
+
+	kotlinClientV1 := proxy.NewTaskClientV1(cfg.KotlinRESTBaseURL)
+	kotlinClientV2, closeKotlinGRPC, err := proxy.NewTaskClientV2(cfg.KotlinGRPCAddr)
+	if err != nil {
+		logger.Error("backend-kotlin v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeKotlinGRPC()
+
+	pythonClientV1 := proxy.NewTaskClientV1(cfg.PythonRESTBaseURL)
+	pythonClientV2, closePythonGRPC, err := proxy.NewTaskClientV2(cfg.PythonGRPCAddr)
+	if err != nil {
+		logger.Error("backend-python v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closePythonGRPC()
+
+	elixirClientV1 := proxy.NewTaskClientV1(cfg.ElixirRESTBaseURL)
+	elixirClientV2, closeElixirGRPC, err := proxy.NewTaskClientV2(cfg.ElixirGRPCAddr)
+	if err != nil {
+		logger.Error("backend-elixir v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeElixirGRPC()
+
+	haskellClientV1 := proxy.NewTaskClientV1(cfg.HaskellRESTBaseURL)
+	haskellClientV2, closeHaskellGRPC, err := proxy.NewTaskClientV2(cfg.HaskellGRPCAddr)
+	if err != nil {
+		logger.Error("backend-haskell v2(gRPC)クライアントの初期化に失敗しました", "error", err)
+		os.Exit(1)
+	}
+	defer closeHaskellGRPC()
+
 	labelClient := proxy.NewLabelClientV1(cfg.BackendRESTBaseURL)
 	provisionClient := proxy.NewUserProvisionClient(cfg.BackendRESTBaseURL)
 
@@ -161,9 +217,9 @@ func main() {
 		Logger:                logger,
 	}
 	// CONTRACT.mdセクション20: 言語(backend.task-language)ごとにキーを分けたmapで保持する
-	// go/rust/scala-http4s/scala-pekko/railsの5言語×2プロトコル(rest/grpc)、計10エントリ
-	// いずれもTaskClientV1/V2(既存のGo実装用クライアント)をそのまま異なる接続先で
-	// インスタンス化しただけで、新規のクライアントコードは書いていない
+	// go/rust/scala-http4s/scala-pekko/rails/javascript/typescript/cpp/c/java/kotlin/python/elixir/haskellの
+	// 14言語×2プロトコル(rest/grpc)、計28エントリ。いずれもTaskClientV1/V2(既存のGo実装用クライアント)を
+	// そのまま異なる接続先でインスタンス化しただけで、新規のクライアントコードは書いていない
 	// (ワイヤー契約パリティ(セクション20.5)を各言語実装が満たしているため成立する)
 	taskRoutes := &proxy.TaskRoutes{
 		Clients: map[string]proxy.TaskBackendClient{
@@ -181,6 +237,20 @@ func main() {
 			"javascript:grpc":   jsClientV2,
 			"typescript:rest":   tsClientV1,
 			"typescript:grpc":   tsClientV2,
+			"cpp:rest":          cppClientV1,
+			"cpp:grpc":          cppClientV2,
+			"c:rest":            cClientV1,
+			"c:grpc":            cClientV2,
+			"java:rest":         javaClientV1,
+			"java:grpc":         javaClientV2,
+			"kotlin:rest":       kotlinClientV1,
+			"kotlin:grpc":       kotlinClientV2,
+			"python:rest":       pythonClientV1,
+			"python:grpc":       pythonClientV2,
+			"elixir:rest":       elixirClientV1,
+			"elixir:grpc":       elixirClientV2,
+			"haskell:rest":      haskellClientV1,
+			"haskell:grpc":      haskellClientV2,
 		},
 		Flags:     flagEvaluator,
 		Refresher: refresher,

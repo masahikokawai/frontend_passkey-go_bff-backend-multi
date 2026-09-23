@@ -25,7 +25,7 @@ func main() {
 
 	gw := &Gateway{
 		Targets: map[string]string{
-			// CONTRACT.mdセクション20.7: 5言語すべてが外部公開APIを実装済み
+			// CONTRACT.mdセクション20.7: 14言語すべてが外部公開APIを実装済み
 			"go":           cfg.GoExternalBaseURL,
 			"rust":         cfg.RustExternalBaseURL,
 			"scala-http4s": cfg.ScalaHTTP4sExternalBaseURL,
@@ -33,6 +33,13 @@ func main() {
 			"rails":        cfg.RailsExternalBaseURL,
 			"javascript":   cfg.JSExternalBaseURL,
 			"typescript":   cfg.TSExternalBaseURL,
+			"cpp":          cfg.CppExternalBaseURL,
+			"c":            cfg.CExternalBaseURL,
+			"java":         cfg.JavaExternalBaseURL,
+			"kotlin":       cfg.KotlinExternalBaseURL,
+			"python":       cfg.PythonExternalBaseURL,
+			"elixir":       cfg.ElixirExternalBaseURL,
+			"haskell":      cfg.HaskellExternalBaseURL,
 		},
 		ResolveLanguage: func() string { return resolver.Resolve(ctx) },
 		Logger:          logger,
