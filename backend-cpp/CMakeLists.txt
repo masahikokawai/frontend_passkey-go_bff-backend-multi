@@ -77,6 +77,7 @@ add_library(backend_cpp_lib
   src/domain/task.cpp
   src/common/error.cpp
   src/common/time.cpp
+  src/common/logging.cpp
   src/db/connection_pool.cpp
   src/repository/task_repository.cpp
   src/http/session.cpp
@@ -135,6 +136,35 @@ if(GTest_FOUND)
   )
   target_link_libraries(backend_cpp_jwks_tests PRIVATE backend_cpp_lib GTest::gtest GTest::gtest_main)
   add_test(NAME backend_cpp_jwks_tests COMMAND backend_cpp_jwks_tests)
+
+  # 外部公開API(CONTRACT.mdセクション11)のクエリパース単体テスト(実DB・実サーバー不要、
+  # 文字列を渡すだけの純粋関数。backend-c/tests/external_query_test.cと同じ観点)
+  add_executable(backend_cpp_external_query_tests
+    tests/external_query_test.cpp
+  )
+  target_link_libraries(backend_cpp_external_query_tests PRIVATE
+    backend_cpp_lib GTest::gtest GTest::gtest_main)
+  add_test(NAME backend_cpp_external_query_tests COMMAND backend_cpp_external_query_tests)
+
+  # 外部公開APIのRequireExternalClientAuth単体テスト(実DB不要。jwks_testsと同じくJWKS
+  # モックサーバーを自プロセス内に立てる)
+  add_executable(backend_cpp_external_auth_tests
+    tests/external_auth_test.cpp
+    tests/test_token_helper.cpp
+    tests/mock_jwks_server.cpp
+  )
+  target_link_libraries(backend_cpp_external_auth_tests PRIVATE
+    backend_cpp_lib GTest::gtest GTest::gtest_main)
+  add_test(NAME backend_cpp_external_auth_tests COMMAND backend_cpp_external_auth_tests)
+
+  # REST層のエラーマッピング(src/common/error.cpp)単体テスト(実DB・実サーバー不要、
+  # AppErrorを渡すだけの純粋関数)
+  add_executable(backend_cpp_rest_error_mapper_tests
+    tests/rest_error_mapper_test.cpp
+  )
+  target_link_libraries(backend_cpp_rest_error_mapper_tests PRIVATE
+    backend_cpp_lib GTest::gtest GTest::gtest_main)
+  add_test(NAME backend_cpp_rest_error_mapper_tests COMMAND backend_cpp_rest_error_mapper_tests)
 
   # 実DB(docker-compose上のMySQL)に接続する結合テスト群。ctestのデフォルト対象には
   # 含めない(add_test()に登録しない、README.md「結合テスト」節参照、手動実行のみ)

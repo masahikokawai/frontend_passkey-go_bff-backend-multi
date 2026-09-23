@@ -13,6 +13,7 @@
 
 #include "application/task_handler.hpp"
 #include "auth/jwt.hpp"
+#include "common/logging.hpp"
 #include "config.hpp"
 #include "db/connection_pool.hpp"
 #include "external/external_handler.hpp"
@@ -28,6 +29,9 @@ using namespace backend_cpp;  // NOLINT
 
 int main() {
   Config config = Config::FromEnv();
+  // LOG_LEVEL環境変数を読み終えた直後、他の何よりも先に一度だけ呼ぶ
+  // (README.md「ログについて」参照、common/logging.hpp)
+  common::LogModuleInit(config.log_level);
   std::cout << "backend-cpp starting: HTTP_ADDR=:" << config.http_addr
             << " db=" << config.db_host << ":" << config.db_port << "/" << config.db_schema
             << std::endl;
@@ -88,7 +92,9 @@ int main() {
   // 外部公開API(:8109、bffを経由しない別listener、CONTRACT.mdセクション11)
   external::ExternalHandler external_handler(repo, db_pool, dispatcher, flag_poller,
                                               config.external_api_client_id);
-  http::Router external_router;
+  // "external"を渡し、リクエスト単位のINFOログを"external method=..."として出す
+  // (内部REST用routerとログの出し分け、README.md「ログについて」参照)
+  http::Router external_router("external");
   external_router.Add("GET", "/external/v1/tasks", false,
                        [&external_handler](const http::HttpRequest& req, int64_t id) {
                          return external_handler.List(req, id);

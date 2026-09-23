@@ -7,6 +7,7 @@
 
 #include "application/user_resolver.hpp"
 #include "common/error.hpp"
+#include "common/logging.hpp"
 #include "common/time.hpp"
 #include "db/blocking.hpp"
 
@@ -153,6 +154,8 @@ asio::awaitable<HttpResponse> TaskHandler::List(const HttpRequest& req, int64_t)
       if (key == "offset") offset = std::stoi(val);
     }
   }
+  common::LogDebug("rest debug: list user_id=" + std::to_string(user_id) +
+                    " limit=" + std::to_string(limit) + " offset=" + std::to_string(offset));
 
   int64_t total = 0;
   auto result = co_await RunBlocking(db_pool_, [this, user_id, limit, offset, &total] {

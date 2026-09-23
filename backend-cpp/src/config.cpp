@@ -27,6 +27,7 @@ Config Config::FromEnv() {
   cfg.external_api_client_id = EnvOr("EXTERNAL_API_CLIENT_ID", cfg.external_api_client_id);
   cfg.local_hmac_secret = EnvOr("LOCAL_AUTH_HMAC_SECRET", cfg.local_hmac_secret);
   cfg.local_rsa_jwks_url = EnvOr("LOCAL_AUTH_RSA_JWKS_URL", cfg.local_rsa_jwks_url);
+  cfg.log_level = EnvOr("LOG_LEVEL", cfg.log_level);
   return cfg;
 }
 

@@ -1,5 +1,7 @@
 #include "application/user_resolver.hpp"
 
+#include "common/logging.hpp"
+
 namespace backend_cpp::application {
 
 common::Result<int64_t> ResolveUserIdFromAuthHeader(const std::string& authorization_header,
@@ -15,8 +17,16 @@ common::Result<int64_t> ResolveUserIdFromAuthHeader(const std::string& authoriza
     } catch (...) {
       user_id = std::nullopt;
     }
+    if (user_id.has_value()) {
+      common::LogDebug("auth debug: resolved user_id=" + std::to_string(*user_id) +
+                        " via local issuer=" + claims->iss);
+    }
   } else {
     user_id = repo.FindUserIdByKeycloakSub(claims->sub);
+    if (user_id.has_value()) {
+      common::LogDebug("auth debug: resolved user_id=" + std::to_string(*user_id) +
+                        " via keycloak_sub=" + claims->sub);
+    }
   }
   if (!user_id.has_value()) return std::unexpected(common::Unauthorized());
   return *user_id;

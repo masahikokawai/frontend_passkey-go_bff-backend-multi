@@ -21,6 +21,7 @@ struct Config {
   std::string external_api_client_id = "external-api-client";
   std::string local_hmac_secret = "local-dev-hmac-shared-secret-change-me";
   std::string local_rsa_jwks_url = "http://localhost:8080/.well-known/jwks.json";
+  std::string log_level = "info";  // LOG_LEVEL: debug/info/warn/error、既定info(README.md「ログについて」参照)
 
   static Config FromEnv();
 };

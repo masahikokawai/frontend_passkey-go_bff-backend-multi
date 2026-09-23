@@ -26,11 +26,18 @@ struct Route {
 
 class Router {
  public:
+  // log_module: リクエスト単位のINFOサマリ行の先頭語("rest"/"external")。
+  // 内部REST用ルーター・外部公開API用ルーターは同じRouter実装(このクラス)を共有しつつ
+  // (README.md「ログについて」参照)、main.cppがインスタンスごとに異なるlog_moduleを渡すことで
+  // ログの出し分けを行う。既定は"rest"
+  explicit Router(std::string log_module = "rest");
+
   void Add(std::string method, std::string prefix, bool needs_id, Handler handler);
   asio::awaitable<HttpResponse> Dispatch(const HttpRequest& req);
 
  private:
   std::vector<Route> routes_;
+  std::string log_module_;
 };
 
 }  // namespace backend_cpp::http

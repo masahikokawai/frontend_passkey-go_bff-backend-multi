@@ -16,6 +16,7 @@
 #include <sstream>
 
 #include "auth/base64.hpp"
+#include "common/logging.hpp"
 
 namespace backend_cpp::auth {
 
@@ -267,6 +268,7 @@ std::optional<Claims> JwksVerifier::Verify(const std::string& token) {
   }
   if (ne.first.empty()) {
     // kid不一致 → 一度だけ再取得(backend(Go)のjwks.goと同じ戦略)
+    common::LogDebug("auth debug: jwks refresh triggered url=" + jwks_url_ + " kid=" + kid);
     if (!Refresh()) return std::nullopt;
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = keys_.find(kid);

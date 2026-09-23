@@ -217,6 +217,21 @@ user_id解決(`ResolveUserId`)は、ローカル発行issuerなら`sub`をその
 - gRPC実装後もREST v1(`:8105`)が引き続き200を返すことを確認(REST/gRPCが同じRepositoryを問題なく共有できている)
 - 起動したサーバープロセスは停止済み、テストデータも削除済み
 
+## ログについて
+
+環境変数`LOG_LEVEL`(`debug`/`info`/`warn`/`error`、既定`info`、backend(Go)/bff/gateway(Go)/backend-c等と同じ規約)でデバッグ行の出力有無を切り替えられる。第三者ロギングライブラリは使わず、`src/common/logging.hpp`/`logging.cpp`の`LogDebug`が有効/無効を切り替えるだけの最小限の実装(backend-cの`src/common/log.h`/`log_debugf`のC++版、C側と同じく「デバッグ行を出すか否か」の1点のみを制御し、warn/errorレベル自体の出し分けは行わない)。`Config::FromEnv()`(`src/config.cpp`)がプロセス起動時に一度だけ`LOG_LEVEL`を読み、`main()`冒頭で`common::LogModuleInit(config.log_level)`を呼んで反映する
+
+- **リクエスト単位のログ(INFO、既定で常に出る、`common::LogInfo`)**: REST v1・外部公開API・gRPCの3トランスポートいずれも、実際に送信したHTTPステータス/gRPCステータスをそのまま記録する(推測・再計算しない)
+  - `rest method=<METHOD> path=<PATH> status=<実際のHTTPステータス> duration_ms=<経過ms>`: `Router::Dispatch`(`src/http/router.cpp`)。REST v1・外部公開APIは同じ`Router`実装を共有しており(1箇所の実装でルート追加時の書き漏れを防ぐ、backend-pythonのミドルウェアと同じ狙い)、`main.cpp`がインスタンスごとに渡す`log_module`("rest"/"external")で先頭語のみ出し分ける。`invalid_id`(400)・`not_found`(404)を含む全終了経路をカバーする
+  - `external method=<METHOD> path=<PATH> status=<実際のHTTPステータス> duration_ms=<経過ms>`: 外部公開API用`Router`インスタンス(`main.cpp`で`http::Router external_router("external")`として構築)が上記と同じ`Router::Dispatch`実装で出力する
+  - `grpc method=<gRPCメソッド名> status=<実際のgRPCステータスコード> duration_ms=<経過ms>`(`src/grpc/task_grpc_service.cpp`のLogRpc、既存)
+- **DEBUG時のみ出る追加ログ(`LOG_LEVEL=debug`、`common::LogDebug`)**:
+  - `auth debug: resolved user_id=<id> via local issuer=<iss>` / `auth debug: resolved user_id=<id> via keycloak_sub=<sub>`: REST/gRPC共通の`ResolveUserIdFromAuthHeader`(`src/application/user_resolver.cpp`)が認証成功時に解決した`user_id`
+  - `auth debug: jwks refresh triggered url=<url> kid=<kid>`: `JwksVerifier::Verify`(`src/auth/jwt.cpp`)がkid不一致でJWKSを再取得するタイミング
+  - `rest debug: list user_id=<id> limit=<limit> offset=<offset>`: REST v1の一覧取得(`TaskHandler::List`、`src/application/task_handler.cpp`)が解析した`limit`/`offset`
+  - `external debug: list_offset user_id=<id> page=<page> page_size=<page_size>` / `external debug: list_cursor user_id=<id> after_id=<after_id> limit=<limit>`: 外部公開APIの一覧取得(`ExternalHandler::List`、`src/external/external_handler.cpp`)が解析したページング指定(offset方式/cursor方式)。`after_id`未指定時は`0`
+- 実機で確認済み: `LOG_LEVEL`未設定(既定)で`GET /internal/v1/tasks`を呼んでも上記DEBUG行は一切出ないこと(INFOの1行サマリのみ出ること)、`LOG_LEVEL=debug`で起動して同じリクエストを呼ぶと`auth debug: resolved user_id=45 via local issuer=bff-gin-local-hmac` / `rest debug: list user_id=45 limit=3 offset=0`が実際に出力されることの両方を確認済み。またREST(200/401/404)・外部公開API(200/401)の複数パターンで、`rest method=GET path=/internal/v1/tasks status=200 duration_ms=13`・`external method=GET path=/external/v1/tasks status=200 duration_ms=19`のように実際のステータスコードがログに記録されることを確認済み
+
 ## 配線(bff/gateway/migration)
 
 `backend.task-language`に`cpp`が追加済み(migration`000017`)
