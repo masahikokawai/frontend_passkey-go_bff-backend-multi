@@ -395,40 +395,33 @@ admin画面での変更が実際にどちらの実装へ反映されたかを確
 
 | 項目 | バージョン |
 |---|---|
-| Xcode Command Line Tools | macOS SDKと同じ世代のもの(`xcode-select -p`・`pkgutil --pkg-info=com.apple.pkg.CLTools_Executables`で確認) Rust/C/C++/Haskell/Railsのネイティブgemのリンクに使用
-下記「既知のつまずき」参照 |
-- 401行目(| Node.js |)の直後:
-| JDK | 21(`brew install openjdk@21`) backend-java/backend-kotlinで使用 Homebrewの無印`open27)になりGradle 9.7.1が非対応のため使わない |
-| Ruby | 3.3系(`brew install ruby@3.3`) backend-rails(`.ruby-version`=3.3.12)・各Railsアプリで使用 macOS標準のRuby 2.6は使用不可 |
 | macOS | Sonoma以降(Apple Silicon M2〜M5) |
+| Xcode Command Line Tools | macOS SDKと同じ世代のもの(`xcode-select -p`・`pkgutil --pkg-info=com.apple.pkg.CLTools_Executables`で確認) Rust/C/C++/Haskell/Railsのネイティブgemのリンクに使用 下記「既知のつまずき」参照 |
 | Docker Desktop | 最新安定版(Docker Engine 29系 / Docker Compose v5系) |
 | Go | 1.27系(ローカルでの`go test`実行に使用 コンテナビルドはDockerfile内で完結) |
 | Node.js | 22 LTS以降(frontend/e2e/backend-js-express/backend-js-ts-expressで使用) |
+| JDK | 21(`brew install openjdk@21`) backend-java/backend-kotlinで使用 Homebrewの無印`openjdk`は最新版(2026-09時点で27)になりGradle 9.7.1が非対応のため使わない |
+| Ruby | 3.3系(`brew install ruby@3.3`) backend-rails(`.ruby-version`=3.3.12)・各Railsアプリで使用 macOS標準のRuby 2.6は使用不可 |
 | pnpm または npm | frontendの依存管理に使用 |
 | PlantUML | 図の再生成が必要な場合のみ(`brew install plantuml`) |
 
 Apple Siliconのため、`docker pull`されるイメージはarm64対応のものを使用すること(mysql:8.0, redis, keycloakの公式イメージはいずれもマルチアーキ対応)
 
+### 既知のつまずき(2026-09-25に確認)
 
-### 注意書き
-**既知のつまずき(2026-09-25に確認)**
-
-- **リンカエラー`tapi error: malformed file … unknown architecture`**: Command Line Tools(
+- **リンカエラー`tapi error: malformed file … unknown architecture`**: Command Line Tools(例: 26.6、`ld-1267`)が、
   それより新しいmacOS SDK(例: `MacOSX27.0.sdk`)を既定として参照すると、SDKの`.tbd`を読めずリンクに失敗する
-  Rust(`cargo test`)・C/C++(CMakeのコンパイラ検出段階)・Haskell(GHCのリンク)・Rails(`bigdec gem)が同じ原因で失敗する
+  Rust(`cargo test`)・C/C++(CMakeのコンパイラ検出段階)・Haskell(GHCのリンク)・Rails(`bigdecimal`/`nio4r`等のネイティブgem)が同じ原因で失敗する
   根本対処はCommand Line Toolsの更新(「ソフトウェアアップデート」)
   更新できない場合は、Command Line Toolsと同世代のSDKを明示して回避できる:
   ```sh
-  ls /Library/Developer/CommandLineTools/SDKs/                              # 利用可能なSDK
+  ls /Library/Developer/CommandLineTools/SDKs/                              # 利用可能なSDKを確認
   export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk   # 例
   ```
+  (Command Line Toolsの更新による解決は未検証 `SDKROOT`による回避は2026-09-25に実機で確認済み)
 - **Gradleの`Unsupported class file major version 71`**: JDK 27でGradle 9.7.1を起動した場合に発生する
   `brew install openjdk@21`し、`JAVA_HOME=/opt/homebrew/opt/openjdk@21`を指定する
   (backend-java・backend-kotlinの`build.gradle`も`sourceCompatibility = JavaVersion.VERSION_21`を指定している)
-
-「Command Line Tools を更新すれば解決する」という点は、今回は試していない
-そのため、コマンドまでは書かず「ソフトウェアアップデート」とだけ書いている
-確実なのは SDKROOT による回避で、こちらは今回の実行で効果を確認済み
 
 ## セットアップ手順
 
@@ -607,16 +600,16 @@ cabal build
 cabal run exe:backend-haskell-server
 ```
 
-Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskellはいずれも独自のマイグレーションを持たない
-スキーマの正本は`backend/migrations`のみで、他13言語は同じMySQL(`bff_gin_development`)を読み書きするだけ
-Railsだけ`GRPC::RpcServer`のブロッキングイベントループがPumaと同居できないため3プロセス構成になる
-C++のアーキテクチャ選定(Boost.Asio/Beast + gRPC C++ Callback API + libmysqlclient、検討した他候補・薄れる学習効果の記録含む)は`backend-cpp/README.md`の「アーキテクチャ選定」節を参照
-Cのアーキテクチャ選定(CivetWeb + gRPC Core C API + protobuf-c + libmysqlclient、JWT/JWKS認証はOpenSSLのプリミティブを直接使った自前実装)は`backend-c/README.md`の「アーキテクチャ選定」節を参照
-Javaのアーキテクチャ選定(Javalin + 生JDBC + HikariCP + grpc-java、Virtual Threadsで並行処理の安全性を自動化)は`backend-java/README.md`の「アーキテクチャ選定」節を参照
-Kotlinのアーキテクチャ選定(Ktor + 生JDBC + grpc-kotlin、`Dispatchers.IO`への明示的な切り替えで並行処理の安全性を型システムと明示的なディスパッチャ選択で保証)は`backend-kotlin/README.md`の「アーキテクチャ選定」節を参照
-Pythonのアーキテクチャ選定(FastAPI + aiomysql + grpc.aio、ドライバ自体が非同期ネイティブなため明示的な隔離が不要)は`backend-python/README.md`の「アーキテクチャ選定」節を参照
-Elixirのアーキテクチャ選定(Plug + Cowboy + Ecto + elixir-grpc、GenServer/Supervisorとlet it crash、BEAMのプリエンプティブなスケジューラ)は`backend-elixir/README.md`の「アーキテクチャ選定」節を参照
-Haskellのアーキテクチャ選定(Servant + mysql-haskell + grapesy、型駆動API設計とSTMによる並行処理)は`backend-haskell/README.md`の「アーキテクチャ選定」節を参照
+- Rust/Scala×2/Rails/JavaScript/TypeScript/C++/C/Java/Kotlin/Python/Elixir/Haskell はいずれも独自のマイグレーションを持たない
+- スキーマの正本は`backend/migrations`のみで、他13言語は同じMySQL(`bff_gin_development`)を読み書きするだけ
+- Railsだけ`GRPC::RpcServer`のブロッキングイベントループがPumaと同居できないため3プロセス構成になる
+- C++のアーキテクチャ選定(Boost.Asio/Beast + gRPC C++ Callback API + libmysqlclient、検討した他候補・薄れる学習効果の記録含む)は`backend-cpp/README.md`の「アーキテクチャ選定」節を参照
+- Cのアーキテクチャ選定(CivetWeb + gRPC Core C API + protobuf-c + libmysqlclient、JWT/JWKS認証はOpenSSLのプリミティブを直接使った自前実装)は`backend-c/README.md`の「アーキテクチャ選定」節を参照
+- Javaのアーキテクチャ選定(Javalin + 生JDBC + HikariCP + grpc-java、Virtual Threadsで並行処理の安全性を自動化)は`backend-java/README.md`の「アーキテクチャ選定」節を参照
+- Kotlinのアーキテクチャ選定(Ktor + 生JDBC + grpc-kotlin、`Dispatchers.IO`への明示的な切り替えで並行処理の安全性を型システムと明示的なディスパッチャ選択で保証)は`backend-kotlin/README.md`の「アーキテクチャ選定」節を参照
+- Pythonのアーキテクチャ選定(FastAPI + aiomysql + grpc.aio、ドライバ自体が非同期ネイティブなため明示的な隔離が不要)は`backend-python/README.md`の「アーキテクチャ選定」節を参照
+- Elixirのアーキテクチャ選定(Plug + Cowboy + Ecto + elixir-grpc、GenServer/Supervisorとlet it crash、BEAMのプリエンプティブなスケジューラ)は`backend-elixir/README.md`の「アーキテクチャ選定」節を参照
+- Haskellのアーキテクチャ選定(Servant + mysql-haskell + grapesy、型駆動API設計とSTMによる並行処理)は`backend-haskell/README.md`の「アーキテクチャ選定」節を参照
 
 ### 6. bffを起動する
 
@@ -756,84 +749,15 @@ cd admin/go && TEST_DB_DSN="root@tcp(127.0.0.1:13306)/bff_gin_development?parseT
 
 **実行前の前提**:
 - Python・Elixir・Haskellは、`.proto`からの生成コードが無い状態では単体テストのコンパイル/収集自体が失敗する
-  (Python: `ModuleNotFoundError: No module named 'task'`、Elixir: `Task.V1.Label.__struct__
+  (Python: `ModuleNotFoundError: No module named 'task'`、Elixir: `Task.V1.Label.__struct__/1 is undefined`、
   Haskell: `can't find source for Proto/Task/V1/Task`)。テスト実行前に「5.1 多言語backend」の生成手順を一度実行しておくこと
   (他言語はCargo/sbt/Gradle/CMakeがビルド時に自動生成するため不要)
 - Java・Kotlinは`JAVA_HOME`をJDK 21に向けた状態で実行すること(「5.1」参照)
 - Rust・C・C++・Haskell・Railsでリンクエラー(`tapi error: malformed file`)になる場合は「前提バージョン」の既知のつまずきを参照
 
-
 **2026-09-23追記**: JavaScript/TypeScript(21件→45件)・C++(15件→47件)・C(33件→54件)は、他言語と比べて単体テストの件数が明らかに少なかったため追加した
 追加したのは、他言語(Java/Kotlin/Python等)が持つ「HMAC/ローカル認証のDispatcherルーティング」「JWKS検証(kid不一致時の再取得・issuer/audience/algの妥当性)」「外部公開API専用認証(azp検証)」「RESTエラーコードマッピング」の4カテゴリで、JS/TSはこの3つが、C++/Cは後半2つが単体テストとして丸ごと欠落していた
 詳細はCONTRACT.mdセクション25.10参照
-
-**2026-09-25追記**: Elixir 依存パッケージの脆弱性警告
-結論
-- 実際に問題なのは grpc 0.11.5 の4件です(CRITICAL 1件、HIGH 3件)
-  - 1.0.0 で修正済みだが、mix.exs の {:grpc, "~> 0.9"} という指定のため 1.x に上げられない
-- cowlib と gun の警告は、すでに最新版を使っていて、これ以上上げられるバージョンがない
-  - OSV のデータが古いことによる誤検知の可能性がある
-
-検出された全件(mix hex.audit)
-┌────────────┬────────┬─────────────────────┬──────────┬──────────────────────────────────────────────────────────────────────┬─────────────────────────────┐
-│ パッケージ │ 使用中 │         ID          │  深刻度  │                                 内         │         修正版(OSV)         │
-├────────────┼────────┼─────────────────────┼──────────┼──────────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ grpc       │ 0.11.5 │ EEF-CVE-2026-48853  │ CRITICAL │ 安全でない Erlang term のデシリア  行・DoS │ 1.0.0                       │
-├────────────┼────────┼─────────────────────┼──────────┼──────────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ grpc       │ 0.11.5 │ EEF-CVE-2026-48854  │ HIGH     │ リクエストボディを上限なく溜め込む         │ 1.0.0                       │
-├────────────┼────────┼─────────────────────┼──────────┼──────────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ grpc       │ 0.11.5 │ EEF-CVE-2026-53430  │ HIGH     │ gzip 展開爆弾(GRPC.Compressor.Gzip         │ 1.0.0                       │
-├────────────┼────────┼─────────────────────┼──────────┼──────────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ grpc       │ 0.11.5 │ EEF-CVE-2026-48599  │ HIGH     │ HTTP transcoding のパス束縛上書き          │ 1.0.0                       │
-├────────────┼────────┼─────────────────────┼──────────┼──────────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ cowlib     │ 2.20.0 │ EEF-CVE-2026-43966  │ MEDIUM   │ 非 VCHAR バイトによる HTTP レスポ          │ 記載なし                    │
-├────────────┼────────┼─────────────────────┼──────────┼──────────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ cowlib     │ 2.20.0 │ EEF-CVE-2026-43969  │ LOW      │ Cookie リクエストヘッダのインジェ          │ 記載なし                    │
-├────────────┼────────┼─────────────────────┼──────────┼──────────────────────────────────────────────────────────────────────┼─────────────────────────────┤
-│ gun        │ 2.6.0  │ GHSA-w4f7-4cxr-rv3c │ MEDIUM   │ HTTP リクエスト/レスポンス分割(cow         │ cowboy / gun とも「2.16.0」 │
-└────────────┴────────┴─────────────────────┴──────────┴──────────────────────────────────────────────────────────────────────┴─────────────────────────────┘
-修正版の欄は、OSV の API(api.osv.dev)から取得した影響範囲のデータ
-
-
-grpc(対応が必要)
-- 影響範囲:4件とも「0.x の範囲で導入され、1.0.0 で修正」です。1.0.0 は 2026-06 に公開されている
-- 上げられない理由: mix hex.outdated の結果は grpc 0.11.5 → 1.0.5 Update not possible
-  - mix.exs の {:grpc, "~> 0.9"} は「0.9 以上 1.0 未満」という意味なので、1.x には上げられない
-- 更新の難しさ: メジャーバージョンが上がる(0.x → 1.x)ので、API の破壊的変更がある可能性が高い
-  - このプロジェクトは GRPC.Server.Supervisor / use GRPC.Endpoint / use GRPC.Server を使っている
-    - application.ex:64, grpc/endpoint.ex、grpc/task_service.ex:13)
-  - README 36行目でも、elixir-grpc は「4言語の中で唯一エコシステムリスクが残る部分」とされている
-  - mix.exs の指定を変えるだけでは済まない可能性があり、変更後に単体テストと gRPC の結合テストでの確認が必要
-- このプロジェクトでの実際の危険度:
-  - gRPC ポート(:9104)は、本来 bff だけが使う内部 API
-  - ただし GRPC.Server.Supervisor に待ち受けアドレスの指定が無いため、既定では全インターフェースで待ち受けていると思われます(未確認)
-    - MySQL などを 127.0.0.1 限定にしている docker-compose の方針と揃っていない
-      - 同じ LAN から到達できる可能性がある
-  - 4件それぞれの脆弱なコードが、このプロジェクトで実際に通る経路にあるかどうか(例:HTTP transcoding を使っているか、gzip 圧縮を受け付けているか)は、今回は調べていない
-  - 学習用のローカル環境なので緊急度は高くありませんが、CRITICAL のリモートコード実行を含むがよい種類の問題
-
-cowlib / gun(誤検知の可能性が高い)
-- cowlib 2.20.0:OSV には修正版が書かれていない(「2.9.0 以降が影響」とだけあります)
-  - 一方 (2026-09-08 公開)で、アドバイザリ公開(2026-05 / 06)より後のリリースです。修正済みでも OSVに反映されていないだけの可能性があるが、確認はできていない
-    - そもそも最新版なので、今すぐ取れる対処はない
-- gun 2.6.0:OSV には「修正版は cowboy / gun とも 2.16.0」とある
-  - しかし gun の最新版は 0 というバージョンは存在しない
-    - これは cowboy の修正版を gunにも当てはめてしまった、データの誤りと考えられる
-  - cowboy は 2.19.0 を使っているので、この脆弱性については修正済みの範囲
-
-今後の対応(提案)
-┌────────┬──────────────────────────────────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────┐
-│ 優先度 │                                                      対応                                                      │                                       範囲                                        │
-├────────┼──────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
-│ 高     │ grpc を 1.x へ上げる(mix.exs を {:grpc, "~> 1.0"} に変更 → mix deps.update grpc → API の差分に対応 →           │ backend-elixir/mix.exs、mix.lock、lib/backend_elixir/grpc/*、必要なら             │
-│        │ 単体・結合テスト)                                                                    │ application.ex                                                                    │
-├────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
-│ 中     │ gRPC と REST の待ち受けアドレスを 127.0.0.1 に限定するか検討する(docker-compose      │ application.ex                                                                    │
-├────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
-│ 低     │ cowlib / gun は、新しいリリースや OSV の更新を待つ。mix hex.audit を定期的に確認     │ なし                                                                              │
-├────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
-│ 記録   │ CONTRACT.md §23.2(意図的に対応を見送った既知の制約)に、この件を記録しておく          │ CONTRACT.md                                                                       │
-└────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────┘
 
 #### Rails単体テスト(admin/rails)
 
@@ -1325,6 +1249,39 @@ XSS耐性についてユーザーとレビューした際に洗い出した追�
   - トレードオフ: Viteの開発サーバー(HMR)は既定でインラインスクリプト/eval的な仕組みを使うため、開発環境ではCSPを緩めるか無効化し、本番ビルドにのみ適用する調整が必要。Swagger UI等の外部リソースを読み込む画面がある場合はそこだけ緩和が必要
 - **Trusted Types(Chrome系ブラウザ限定)未導入**: `innerHTML`等の危険なDOM sinkへの代入自体をブラウザレベルで強制チェックさせる仕組み。将来`dangerouslySetInnerHTML`的なコードが増えても事故を防げるが、Chromium限定・学習コストありのため優先度は中
 - **依存ライブラリの脆弱性監視(`npm audit`/Dependabot等)が未導入**: 実際のXSSは自前コードよりReact周辺ライブラリの脆弱性経由で入ることが多いため、CI組み込みは費用対効果が高い
+
+### 依存パッケージの既知の脆弱性(backend-elixir、2026-09-25確認)
+
+`backend-elixir`で`mix deps.get`・`mix hex.audit`を実行すると`Found packages with security advisories`が報告される
+(影響範囲・修正版は[OSV](https://osv.dev/)のデータ)
+
+| パッケージ | 使用中 | ID | 深刻度 | 内容 | 修正版(OSV) |
+|---|---|---|---|---|---|
+| grpc | 0.11.5 | EEF-CVE-2026-48853 | CRITICAL | 安全でないErlang termのデシリアライズによるリモートコード実行・DoS | 1.0.0 |
+| grpc | 0.11.5 | EEF-CVE-2026-48854 | HIGH | リクエストボディを上限なく溜め込むことによるメモリ枯渇 | 1.0.0 |
+| grpc | 0.11.5 | EEF-CVE-2026-53430 | HIGH | gzip展開爆弾(`GRPC.Compressor.Gzip.decompress/1`) | 1.0.0 |
+| grpc | 0.11.5 | EEF-CVE-2026-48599 | HIGH | HTTP transcodingのパス束縛上書きによる認可回避 | 1.0.0 |
+| cowlib | 2.20.0 | EEF-CVE-2026-43966 | MEDIUM | 非VCHARバイトによるHTTPレスポンス分割 | 記載なし |
+| cowlib | 2.20.0 | EEF-CVE-2026-43969 | LOW | Cookieリクエストヘッダのインジェクション | 記載なし |
+| gun | 2.6.0 | GHSA-w4f7-4cxr-rv3c | MEDIUM | HTTPリクエスト/レスポンス分割(cowboyとgun) | cowboy/gunとも「2.16.0」 |
+
+- **grpc(要対応)**: 4件とも0.x系で導入され1.0.0で修正済み(1.0.0は2026-06公開、2026-09時点の最新は1.0.5)
+  - `mix.exs`の`{:grpc, "~> 0.9"}`(0.9以上1.0未満)により1.xへ上がらない(`mix hex.outdated`の結果は`Update not possible`)
+  - メジャーバージョンアップのためAPIの破壊的変更が想定される
+    `GRPC.Server.Supervisor`(`lib/backend_elixir/application.ex`)・`use GRPC.Endpoint`(`lib/backend_elixir/grpc/endpoint.ex`)・
+    `use GRPC.Server`(`lib/backend_elixir/grpc/task_service.ex`)の追従と、単体テスト・gRPC結合テストでの確認が必要
+  - gRPCポート(:9104)はbffだけが使う内部APIだが、`GRPC.Server.Supervisor`に待ち受けアドレスの指定が無く、
+    既定では全インターフェースで待ち受けている可能性がある(未確認 docker-composeの`127.0.0.1`限定の方針と揃っていない)
+  - 各脆弱性のコード経路(HTTP transcoding・gzip圧縮の受け付け等)が、このプロジェクトで実際に通るかは未調査
+- **cowlib / gun(誤検知の可能性)**: どちらもHex上の最新版を使用しており、上げられるバージョンが無い
+  - cowlib 2.20.0: OSVに修正版の記載が無い(「2.9.0以降が影響」のみ)
+    2.20.0はアドバイザリ公開(2026-05/06)より後の2026-09-08リリースで、修正済みだがOSVに未反映の可能性がある(未確認)
+  - gun 2.6.0: OSVでは修正版が「2.16.0」とされているが、gunの最新版は2.6.0で、2.16.0というバージョンは存在しない
+    cowboyの修正版(2.16.0)をgunにも当てはめたデータの誤りと考えられる(cowboyは2.19.0を使用しており修正済みの範囲)
+- **今後の対応(未実施)**
+  - 優先度高: grpcを1.xへ上げる(`{:grpc, "~> 1.0"}`へ変更→`mix deps.update grpc`→APIの差分に追従→単体・結合テスト)
+  - 優先度中: gRPC/RESTの待ち受けアドレスを`127.0.0.1`に限定するか検討する
+  - 優先度低: cowlib/gunは新しいリリース・OSVの更新を待ち、`mix hex.audit`を定期的に確認する
 
 ### OSコマンドインジェクション(CWE-78)について確認した内容
 

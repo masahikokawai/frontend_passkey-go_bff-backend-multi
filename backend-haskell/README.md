@@ -92,7 +92,7 @@ REST/gRPCともに、本物のJWT/JWKS検証(デバッグ用ヘッダは無い)�
 
 `Authorization: Bearer <token>`ヘッダ(gRPCは`authorization`メタデータ)を、署名検証前に`iss`だけ覗いて対応するVerifierへ振り分ける`Dispatcher`→実際の署名/`exp`/`aud`検証を行う`HmacVerifier`/`JwksVerifier`という2段構造(他言語と同じ設計)。JWKSベースの2issuer(ローカルRSA・Keycloak)はそれぞれ専用の`JwksCache`(STM)を持つ。認証ヘッダが無い、またはいずれの検証にも通らない場合はREST `401 {"error":"unauthorized"}`・gRPC `UNAUTHENTICATED`。user_id解決(`UserResolver`)はローカル発行issuerなら`sub`をそのまま`users.id`として、Keycloak発行issuerなら`sub`(keycloak_sub)を`user_keycloaks`テーブル経由で引く。
 
-gRPCクライアントが`authorization`メタデータを送るには、grapesyの`CallParams`の`callRequestMetadata`フィールド(型family`RequestMetadata`で決まる型)を使う必要がある。`RequestMetadata (Protobuf TaskService meth)`は`grpc-spec`があらかじめ用意している`[CustomMetadata]`型(生のヘッダリストそのまま)を指定しており、サーバー側は`getRequestHeaders`経由の低レベルAPIで同じ生メタデータを読む(`generated/Proto/API/Task/V1/Task.hs` もしくは `src/Proto/API/Task/V1/Task.hs`参照)。
+gRPCクライアントが`authorization`メタデータを送るには、grapesyの`CallParams`の`callRequestMetadata`フィールド(型family`RequestMetadata`で決まる型)を使う必要がある。`RequestMetadata (Protobuf TaskService meth)`は`grpc-spec`があらかじめ用意している`[CustomMetadata]`型(生のヘッダリストそのまま)を指定しており、サーバー側は`getRequestHeaders`経由の低レベルAPIで同じ生メタデータを読む(`src/Proto/API/Task/V1/Task.hs`参照)。
 
 ## 結合テスト
 
@@ -146,6 +146,8 @@ cabal build
 DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development \
   HTTP_ADDR=8119 GRPC_ADDR=9105 EXTERNAL_HTTP_ADDR=8120 cabal run exe:backend-haskell-server
 ```
+
+### `generated/` と `src/Proto/API` の使い分け(重要)
 
 | パス | 作り方 | Git管理 |
 |---|---|---|
