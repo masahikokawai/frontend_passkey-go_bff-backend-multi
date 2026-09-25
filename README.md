@@ -544,14 +544,27 @@ export PATH="$JAVA_HOME/bin:$PATH"
 
 # Python(REST:8115 gRPC:9103 外部:8116)
 cd backend-python
-brew install python@3.12   # 初回のみ
+# 初回のみ
+brew install python@3.12
 python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+# .protoからのコード生成(初回・proto変更時のみ、生成先app/generated/は.gitignore対象)
+mkdir -p app/generated && python -m grpc_tools.protoc -I proto \
+  -I "$(python -c 'import grpc_tools, os; print(os.path.join(os.path.dirname(grpc_tools.__file__), "_proto"))')" \
+  --python_out=app/generated --grpc_python_out=app/generated --pyi_out=app/generated \
+  proto/task/v1/task.proto
 python -m app.main
 
 # Elixir(REST:8117 gRPC:9104 外部:8118)
 cd backend-elixir
-brew install elixir   # Erlang/OTPも依存関係として自動的にインストールされる、初回のみ
+# Erlang/OTPも依存関係として自動的にインストールされる、初回のみ
+brew install elixir
+# 初回のみ
+mix local.hex --force && mix local.rebar --force
+# 初回のみ(protoc-gen-elixirプラグイン、~/.mix/escriptsへ入る)
+mix escript.install hex protobuf --force
 mix deps.get
+# .protoからのコード生成(初回・proto変更時のみ、生成先 lib/generated/ は .gitignore 対象)
+./scripts/gen_proto.sh
 mix run --no-halt
 
 # Haskell(REST:8119 gRPC:9105 外部:8120)
