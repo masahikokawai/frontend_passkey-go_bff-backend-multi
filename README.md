@@ -410,8 +410,8 @@ admin画面での変更が実際にどちらの実装へ反映されたかを確
 ## 認証パターン
 
 - React(:5173) + bff(:8080)の画面からログインする方式は**4パターン**
-- どのパターンでも、ログイン成功後はbffがRedisにセッションを作り、ブラウザには`session_id`(HttpOnly Cookie)だけを渡す点は共通(BFFパターン、JWTはブラウザに一切渡らない)
-- パターンごとに違うのは「誰が本人確認をするか」と「bffがbackendへ転送するJWTを誰が署名するか」の2点
+- どのパターンでも、ログイン成功後は bff が Redis にセッションを作り、ブラウザには`session_id`(HttpOnly Cookie)だけを渡す点は共通(BFFパターン、JWTはブラウザに一切渡らない)
+- パターンごとに違うのは「誰が本人確認をするか」と「bff が backend へ転送する JWT を誰が署名するか」の2点
 
 インタラクティブなシーケンス図:
 [ログイン(HMAC/RSA/Keycloak)](docs/2_sequence-diagrams/bff-gin-login-flows.sequence.html)・
@@ -441,14 +441,14 @@ admin画面での変更が実際にどちらの実装へ反映されたかを確
     - `{"error":"webauthn_scope_local_auth_only"}`になる(Keycloak全体のログインフローに影響するため意図的に対象外、CONTRACT.mdセクション22.1)
   - パスキーからの新規登録(サインアップ)は無い
 - **usernameless(discoverable credential)**: ログイン画面でメールアドレスを入力せず、ブラウザ/OSが提示するパスキーを選ぶだけ
-  - bffは返ってきた`credential_id`でbackendの`webauthn_credentials`を引き、ユーザーを特定する
+  - bff は返ってきた`credential_id`で backend の`webauthn_credentials`を引き、ユーザーを特定する
   - (`GET /internal/v1/auth/webauthn/credentials/:credential_id`、`X-Webauthn-Internal-Token`で認可)
   - スマートフォンでQRコードを読み取るクロスデバイス認証はブラウザ/OSの標準機能で、アプリ側の実装は不要
 - **backendから見るとローカルHMAC(1)と区別が付かない**:
-  - 発行されるJWTは1と同じ`iss=bff-gin-local-hmac`のため、backendに追加の検証方式は無い
+  - 発行されるJWTは1と同じ`iss=bff-gin-local-hmac`のため、backend に追加の検証方式は無い
   - 4パターンを区別しているのはbff(Redisの`auth_mode`)だけで、リフレッシュ・ログアウトの挙動の分岐に使う
 - **既知の制約**:
-  - sign_countの更新に失敗してもログイン自体は成功させる設計(可用性を優先、CONTRACT.mdセクション23.2)
+  - sign_count の更新に失敗してもログイン自体は成功させる設計(可用性を優先、CONTRACT.mdセクション23.2)
   - クラウド同期パスキー(iCloudキーチェーン等)でログインが常に失敗していた不具合は修正済み
   - (Backup Eligibleフラグの保存漏れ、CONTRACT.mdセクション22.8)
 
