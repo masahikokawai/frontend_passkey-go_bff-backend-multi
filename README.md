@@ -409,9 +409,9 @@ admin画面での変更が実際にどちらの実装へ反映されたかを確
 
 ## 認証パターン
 
-React(:5173)+bff(:8080)の画面からログインする方式は**4パターン**
-どのパターンでも、ログイン成功後はbffがRedisにセッションを作り、ブラウザには`session_id`(HttpOnly Cookie)だけを渡す点は共通(BFFパターン、JWTはブラウザに一切渡らない)
-パターンごとに違うのは「誰が本人確認をするか」と「bffがbackendへ転送するJWTを誰が署名するか」の2点
+- React(:5173) + bff(:8080)の画面からログインする方式は**4パターン**
+- どのパターンでも、ログイン成功後はbffがRedisにセッションを作り、ブラウザには`session_id`(HttpOnly Cookie)だけを渡す点は共通(BFFパターン、JWTはブラウザに一切渡らない)
+- パターンごとに違うのは「誰が本人確認をするか」と「bffがbackendへ転送するJWTを誰が署名するか」の2点
 
 インタラクティブなシーケンス図:
 [ログイン(HMAC/RSA/Keycloak)](docs/2_sequence-diagrams/bff-gin-login-flows.sequence.html)・
@@ -435,22 +435,32 @@ React(:5173)+bff(:8080)の画面からログインする方式は**4パターン
 ### パスキーの位置づけ(ほかの3パターンとの違い)
 
 - **既存ユーザーへの追加の認証手段であり、パスキー単独では始められない**
-  - 登録できるのは、ローカル認証(1・2)でログイン中のユーザーだけ(`/account`画面、`POST /api/auth/passkey/register/begin`→`finish`)
-  - Keycloak(3)でログインしたセッションで登録しようとすると403 `{"error":"webauthn_scope_local_auth_only"}`になる(Keycloak全体のログインフローに影響するため意図的に対象外、CONTRACT.mdセクション22.1)
+  - 登録できるのは、ローカル認証(1・2)でログイン中のユーザーだけ
+    - (`/account`画面、`POST /api/auth/passkey/register/begin`→`finish`)
+  - Keycloak(3)でログインしたセッションで登録しようとすると403
+    - `{"error":"webauthn_scope_local_auth_only"}`になる(Keycloak全体のログインフローに影響するため意図的に対象外、CONTRACT.mdセクション22.1)
   - パスキーからの新規登録(サインアップ)は無い
 - **usernameless(discoverable credential)**: ログイン画面でメールアドレスを入力せず、ブラウザ/OSが提示するパスキーを選ぶだけ
-  bffは返ってきた`credential_id`でbackendの`webauthn_credentials`を引き、ユーザーを特定する(`GET /internal/v1/auth/webauthn/credentials/:credential_id`、`X-Webauthn-Internal-Token`で認可)
-  スマートフォンでQRコードを読み取るクロスデバイス認証はブラウザ/OSの標準機能で、アプリ側の実装は不要
-- **backendから見るとローカルHMAC(1)と区別が付かない**: 発行されるJWTは1と同じ`iss=bff-gin-local-hmac`のため、backendに追加の検証方式は無い
-  4パターンを区別しているのはbff(Redisの`auth_mode`)だけで、リフレッシュ・ログアウトの挙動の分岐に使う
-- **既知の制約**: sign_countの更新に失敗してもログイン自体は成功させる設計(可用性を優先、CONTRACT.mdセクション23.2)
-  クラウド同期パスキー(iCloudキーチェーン等)でログインが常に失敗していた不具合は修正済み(Backup Eligibleフラグの保存漏れ、CONTRACT.mdセクション22.8)
+  - bffは返ってきた`credential_id`でbackendの`webauthn_credentials`を引き、ユーザーを特定する
+  - (`GET /internal/v1/auth/webauthn/credentials/:credential_id`、`X-Webauthn-Internal-Token`で認可)
+  - スマートフォンでQRコードを読み取るクロスデバイス認証はブラウザ/OSの標準機能で、アプリ側の実装は不要
+- **backendから見るとローカルHMAC(1)と区別が付かない**:
+  - 発行されるJWTは1と同じ`iss=bff-gin-local-hmac`のため、backendに追加の検証方式は無い
+  - 4パターンを区別しているのはbff(Redisの`auth_mode`)だけで、リフレッシュ・ログアウトの挙動の分岐に使う
+- **既知の制約**:
+  - sign_countの更新に失敗してもログイン自体は成功させる設計(可用性を優先、CONTRACT.mdセクション23.2)
+  - クラウド同期パスキー(iCloudキーチェーン等)でログインが常に失敗していた不具合は修正済み
+  - (Backup Eligibleフラグの保存漏れ、CONTRACT.mdセクション22.8)
 
 ### 4パターン共通の仕組み
 
-- **backendのJWT検証**: `authjwt.Dispatcher`が`iss`で検証方式を振り分ける(Keycloak→KeycloakのJWKS、`bff-gin-local-hmac`→共有シークレット、`bff-gin-local-rsa`→bffのJWKS) パスキー(4)は1と同じ経路
+- **backendのJWT検証**:
+  - `authjwt.Dispatcher`が`iss`で検証方式を振り分ける
+  - (Keycloak → Keycloak の JWKS、`bff-gin-local-hmac` → 共有シークレット、`bff-gin-local-rsa` → bffのJWKS)
+  - パスキー(4)は1と同じ経路
 - **CSRF対策**: Double Submit Cookie方式(`csrf_token` Cookieの値を、状態を変更するリクエストの`X-CSRF-Token`ヘッダに載せる)
-- ローカル認証(1・2・4)の詳細は[ローカル(非Keycloak)認証](#ローカル非keycloak認証contractmdセクション16)、Keycloak(3)の詳細は[Keycloak(OIDC IdP)](#keycloakoidc-idp)、Redisのキー構成は[Redis](#redis)を参照(いずれも「アーキテクチャ詳細」内)
+- ローカル認証(1・2・4)の詳細は[ローカル(非Keycloak)認証](#ローカル非keycloak認証contractmdセクション16)
+- Keycloak(3)の詳細は[Keycloak(OIDC IdP)](#keycloakoidc-idp)、Redisのキー構成は[Redis](#redis)を参照(いずれも「アーキテクチャ詳細」内)
 
 ### その他の認証(ブラウザからのログイン以外、参考)
 
