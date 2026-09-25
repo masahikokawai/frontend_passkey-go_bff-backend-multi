@@ -556,7 +556,13 @@ mix run --no-halt
 
 # Haskell(REST:8119 gRPC:9105 外部:8120)
 cd backend-haskell
-brew install ghc cabal-install pcre snappy   # 初回のみ
+# 初回のみ
+brew install ghc cabal-install pcre snappy
+# 初回のみ
+cabal build --only-dependencies
+# 初回・proto変更時のみ
+mkdir -p generated && protoc --plugin=protoc-gen-haskell=$(cabal list-bin proto-lens-protoc) \
+  --haskell_out=generated -I proto -I /opt/homebrew/include proto/task/v1/task.proto
 cabal build
 cabal run exe:backend-haskell-server
 ```
