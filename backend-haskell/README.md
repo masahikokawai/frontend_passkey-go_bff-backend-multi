@@ -135,13 +135,35 @@ REST v1・外部公開API・gRPCともリクエスト単位のログを標準出
 ## セットアップ
 
 ```sh
+# 初回のみ
 brew install ghc cabal-install pcre snappy
-cabal build
-protoc --plugin=protoc-gen-haskell=$(cabal list-bin proto-lens-protoc) \
+# 初回のみ
+cabal build --only-dependencies
+# 初回・proto変更時のみ
+mkdir -p generated && protoc --plugin=protoc-gen-haskell=$(cabal list-bin proto-lens-protoc) \
   --haskell_out=generated -I proto -I /opt/homebrew/include proto/task/v1/task.proto
+cabal build
 DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_SCHEMA=bff_gin_development \
   HTTP_ADDR=8119 GRPC_ADDR=9105 EXTERNAL_HTTP_ADDR=8120 cabal run exe:backend-haskell-server
 ```
+
+| パス | 作り方 | Git管理 |
+|---|---|---|
+| `generated/Proto/Task/V1/Task.hs`・`Task_Fields.hs` | `protoc`+`proto-lens-protoc`で自動生成 | しない(`.gitignore`対象) |
+| `src/Proto/API/Task/V1/Task.hs` | **手書き**(grapesy用のメタデータ型family宣言+生成モジュールの再エクスポート) | する |
+
+`proto-lens-protoc`はメッセージ/サービスの型しか生成せず、grapesy が gRPC サービスとして扱うための
+`RequestMetadata`/`ResponseInitialMetadata`/`ResponseTrailingMetadata`の宣言は手書きする必要がある
+(grapesyの`tutorials/quickstart/src/Proto/API/Helloworld.hs`と同じパターン)
+
+**手書きファイルを`generated/`に置かないこと。** 以前は`generated/`に置いていたため`.gitignore`で除外されて
+一度もコミットされず、クリーンな環境では `can't find source for Proto/API/Task/V1/Task` でビルドできない状態になっていた(2026-09-25に判明し、`src/`へ移動して修正)
+`hs-source-dirs: src, generated` のため、`src/` に置けばcabalの設定変更なしでビルドできる
+
+`cabal list-bin proto-lens-protoc`が解決できない環境では、
+`cabal install proto-lens-protoc --installdir=<任意のディレクトリ>`で入手したバイナリを
+`--plugin=protoc-gen-haskell=<パス>`へ指定する
+
 
 ## 動作確認(実機で確認済み)
 
