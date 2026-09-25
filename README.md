@@ -11,6 +11,7 @@ go-gin(サーバーサイドレンダリング + セッションCookie認証)を
 
 - [アーキテクチャ概要](#アーキテクチャ概要)
 - [アーキテクチャ詳細](#アーキテクチャ詳細)
+- [認証パターン](#認証パターン)
 - [前提バージョン](#前提バージョンmac-m2m5)
 - [セットアップ手順](#セットアップ手順)
 - [確認手順](#確認手順)
@@ -95,6 +96,9 @@ KeycloakのAuthorization Code Flow はブラウザを直接 Keycloak へリダ�
 | ローカル・RSA版 | http://localhost:5173/login/rsa | `POST http://localhost:8080/api/auth/login/rsa` |
 | Keycloak(OIDC) | http://localhost:5173/login 内の「Keycloakでログイン」ボタン | `GET http://localhost:8080/api/auth/login/keycloak` |
 
+補足: パスキー(WebAuthn)はログインURLではなく、http://localhost:5173/login 内の「パスキーでログイン」ボタンから行う4つ目のログイン方式(事前に`/login`または`/login/rsa`でログインし、`/account`画面でパスキーを登録しておく必要がある)
+4方式全体の比較は[認証パターン](#認証パターン)を参照
+
 **各URLでログインできるユーザー**(いずれも「マイグレーションを実行する」の`go run ./cmd/migrate up`実行時にseedとして投入済み):
 
 | ログインURL | ユーザー(email/username) | パスワード | 備考 |
@@ -140,10 +144,11 @@ admin/go・admin/railsが作成できるのはローカル認証ユーザーの�
 │ ブラウザ(React SPA, :5173)                                            │
 │ HttpOnly Cookie(session_id)+X-CSRF-Tokenのみ保持 JWTは一切渡らない │
 └──────────────────────────────┬───────────────────────────────────────┘
-                                │ ログイン(3方式のいずれか、/loginページから)
+                                │ ログイン(4方式のいずれか、/loginページから)
                                 │  /login       → POST /api/auth/login       (ローカルHMAC・既定)
                                 │  /login/rsa   → POST /api/auth/login/rsa   (ローカルRSA)
                                 │  「Keycloakでログイン」ボタン → GET /api/auth/login/keycloak
+                                │  「パスキーでログイン」ボタン → POST /api/auth/passkey/login/begin,finish
                                 ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │ bff (Go/Gin, :8080)                                                     │
@@ -160,6 +165,17 @@ admin/go・admin/railsが作成できるのはローカル認証ユーザーの�
 │   ② GET  /api/auth/callback?code=...(Keycloakからブラウザ経由でbffへ戻る)│
 │   ③ POST http://localhost:8082/realms/training/protocol/openid-connect/token │
 │      (bffがcodeをAccess/Refresh/ID Tokenへサーバー間で交換、③はブラウザを経由しない)│
+│                                                                          │
+│  パスキーログイン(WebAuthn、discoverable credential、go-webauthn)        │
+│  ① POST /api/auth/passkey/login/begin                                    │
+│     challengeを生成しRedisへ保存(webauthn_challenge:{key}、5分)          │
+│  ② POST /api/auth/passkey/login/finish                                   │
+│     challengeをGETDELで1回だけ取り出し、認証器の署名を検証               │
+│     credential_idでbackendから公開鍵・ユーザーを取得                     │
+│     (GET /internal/v1/auth/webauthn/credentials/:credential_id、         │
+│      X-Webauthn-Internal-Tokenで認可)                                    │
+│  検証成功後、bffがJWTを発行(ローカルHMACと同じHS256・同じiss)            │
+│  パスキーの登録はローカルHMAC/RSAでログイン中のみ(/account画面)          │
 │                                                                          │
 │  ログイン成功 → Redisへセッション保存(auth_mode含む)→ session_id Cookie  │
 │  以降の各APIリクエスト: session_idからRedisのAccess Tokenを引き、        │
@@ -390,6 +406,63 @@ admin画面での変更が実際にどちらの実装へ反映されたかを確
 なお、外部公開APIの`backend.external-tasks-pagination-v2`・`backend.external-tasks-orm`は同じFeature Flagの仕組みを使っているが、「レガシーを置き換える」という文脈ではなく「複数の実装方式を比較する」ための実装であり、Strangler Fig(移行のための一時的な切り替え)には分類していない
 
 </details>
+
+## 認証パターン
+
+React(:5173)+bff(:8080)の画面からログインする方式は**4パターン**
+どのパターンでも、ログイン成功後はbffがRedisにセッションを作り、ブラウザには`session_id`(HttpOnly Cookie)だけを渡す点は共通(BFFパターン、JWTはブラウザに一切渡らない)
+パターンごとに違うのは「誰が本人確認をするか」と「bffがbackendへ転送するJWTを誰が署名するか」の2点
+
+インタラクティブなシーケンス図:
+[ログイン(HMAC/RSA/Keycloak)](docs/2_sequence-diagrams/bff-gin-login-flows.sequence.html)・
+[パスキー登録→ログアウト→パスキーのみログイン](docs/2_sequence-diagrams/bff-gin-passkey-flow.sequence.html)
+
+| # | パターン | 入口(frontend) | bffのエンドポイント | 本人確認 | backendへ渡すJWT(署名) | Redisの`auth_mode` | セッションの寿命・更新 | ログアウト |
+|---|---|---|---|---|---|---|---|---|
+| 1 | ローカルHMAC(既定) | `/login` | `POST /api/auth/login` | backendの`POST /internal/v1/auth/verify-local-password`でパスワード照合 | bffが発行(HS256、`iss=bff-gin-local-hmac`、共有シークレット`LOCAL_AUTH_HMAC_SECRET`) | `local_hmac` | 24時間固定 リフレッシュなし | Redis・Cookieの削除のみ |
+| 2 | ローカルRSA | `/login/rsa` | `POST /api/auth/login/rsa` | 1と同じ | bffが発行(RS256、`iss=bff-gin-local-rsa`、起動時に生成した鍵 公開鍵は`GET /.well-known/jwks.json`) | `local_rsa` | 24時間固定 リフレッシュなし | Redis・Cookieの削除のみ |
+| 3 | Keycloak(OIDC) | `/login`の「Keycloakでログイン」 | `GET /api/auth/login/keycloak`→`GET /api/auth/callback` | Keycloak(Authorization Code+PKCE S256) | Keycloakが発行(RS256、KeycloakのJWKSで検証) | `keycloak` | access token 5分(`accessTokenLifespan: 300`) backendが401を返したらrefresh tokenで自動更新(Redisの分散ロック付き) | Redis・Cookieの削除+KeycloakのRP-Initiated Logout |
+| 4 | パスキー(WebAuthn) | `/login`の「パスキーでログイン」 | `POST /api/auth/passkey/login/begin`→`POST /api/auth/passkey/login/finish` | 端末の認証器(生体認証・PIN等)の署名をbffが検証(go-webauthn、discoverable credential) | bffが発行(HS256、1と同じ`iss=bff-gin-local-hmac`・同じ鍵) | `passkey` | 24時間固定 リフレッシュなし | Redis・Cookieの削除のみ |
+
+**各パターンでログインできるユーザー**(1〜3はマイグレーション・realm-export.jsonのseed):
+
+| パターン | ユーザー | パスワード |
+|---|---|---|
+| 1・2 | `local-user@example.com`(1と2は同一ユーザー、署名方式だけが違う) | `password` |
+| 3 | `general-user`(role: general)/ `admin-user`(role: management) | `password` |
+| 4 | 1または2でログインした後、`/account`画面で登録したパスキー | 不要(メールアドレスの入力も不要) |
+
+### パスキーの位置づけ(ほかの3パターンとの違い)
+
+- **既存ユーザーへの追加の認証手段であり、パスキー単独では始められない**
+  - 登録できるのは、ローカル認証(1・2)でログイン中のユーザーだけ(`/account`画面、`POST /api/auth/passkey/register/begin`→`finish`)
+  - Keycloak(3)でログインしたセッションで登録しようとすると403 `{"error":"webauthn_scope_local_auth_only"}`になる(Keycloak全体のログインフローに影響するため意図的に対象外、CONTRACT.mdセクション22.1)
+  - パスキーからの新規登録(サインアップ)は無い
+- **usernameless(discoverable credential)**: ログイン画面でメールアドレスを入力せず、ブラウザ/OSが提示するパスキーを選ぶだけ
+  bffは返ってきた`credential_id`でbackendの`webauthn_credentials`を引き、ユーザーを特定する(`GET /internal/v1/auth/webauthn/credentials/:credential_id`、`X-Webauthn-Internal-Token`で認可)
+  スマートフォンでQRコードを読み取るクロスデバイス認証はブラウザ/OSの標準機能で、アプリ側の実装は不要
+- **backendから見るとローカルHMAC(1)と区別が付かない**: 発行されるJWTは1と同じ`iss=bff-gin-local-hmac`のため、backendに追加の検証方式は無い
+  4パターンを区別しているのはbff(Redisの`auth_mode`)だけで、リフレッシュ・ログアウトの挙動の分岐に使う
+- **既知の制約**: sign_countの更新に失敗してもログイン自体は成功させる設計(可用性を優先、CONTRACT.mdセクション23.2)
+  クラウド同期パスキー(iCloudキーチェーン等)でログインが常に失敗していた不具合は修正済み(Backup Eligibleフラグの保存漏れ、CONTRACT.mdセクション22.8)
+
+### 4パターン共通の仕組み
+
+- **backendのJWT検証**: `authjwt.Dispatcher`が`iss`で検証方式を振り分ける(Keycloak→KeycloakのJWKS、`bff-gin-local-hmac`→共有シークレット、`bff-gin-local-rsa`→bffのJWKS) パスキー(4)は1と同じ経路
+- **CSRF対策**: Double Submit Cookie方式(`csrf_token` Cookieの値を、状態を変更するリクエストの`X-CSRF-Token`ヘッダに載せる)
+- ローカル認証(1・2・4)の詳細は[ローカル(非Keycloak)認証](#ローカル非keycloak認証contractmdセクション16)、Keycloak(3)の詳細は[Keycloak(OIDC IdP)](#keycloakoidc-idp)、Redisのキー構成は[Redis](#redis)を参照(いずれも「アーキテクチャ詳細」内)
+
+### その他の認証(ブラウザからのログイン以外、参考)
+
+上記4パターンとは別に、次の認証の仕組みがある
+
+| 用途 | 方式 | 参照 |
+|---|---|---|
+| 外部公開API(bffを経由しない機械間通信) | KeycloakのClient Credentials Grant(`external-api-client`)で取得したaccess tokenを`Authorization: Bearer`で送る backendは`azp`を検証 | 確認手順「外部公開API(BFF非経由)」 |
+| admin/go・admin/railsの管理画面 | Basic認証 | セットアップ手順「8. admin画面を起動する」 |
+| bff・admin→backendの内部API(JWTを持たない呼び出し) | 共有シークレットのヘッダ(`X-Local-Auth-Internal-Token`・`X-Webauthn-Internal-Token`・`X-Admin-Internal-Token`・`X-Feature-Flag-Poll-Token`) 定数時間比較で照合 | CONTRACT.mdセクション16.3・17.3・22.4 |
+| frontend-rails/without-bff(:5174) | Rails自身がKeycloakと直接OIDC+パスキー(bff・Redisを経由しない比較用の構成) | CONTRACT.mdセクション21・22.9 |
+| bff-rails(:8102)+frontend-rails/with-bff(:5175) | Keycloak(OIDC)+パスキー(bffと同じ役割分担をRailsで再現) | CONTRACT.mdセクション21 |
 
 ## 前提バージョン(Mac M2〜M5)
 
