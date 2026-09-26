@@ -1,0 +1,338 @@
+パスキー(WebAuthn)の仕組み(frontend → bff → backend → DB)と実装について
+
+## 0. 全体像
+登場するコンポーネント
+```text
+┌─────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────┬───────────────────────────────────────────────┐
+│      役割       │                                                  実体                                                  │                 主なファイル                  │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────┤
+│ 認証器          │ 端末(Touch ID、Windows Hello、iCloud キーチェーン、スマートフォンなど)                                 │ ―                                             │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────┤
+│ ブラウザ(React) │ 標準の navigator.credentials.create() / .get() を直接呼ぶ(追加ライブラリなし)                          │ frontend/src/shared/webauthn/passkey.ts       │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────┤
+│ bff(Go)         │ WebAuthn の Relying Party(RP)。challenge の発行と、署名・attestation の検証を行う(go-webauthn v0.18.0) │ bff/internal/auth/webauthn.go                 │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────┤
+│ Redis           │ challenge の一時保存(5分、1回限り)と、ログイン後のセッション                                           │ bff/internal/auth/webauthn_challenge_store.go │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────┤
+│ backend(Go)     │ 公開鍵の永続化と照会。WebAuthn の検証そのものはしない                                                  │ backend/internal/handler/v1/webauthn.go ほか  │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────┤
+│ MySQL           │ webauthn_credentials テーブル                                                                          │ backend/migrations/000013・000015             │
+└─────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────┴───────────────────────────────────────────────┘
+```
+
+### 設計上のポイント
+- WebAuthn の検証はすべて bff で行う
+  - backend は「検証済みの公開鍵を保存し、あとで引き出す」だけの保管庫
+  - bff が DB に直接触れないという方針(CONTRACT §16.3)を、ここでも守っている
+- discoverable credential(resident key)方式を使用
+  - ログイン時にメールアドレスを入力せず、端末に保存されたパスキーを選ぶだけ(usernameless)
+- RP の設定(bff/internal/config/config.go:206-209)は次のとおり
+  - WEBAUTHN_RP_ID = localhost
+  - WEBAUTHN_RP_ORIGIN = http://localhost:5173
+  - WEBAUTHN_RP_DISPLAY_NAME = bff-gin
+  - ブラウザの画面は :5173 で、/api は Vite のプロキシ経由で bff(:8080)へ転送されます(frontend/vite.config)
+    - そのため、RP の origin は bff 自身の :8080 ではなく、ブラウザが見ている :5173 になっている
+- 対象ユーザー:パスキーを登録できるのは、ローカル認証(HMAC / RSA)でログインしているユーザーだけ
+
+## 1. 登録の流れ(時系列)
+
+■前提
+ユーザーは /login(HMAC)または /login/rsa(RSA)でログイン済み
+Redis の session:{id} には auth_mode=local_hmac または local_rsa が入っている
+```text
+ブラウザ(/account)      bff(:8080)                  Redis                     backend(:8090)          MySQL
+   │ ①「パスキーを登録」    │                           │                          │                       │
+   │ POST register/begin ─►│ ②セッション・auth_mode確認 │                          │                       │
+   │                       │ ③BeginRegistration        │                          │                       │
+   │                       │──SET webauthn_challenge:reg:{session_id}(5分)────────►│                       │
+   │◄── publicKey(options)─│                           │                          │                       │
+   │ ④navigator.credentials.create() → 認証器で生体認証 → 鍵ペア生成                  │                       │
+   │ POST register/finish?name=… (attestation) ─►       │                          │                       │
+   │                       │◄─GETDEL webauthn_challenge:reg:{session_id}───────────│                       │
+   │                       │ ⑤FinishRegistration(attestation検証)                 │                       │
+   │                       │ ⑥POST /internal/v1/auth/webauthn/credentials(Bearer JWT)─►│                   │
+   │                       │                           │                          │ ⑦JWT検証→user_id解決 │
+   │                       │                           │                          │ ⑧INSERT ─────────────►│ webauthn_credentials
+   │                       │◄──────────── 201 {"id":…} ─────────────────────────────│                       │
+   │◄─ 201 {"registered":true}                         │                          │                       │
+```
+
+① 登録ボタン(frontend)
+- 画面は /account(frontend/src/features/auth/AccountPage.tsx)
+  - 「端末名(任意)」を入力して「パスキーを登録」を押すと、registerPasskey(deviceName) が呼ばれる
+- passkey.ts の assertSupported() で、ブラウザが対応しているかを確認
+  - PublicKeyCredential.parseCreationOptionsFromJSON などの新しい API が必要
+- 通信には apiFetch を使うので、セッション Cookie と X-CSRF-Token ヘッダが自動で付く
+
+② POST /api/auth/passkey/register/begin(bff)
+- ルートの設定(bff/cmd/server/main.go:287)
+  - authorized グループにあり、RequireSession が必須(ログインしていなければ 401)
+  - CSRF の検証も行われる
+    - 対象外になるのはログイン用のルートだけ(csrf.go:34-35)
+- ハンドラ:WebauthnRegisterBegin(webauthn.go:77)
+  - requireLocalAuthSession(webauthn.go:66)で auth_mode を確認
+  - local_hmac / local_rsa 以外なら 403 {"error":"webauthn_scope_local_auth_only"} を返す(Keycloak のセッションは対象外)
+
+③ challenge の生成と保存(bff → Redis)
+- go-webauthn の BeginRegistration(user, WithResidentKeyRequirement(Required)) を呼ぶ
+  - user は、セッションの user_id、name、email を詰めた最小限の実装(simpleWebauthnUser)
+    - WebAuthn の user handle は、user_id を10進の文字列にしたもの(WebAuthnID())
+  - ResidentKeyRequirementRequired を指定しているので、認証器にパスキーそのものを保存させる(discoverable credential にするため)
+- 戻り値のうち、次の2つを使用
+  - creation:ブラウザへ返す publicKey のオプション(challenge、rp、user、pubKeyCredParams など)
+  - sessionData:あとで照合するための challenge など
+- sessionData は Redis の webauthn_challenge:reg:{session_id} に、TTL 5分で保存
+  - (webauthn_challenge_store.go:40)。登録用のキーは、ログイン中のセッション ID と結び付けている
+
+④ 認証器でのパスキー作成(ブラウザ)
+- PublicKeyCredential.parseCreationOptionsFromJSON(begin.publicKey) で、base64url を ArrayBuffer に変換
+  - (ブラウザ標準の機能を使い、自前の変換はしていない)
+- navigator.credentials.create({ publicKey }) を呼ぶと、OS のダイアログ(Touch ID など)が出る
+  - 認証器の中で鍵ペアが作られる
+    - 秘密鍵は端末(またはクラウドのキーチェーン)から出ない
+  - 返ってくるのは attestation(公開鍵、credential ID、authenticator data など)
+- credential.toJSON() をそのまま body にして、POST /api/auth/passkey/register/finish?name=<端末名> を送る
+  - 端末名が body ではなくクエリにあるのは、body を go-webauthn が http.Request から直接解析するため、独自の項目を混ぜられないから
+
+⑤ POST /api/auth/passkey/register/finish(bff)
+- ハンドラは WebauthnRegisterFinish(webauthn.go:103)で、requireLocalAuthSession をもう一度確認する
+- WebauthnChallenge.Take("reg:{session_id}") で、Redis から GETDEL(取り出しと削除を1回の操作で行う) する
+  - 見つからない、または期限切れなら、400 challenge_expired_or_not_found を返す
+  - GETDEL を使うのはリプレイ対策
+    - 以前は GET と DEL の2回に分かれていて、500並行のリクエストで同時に成功してしまう不具合があった(CONTRACT §23.1)
+- FinishRegistration(user, sessionData, c.Request) で attestation を検証する
+  - challenge が一致するか、origin が http://localhost:5173 か、RP ID の hash が合っているか、署名が正しいか、など
+  - 失敗したら 400 attestation_verification_failed を返す
+- 検証を通った credential から、backend へ送る値を取り出す
+  - credential_id:base64url(パディングなし)
+  - public_key:COSE 形式の公開鍵を標準の base64 にしたもの
+  - sign_count
+  - backup_eligible / backup_state:クラウド同期に対応しているか、実際に同期済みか
+  - transports:internal、hybrid など
+  - name:クエリで受け取った端末名
+
+⑥ bff から backend へ登録を依頼
+- WebauthnBackendClient.Register(webauthn_backend_client.go)が POST /internal/v1/auth/webauthn/credentials を送る
+- 認証には、セッションの access token(ローカル HMAC / RSA の JWT)を Authorization: Bearer として付ける
+  - ユーザー本人として backend を呼ぶ、ということ
+  - 共有シークレットは使わない
+
+⑦ backend がユーザーを特定する
+- ルートの設定(router.go:92)は、JWT 必須の /internal/v1 グループ(authjwt.RequireAuth)
+- authjwt.Dispatcher が iss を見て、HMAC か RSA の方式で JWT を検証する
+- WebauthnHandler.resolveUserID は、iss がローカルのものなら sub を users.id として扱い、そのユーザーが存在するかを確かめる
+  - いなければ 403 user_not_provisioned
+  - ユーザー ID は bff から送られた値ではなく、JWT から決める
+  - そのため、他人の user_id を指定してパスキーを登録することはできない
+
+⑧ DB への登録(backend → MySQL)
+- handler(webauthn.go の Register)
+  - credential_id を base64url から、public_key を base64 から、生のバイト列に戻す
+  - transports はカンマ区切りの文字列にします(例:"internal,hybrid")
+- service(service/webauthn.go)
+  - credential_id か public_key が空なら、バリデーションエラーにする
+- repository(repository/webauthn_credential.go)
+  - GORM の Create で、bff_gin_development データベースの webauthn_credentials テーブルに1行 INSERT する
+  - 同じ credential_id が既にあれば、UNIQUE 制約違反を検出して「既に登録されています」というバリデーションエラーにする
+- 201 {"id": <行ID>} を返し、bff はブラウザへ 201 {"registered": true} を返す
+  - 画面には「パスキーを登録しました」と表示する
+
+## 2. ログインの流れ(時系列)
+
+前提は未ログインの状態で、画面は /login
+```text
+ブラウザ(/login)        bff(:8080)                         Redis                        backend(:8090)       MySQL
+   │ ①「パスキーでログイン」 │                                  │                             │                    │
+   │ POST login/begin ─────►│ ②BeginDiscoverableLogin          │                             │                    │
+   │                        │   state=ランダム                  │                             │                    │
+   │                        │──SET webauthn_challenge:login:{state}(5分)─►│                   │                    │
+   │◄─ {publicKey, state} ──│                                  │                             │                    │
+   │ ③navigator.credentials.get() → パスキー選択 → 生体認証 → 署名                            │                    │
+   │ POST login/finish?state=… (assertion) ─►                   │                             │                    │
+   │                        │◄─GETDEL webauthn_challenge:login:{state}────│                    │                    │
+   │                        │ ④userHandle の credential_id で照会                               │                    │
+   │                        │ GET /internal/v1/auth/webauthn/credentials/:id (X-Webauthn-Internal-Token)─►│ SELECT ─►│
+   │                        │◄── user_id・公開鍵・sign_count・BE/BS・name・email・roles ────────│◄──────────│
+   │                        │ ⑤FinishPasskeyLogin(署名検証・sign_count・BE/BS整合)             │                    │
+   │                        │ ⑥PATCH …/:id/sign-count(同トークン)─────────────────────────►│ UPDATE ─►│
+   │                        │ ⑦JWT発行(HS256、iss=bff-gin-local-hmac)                        │                    │
+   │                        │──SET session:{新session_id}(auth_mode=passkey、24h)─►│         │                    │
+   │◄─ 200 {"authenticated":true} + Set-Cookie: session_id(HttpOnly), csrf_token │           │                    │
+   │ ⑧ redirect先へ遷移(safeRedirectPath で検証済み)                                          │                    │
+```
+
+① ログインボタン(frontend)
+- 画面は /login(LoginForm.tsx)で、「パスキーでログイン」を押すと loginWithPasskey()(passkey.ts)が呼ばれる
+- ここでは apiFetch ではなく素の fetch を使う
+  - apiFetch は 401 を受けると /login へ飛ばす作りなので、まだセッションが無いログイン前の呼び出しには使えないため
+
+② POST /api/auth/passkey/login/begin(bff)
+- ルートの設定(main.go:279)は、ログイン不要の公開ルート
+  - CSRF 検証の対象外でもある(csrf.go:34-35、まだセッションも CSRF Cookie も無いため)
+- ハンドラ WebauthnLoginBegin の処理:
+  - BeginDiscoverableLogin() を呼ぶ
+    - allowCredentials を指定しないので、ブラウザや OS が、端末にあるパスキーから選ばせてくれる
+  - state をランダムに生成します(randomToken(24))
+  - sessionData を Redis の webauthn_challenge:login:{state} に、TTL 5分で保存する
+    - まだセッション Cookie が無いので、登録時のようにセッション ID と結び付けられない
+      - そのため、代わりに state を発行して、クライアントに持たせている
+  - レスポンスは { "publicKey": {challenge, rpId, …}, "state": "…" }
+
+③ 認証器で署名(ブラウザ)
+- parseRequestOptionsFromJSON → navigator.credentials.get({ publicKey }) と進むと、端末のパスキーの一覧が表示される
+  - スマートフォンで QR コードを読み取るクロスデバイス認証(hybrid transport)も、ここでブラウザや OS が自動で提示する
+  - アプリ側の実装は不要
+- 認証器は、秘密鍵で challenge などに署名した assertion を返す
+  - 中身は署名、authenticator data、clientDataJSON、userHandle など
+- POST /api/auth/passkey/login/finish?state=<state> の body に credential.toJSON() を入れて送る
+
+④ POST /api/auth/passkey/login/finish と、credential の照会(bff → backend → MySQL)
+- WebauthnLoginFinish(webauthn.go:170)が、Take("login:{state}")(GETDEL)で challenge を取り出す
+  - 無ければ 400
+- FinishPasskeyLogin に渡すコールバック(handler)の中で、ユーザーを特定する
+  - 受け取った rawID を base64url にして、GET /internal/v1/auth/webauthn/credentials/:credential_id を送る
+  - 認証は共有シークレットのヘッダ X-Webauthn-Internal-Token です(ログインの途中なので、まだ JWT がない)
+    - backend は RequireWebauthnInternalToken で定数時間比較する(webauthn.go の末尾、router.go:78-82)
+  - backend の処理:FindByCredentialID で SELECT … FROM webauthn_credentials WHERE credential_id = ? を実行し、続けて users から name、email、role を取得して返す
+    - 返す値は user_id、public_key、sign_count、backup_eligible、backup_state、name、email、roles
+    - 見つからなければ 404 を返し、bff はそれを ErrWebauthnCredentialNotFound にして 401 credential_not_found を返す
+  - bff は、取得した公開鍵、sign_count、BE/BS フラグを使って webauthn.Credential を組み立て直し、go-webauthn に渡す
+
+⑤ 署名の検証(bff)
+FinishPasskeyLogin が検証する主な項目は次のとおり
+- challenge が一致するか(Redis に保存したものと、clientDataJSON の中のもの)
+- origin が http://localhost:5173 か、RP ID の hash が合っているか
+- 保存してある公開鍵で、署名が正しく検証できるか
+- userHandle と credential の対応
+- sign_count が逆戻りしていないか(認証器が複製されていないかの確認)
+- BE/BS フラグが登録時と整合しているか
+
+失敗したら 401 webauthn_verification_failed を返し、原因の詳細(protocol.Error の Type、Details、DevInfo)を bff のログに出す
+
+BE/BS フラグの扱いは、実際に起きた不具合の修正によるものです(CONTRACT §22.8)
+
+- 以前は登録時に BE/BS を保存しておらず、ログイン時はゼロ値の false で組み立てていた
+- そのため、実機のクラウド同期パスキー(BE=true)では、必ず Backup Eligible flag inconsistency で失敗していた
+- migration 000015 でカラムを追加し、⑤の組み立て直しにもフラグを渡すようにして解消している
+
+⑥ sign_count の更新(bff → backend → MySQL)
+- PATCH /internal/v1/auth/webauthn/credentials/:credential_id/sign-count を送る
+  - (認証は同じく X-Webauthn-Internal-Token)
+- backend は UPDATE webauthn_credentials SET sign_count = ? WHERE credential_id = ? を実行し、204 を返す
+- bff は失敗しても無視してログインを続ける(_ = h.WebauthnBackend.UpdateSignCount(...))
+  - 可用性を優先した、意図的な設計です(既知の制約は後述)
+
+⑦ JWT とセッションの発行(bff → Redis)
+- IssueLocalHMACToken で JWT を発行する
+  - 署名は HS256、iss=bff-gin-local-hmac、aud=backend、sub=user_id
+  - 有効期限は 24時間
+  - ローカル HMAC のログインとまったく同じトークン
+- establishSession(handler.go:132)でセッションを作る
+  - Redis の session:{ランダムなsession_id} に保存する内容は、auth_mode=passkey、access_token、refresh_token=""、各有効期限です。TTL は JWT の期限に合わせて24時間
+  - Set-Cookie で session_id(HttpOnly、SameSite=Lax)と csrf_token(JavaScript から読める)を発行する
+- レスポンスは 200 {"authenticated": true}
+
+⑧ ログイン後の画面遷移(frontend)
+- window.location.href = redirectTarget で遷移する
+  - 遷移先は safeRedirectPath で検証済みで、オープンリダイレクト対策になっている
+  - この遷移は bff を通らずに frontend だけで完結するため、frontend 側での検証が必要だった(CONTRACT §23.1)
+- それ以降の API 呼び出しは、ほかのログイン方式と同じ流れ
+  - セッション Cookie から Redis の JWT を引き、backend へ転送する
+  - backend から見るとローカル HMAC と区別が付かない
+  - 401 を受けたときは、refresh token が無いのでリフレッシュせずにセッションを破棄する
+    - auth_mode が keycloak 以外のときの分岐です(middleware.go)
+
+## 3. データの保存先のまとめ
+Redis(bff だけが使う)
+```text
+┌─────────────────────────────────────┬─────────────────────────────────────────┬───────────────────────────────────────────────────┬────────┐
+│                キー                 │          書く / 読むタイミング          │                       中身                        │  TTL   │
+├─────────────────────────────────────┼─────────────────────────────────────────┼───────────────────────────────────────────────────┼────────┤
+│ webauthn_challenge:reg:{session_id} │ 登録 begin で SET、finish で GETDEL     │ go-webauthn の SessionData(challenge など)の JSON │ 5分    │
+├─────────────────────────────────────┼─────────────────────────────────────────┼───────────────────────────────────────────────────┼────────┤
+│ webauthn_challenge:login:{state}    │ ログイン begin で SET、finish で GETDEL │ 同上                                              │ 5分    │
+├─────────────────────────────────────┼─────────────────────────────────────────┼───────────────────────────────────────────────────┼────────┤
+│ session:{session_id}                │ ログイン finish で SET                  │ auth_mode=passkey、HMAC の JWT など               │ 24時間 │
+└─────────────────────────────────────┴─────────────────────────────────────────┴───────────────────────────────────────────────────┴────────┘
+```
+
+MySQL:bff_gin_development.webauthn_credentials(backend だけが読み書きする)
+
+```text
+┌─────────────────────────┬─────────────────────────┬───────────────────────────────────────────────────────┬──────────────────────────────────────┐
+│         カラム          │           型            │                         内容                          │         登録時の値の出どころ         │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ id                      │ BIGINT UNSIGNED、PK     │ 行 ID                                                 │ 自動採番                             │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ user_id                 │ BIGINT UNSIGNED、INDEX  │ users.id                                              │ backend が JWT の sub から決める     │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ credential_id           │ VARBINARY(1024)、UNIQUE │ 認証器が決める ID(生のバイト列)                       │ attestation                          │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ public_key              │ BLOB                    │ COSE 形式の公開鍵                                     │ attestation                          │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ sign_count              │ BIGINT UNSIGNED         │ 署名した回数                                          │ attestation、ログインのたびに UPDATE │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ backup_eligible         │ TINYINT(1)              │ クラウド同期に対応しているか(migration 000015 で追加) │ authenticator data                   │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ backup_state            │ TINYINT(1)              │ 実際に同期済みか(000015 で追加)                       │ authenticator data                   │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ transports              │ VARCHAR(255)、NULL 可   │ internal,hybrid など                                  │ attestation                          │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ name                    │ VARCHAR(255)、NULL 可   │ 端末名                                                │ ?name= クエリ                        │
+├─────────────────────────┼─────────────────────────┼───────────────────────────────────────────────────────┼──────────────────────────────────────┤
+│ created_at / updated_at │ DATETIME                │ ―                                                     │ GORM                                 │
+└─────────────────────────┴─────────────────────────┴───────────────────────────────────────────────────────┴──────────────────────────────────────┘
+```
+
+- credential_id を全体で一意にしてあるのは、ログイン時に「この credential は誰のものか」を、ユーザーが分からない状態から引く必要があるため
+- 秘密鍵はどこにも保存されない
+  - 端末かクラウドのキーチェーンにしか存在しないので、DB が漏れても、公開鍵だけではなりすましはできない
+- users との外部キー制約はない
+  - その代わり、ユーザーを削除するときに webauthn_credentials も明示的に削除している
+  - (repository/user.go:248-280)。以前は削除漏れで行が残る不具合があり、修正済み
+- admin 画面のユーザー一覧には has_passkey が表示される(UserIDsWithPasskey で DISTINCT user_id を取得)
+
+## 4. エンドポイント一覧
+```text
+┌─────┬─────────┬────────────────────────────────────────────────────────────────────────┬───────────────────────────────────────────────────┬──────────┬────────────────────────────────────────────┐
+│  #  │   層    │                             メソッドとパス                             │                       認証                        │  呼ぶ側  │                    目的                    │
+├─────┼─────────┼────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼──────────┼────────────────────────────────────────────┤
+│ 1   │ bff     │ POST /api/auth/passkey/register/begin                                  │ セッション Cookie、CSRF、auth_mode がローカル認証 │ ブラウザ │ 登録用の challenge を生成                  │
+├─────┼─────────┼────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼──────────┼────────────────────────────────────────────┤
+│ 2   │ bff     │ POST /api/auth/passkey/register/finish?name=                           │ 同上                                              │ ブラウザ │ attestation を検証し、backend へ登録を依頼 │
+├─────┼─────────┼────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼──────────┼────────────────────────────────────────────┤
+│ 3   │ bff     │ POST /api/auth/passkey/login/begin                                     │ なし(公開、CSRF 対象外)                           │ ブラウザ │ ログイン用の challenge と state を生成     │
+├─────┼─────────┼────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼──────────┼────────────────────────────────────────────┤
+│ 4   │ bff     │ POST /api/auth/passkey/login/finish?state=                             │ なし(公開、CSRF 対象外)                           │ ブラウザ │ assertion を検証し、セッションを発行       │
+├─────┼─────────┼────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼──────────┼────────────────────────────────────────────┤
+│ 5   │ backend │ POST /internal/v1/auth/webauthn/credentials                            │ JWT(ユーザー本人)                                 │ bff(2)   │ credential を INSERT                       │
+├─────┼─────────┼────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼──────────┼────────────────────────────────────────────┤
+│ 6   │ backend │ GET /internal/v1/auth/webauthn/credentials/:credential_id              │ X-Webauthn-Internal-Token                         │ bff(4)   │ credential とユーザーを SELECT             │
+├─────┼─────────┼────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼──────────┼────────────────────────────────────────────┤
+│ 7   │ backend │ PATCH /internal/v1/auth/webauthn/credentials/:credential_id/sign-count │ X-Webauthn-Internal-Token                         │ bff(4)   │ sign_count を UPDATE                       │
+└─────┴─────────┴────────────────────────────────────────────────────────────────────────┴───────────────────────────────────────────────────┴──────────┴────────────────────────────────────────────┘
+```
+
+5 と 6・7 で認証方式が違うのは、次の理由です。
+- 登録は「ログイン中のユーザー本人の操作」なので、本人の JWT で認可し、ユーザー ID も JWT から決める
+- 照会と更新は「まだ誰か分からないログインの途中」に行うので、JWT がない
+  - そのため、bff だけが知っている共有シークレットで認可する
+
+## 5. セキュリティ上の工夫と、既知の制約
+工夫している点
+- challenge は1回しか使えません(Redis の GETDEL で原子的に取り出す)。有効期限は5分
+- 登録時のユーザー ID は、送られてきた値ではなく JWT から決める(他人のアカウントにパスキーを追加できない)
+- 内部 API のトークンは定数時間で比較する(タイミング攻撃への対策)
+- origin と RP ID の検証、sign_count の逆戻りの検出、BE/BS の整合性の確認は、go-webauthn が行う
+- ログイン後の遷移先は、frontend 側で検証している(オープンリダイレクト対策)
+
+## 既知の制約(CONTRACT §23.2、README のセキュリティ節)
+- sign_count の更新に失敗しても、ログインは成功させている
+  - さらに backend の UPDATE は compare-and-swap(WHERE sign_count < ?)になっていない
+  - そのため、同じ古い sign_count を起点にした2つのログインが並行すると、両方とも検証を通ってしまう可能性がある
+- ログインの試行回数に制限がありません(レート制限なし)
+- Keycloak ユーザーはパスキーを登録できない
+  - 意図的に対象外
+  - frontend-rails と bff-rails では対応している
+- RP ID は localhost 固定
+  - 本番のドメインで使うには、WEBAUTHN_RP_ID と WEBAUTHN_RP_ORIGIN を変更する必要がある
